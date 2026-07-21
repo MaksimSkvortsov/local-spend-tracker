@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+
+# User-specific IDE state
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Test output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Local configuration and databases
+appsettings.Development.json
+*.db
+*.db-shm
+*.db-wal
+
+# OS files
+Thumbs.db
+.DS_Store

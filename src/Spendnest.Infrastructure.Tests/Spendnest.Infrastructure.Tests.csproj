@@ -24,4 +24,8 @@
     <ProjectReference Include="..\Spendnest.Infrastructure\Spendnest.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fixtures\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

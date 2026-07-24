@@ -40,6 +40,18 @@ public class KeywordTransactionCategoryMapperTests
     }
 
     [Fact]
+    public void MapCategoryCode_ShouldKeepKnownMerchantRefundInOriginalSpendingCategory()
+    {
+        var transaction = new Transaction
+        {
+            OriginalDescription = "BULK MART REFUND RIVERTON VA",
+            Amount = -14.25m
+        };
+
+        mapper.MapCategoryCode(transaction).Should().Be(BuiltInCategoryCodes.Groceries);
+    }
+
+    [Fact]
     public void MapCategoryCode_ShouldUseOtherForUnmatchedPositiveTransactions()
     {
         var transaction = new Transaction

@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -76,7 +75,7 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
                 new
                 {
                     role = "system",
-                    content = "You categorize credit-card transactions for Spendnest. Use only the provided category codes. Return concise explanations. Credit-card payments and refunds must remain negative spending categories."
+                    content = "You categorize credit-card transaction descriptions for Spendnest. Use only the provided category codes. If a description clearly belongs to a spending category, use that category even when the transaction is a refund. Use Refund only when the description is an uncategorized refund or credit. Return concise explanations."
                 },
                 new
                 {
@@ -91,8 +90,6 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
                         transactions = transactions.Select(transaction => new
                         {
                             id = transaction.Id,
-                            postedDate = transaction.PostedDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                            amount = transaction.Amount,
                             description = transaction.OriginalDescription
                         })
                     }, JsonOptions)

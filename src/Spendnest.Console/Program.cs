@@ -30,7 +30,11 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
     .AddSingleton<ITransactionCategoryMapper, KeywordTransactionCategoryMapper>()
+    .AddSingleton<ICategoryRuleRepository, InMemoryCategoryRuleRepository>()
+    .AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>()
     .AddSingleton<FakeTransactionCategorizer>()
+    .AddSingleton<ITransactionCategorizer>(provider => CreateAiTransactionCategorizer(configuration, provider))
+    .AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>()
     .AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>()
     .BuildServiceProvider();
 
@@ -194,11 +198,11 @@ if (command.Equals("ai-report", StringComparison.OrdinalIgnoreCase))
 
     var repository = serviceProvider.GetRequiredService<ITransactionRepository>();
     var transactions = await repository.ListAsync(CancellationToken.None);
-    var categorizer = CreateTransactionCategorizer(configuration, serviceProvider);
-    var categorizations = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+    var categorizationService = serviceProvider.GetRequiredService<ITransactionCategorizationService>();
+    var categorizations = await categorizationService.CategorizeAsync(transactions, CancellationToken.None);
     var categoriesByCode = BuiltInCategories.All.ToDictionary(category => category.Code, category => category.Name);
 
-    Console.WriteLine("AI category report");
+    Console.WriteLine("Categorization report");
     Console.WriteLine();
 
     foreach (var categorization in categorizations.OrderBy(item => item.NeedsReview).ThenBy(item => item.CategoryCode))
@@ -208,7 +212,7 @@ if (command.Equals("ai-report", StringComparison.OrdinalIgnoreCase))
         var review = categorization.NeedsReview ? "review" : "ok";
 
         Console.WriteLine(
-            $"{transaction.PostedDate:yyyy-MM-dd} | {transaction.Amount,10:0.00} | {categoryName,-24} | {categorization.Confidence,4:0.00} | {review} | {transaction.OriginalDescription}");
+            $"{transaction.PostedDate:yyyy-MM-dd} | {transaction.Amount,10:0.00} | {categoryName,-24} | {categorization.Source,-10} | {categorization.Confidence,4:0.00} | {review} | {transaction.OriginalDescription}");
     }
 
     return;
@@ -239,7 +243,7 @@ if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
 logger.LogWarning("Command '{Command}' is not implemented yet.", command);
 Environment.ExitCode = 1;
 
-static ITransactionCategorizer CreateTransactionCategorizer(
+static ITransactionCategorizer CreateAiTransactionCategorizer(
     IConfiguration configuration,
     IServiceProvider serviceProvider)
 {

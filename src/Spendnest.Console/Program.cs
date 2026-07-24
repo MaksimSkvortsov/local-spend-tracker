@@ -5,12 +5,14 @@ using Spendnest.Console;
 using Spendnest.Core;
 using Spendnest.Core.Accounts;
 using Spendnest.Core.Categorization;
+using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure;
 using Spendnest.Infrastructure.Accounts;
 using Spendnest.Infrastructure.Categorization;
+using Spendnest.Infrastructure.Credentials;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure.Transactions;
@@ -29,6 +31,10 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<CoreAssemblyMarker>()
     .AddSingleton<InfrastructureAssemblyMarker>()
     .AddSingleton<IStatementParser, CsvStatementParser>()
+    .AddSingleton<ICredentialStore>(_ => new InMemoryCredentialStore(new Dictionary<string, string?>
+    {
+        [CredentialKeys.OpenAiApiKey] = ReadConfiguredOpenAiApiKey(configuration)
+    }))
     .AddSingleton<ICardAccountRepository, InMemoryCardAccountRepository>()
     .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
@@ -36,7 +42,12 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<ICategoryRuleRepository, InMemoryCategoryRuleRepository>()
     .AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>()
     .AddSingleton<FakeTransactionCategorizer>()
-    .AddSingleton<ITransactionCategorizer>(provider => CreateAiTransactionCategorizer(configuration, provider))
+    .AddSingleton<HttpClient>()
+    .AddSingleton(new OpenAiCategorizerOptions
+    {
+        Model = configuration["OpenAI:Model"] ?? "gpt-5.6-sol"
+    })
+    .AddSingleton<ITransactionCategorizer, StoredOpenAiTransactionCategorizer>()
     .AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>()
     .AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>()
     .AddSingleton<SpendnestCommandDispatcher>()
@@ -46,23 +57,8 @@ using var serviceProvider = new ServiceCollection()
 var app = serviceProvider.GetRequiredService<SpendnestConsoleApp>();
 Environment.ExitCode = await app.RunAsync(args, CancellationToken.None);
 
-static ITransactionCategorizer CreateAiTransactionCategorizer(
-    IConfiguration configuration,
-    IServiceProvider serviceProvider)
+static string? ReadConfiguredOpenAiApiKey(IConfiguration configuration)
 {
-    var apiKey = configuration["OpenAI:ApiKey"]
+    return configuration["OpenAI:ApiKey"]
         ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-
-    if (string.IsNullOrWhiteSpace(apiKey))
-    {
-        return serviceProvider.GetRequiredService<FakeTransactionCategorizer>();
-    }
-
-    return new OpenAiTransactionCategorizer(
-        new HttpClient(),
-        new OpenAiCategorizerOptions
-        {
-            ApiKey = apiKey,
-            Model = configuration["OpenAI:Model"] ?? "gpt-5.6-sol"
-        });
 }

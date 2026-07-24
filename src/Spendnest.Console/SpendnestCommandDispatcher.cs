@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
+using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
@@ -17,6 +18,7 @@ public sealed class SpendnestCommandDispatcher
     private readonly ITransactionRepository transactionRepository;
     private readonly ICategorySpendingReportService reportService;
     private readonly ITransactionCategorizationService categorizationService;
+    private readonly ICredentialStore credentialStore;
     private readonly ILogger<SpendnestCommandDispatcher> logger;
 
     public SpendnestCommandDispatcher(
@@ -25,6 +27,7 @@ public sealed class SpendnestCommandDispatcher
         ITransactionRepository transactionRepository,
         ICategorySpendingReportService reportService,
         ITransactionCategorizationService categorizationService,
+        ICredentialStore credentialStore,
         ILogger<SpendnestCommandDispatcher> logger)
     {
         this.parser = parser;
@@ -32,6 +35,7 @@ public sealed class SpendnestCommandDispatcher
         this.transactionRepository = transactionRepository;
         this.reportService = reportService;
         this.categorizationService = categorizationService;
+        this.credentialStore = credentialStore;
         this.logger = logger;
     }
 
@@ -60,6 +64,11 @@ public sealed class SpendnestCommandDispatcher
             || command.Equals("categorize", StringComparison.OrdinalIgnoreCase))
         {
             return await CategorizationReportAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("ai-key", StringComparison.OrdinalIgnoreCase))
+        {
+            return await OpenAiKeyAsync(args, cancellationToken).ConfigureAwait(false);
         }
 
         if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
@@ -222,6 +231,42 @@ public sealed class SpendnestCommandDispatcher
         return 0;
     }
 
+    private async Task<int> OpenAiKeyAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        if (args.Count < 2
+            || args[1].Equals("status", StringComparison.OrdinalIgnoreCase))
+        {
+            var apiKey = await credentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, cancellationToken).ConfigureAwait(false);
+            System.Console.WriteLine(string.IsNullOrWhiteSpace(apiKey)
+                ? "OpenAI API key is not set. OpenAI categorization is unavailable."
+                : "OpenAI API key is set. AI categorization will use OpenAI.");
+            return 0;
+        }
+
+        if (args[1].Equals("set", StringComparison.OrdinalIgnoreCase))
+        {
+            var apiKey = args.Count > 2
+                ? args[2]
+                : ReadSecret("OpenAI API key: ");
+
+            await credentialStore.SaveStringAsync(CredentialKeys.OpenAiApiKey, apiKey, cancellationToken).ConfigureAwait(false);
+            System.Console.WriteLine("OpenAI API key saved for this app session.");
+            return 0;
+        }
+
+        if (args[1].Equals("clear", StringComparison.OrdinalIgnoreCase))
+        {
+            await credentialStore.ClearAsync(CredentialKeys.OpenAiApiKey, cancellationToken).ConfigureAwait(false);
+            System.Console.WriteLine("OpenAI API key cleared for this app session.");
+            return 0;
+        }
+
+        System.Console.Error.WriteLine("Usage: ai-key status|set|clear");
+        return 1;
+    }
+
     private static void PrintCategoryReport(
         CategorySpendingReport report,
         TransactionQuery query)
@@ -252,6 +297,9 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine("  report");
         System.Console.WriteLine("  report <csv-file> [csv-file...]");
         System.Console.WriteLine("  report month <yyyy-mm>");
+        System.Console.WriteLine("  ai-key status");
+        System.Console.WriteLine("  ai-key set");
+        System.Console.WriteLine("  ai-key clear");
         System.Console.WriteLine("  ai-report [csv-file...]");
         System.Console.WriteLine("  exit");
     }
@@ -288,5 +336,33 @@ public sealed class SpendnestCommandDispatcher
         }
 
         return new StatementFileImportOptions();
+    }
+
+    private static string ReadSecret(string prompt)
+    {
+        System.Console.Write(prompt);
+        var secret = string.Empty;
+
+        while (true)
+        {
+            var key = System.Console.ReadKey(intercept: true);
+            if (key.Key == ConsoleKey.Enter)
+            {
+                System.Console.WriteLine();
+                return secret;
+            }
+
+            if (key.Key == ConsoleKey.Backspace)
+            {
+                if (secret.Length > 0)
+                {
+                    secret = secret[..^1];
+                }
+
+                continue;
+            }
+
+            secret += key.KeyChar;
+        }
     }
 }

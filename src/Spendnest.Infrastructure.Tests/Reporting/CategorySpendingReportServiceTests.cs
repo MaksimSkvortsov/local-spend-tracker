@@ -2,6 +2,8 @@ namespace Spendnest.Infrastructure.Tests.Reporting;
 
 using FluentAssertions;
 using Spendnest.Core.Categories;
+using Spendnest.Core.Importing;
+using Spendnest.Infrastructure.Accounts;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Reporting;
@@ -15,13 +17,14 @@ public class CategorySpendingReportServiceTests
         var repository = new InMemoryTransactionRepository();
         var importService = new StatementFileImportService(
             new CsvStatementParser(),
-            repository);
+            repository,
+            new InMemoryCardAccountRepository());
         var reportService = new CategorySpendingReportService(
             repository,
             new KeywordTransactionCategoryMapper());
 
-        await importService.ImportAsync(FixturePath("bank-of-america.csv"), CancellationToken.None);
-        await importService.ImportAsync(FixturePath("capital-one.csv"), CancellationToken.None);
+        await importService.ImportAsync(FixturePath("bank-of-america.csv"), new StatementFileImportOptions(), CancellationToken.None);
+        await importService.ImportAsync(FixturePath("capital-one.csv"), new StatementFileImportOptions(), CancellationToken.None);
 
         var report = await reportService.BuildAsync(CancellationToken.None);
 

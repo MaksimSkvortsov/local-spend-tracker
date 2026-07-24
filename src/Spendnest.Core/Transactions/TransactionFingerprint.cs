@@ -30,7 +30,20 @@ public static partial class TransactionFingerprint
         return Create(
             transaction.PostedDate,
             transaction.Amount,
-            transaction.OriginalDescription);
+            transaction.OriginalDescription,
+            transaction.CardAccountId);
+    }
+
+    public static string Create(
+        DateOnly postedDate,
+        decimal amount,
+        string description,
+        Guid cardAccountId)
+    {
+        return string.Join(
+            "|",
+            cardAccountId,
+            Create(postedDate, amount, description));
     }
 
     [GeneratedRegex(@"\s+")]

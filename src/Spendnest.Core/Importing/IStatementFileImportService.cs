@@ -7,5 +7,6 @@ public interface IStatementFileImportService
 {
     Task<StatementFileImportResult> ImportAsync(
         string filePath,
+        StatementFileImportOptions options,
         CancellationToken cancellationToken);
 }

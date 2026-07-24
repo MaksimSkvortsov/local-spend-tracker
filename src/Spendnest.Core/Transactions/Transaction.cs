@@ -7,6 +7,8 @@ public sealed class Transaction
 {
     public Guid Id { get; set; }
 
+    public Guid CardAccountId { get; set; }
+
     public DateOnly PostedDate { get; set; }
 
     public string OriginalDescription { get; set; } = string.Empty;

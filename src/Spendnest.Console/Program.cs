@@ -1,12 +1,14 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Spendnest.Core.Accounts;
 using Spendnest.Core.Importing;
 using Spendnest.Core;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
+using Spendnest.Infrastructure.Accounts;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Reporting;
@@ -27,6 +29,7 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<CoreAssemblyMarker>()
     .AddSingleton<InfrastructureAssemblyMarker>()
     .AddSingleton<IStatementParser, CsvStatementParser>()
+    .AddSingleton<ICardAccountRepository, InMemoryCardAccountRepository>()
     .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
     .AddSingleton<ITransactionCategoryMapper, KeywordTransactionCategoryMapper>()
@@ -93,12 +96,13 @@ if (command.Equals("import", StringComparison.OrdinalIgnoreCase))
 {
     if (args.Length < 2)
     {
-        Console.Error.WriteLine("Usage: import <csv-file>");
+        Console.Error.WriteLine("Usage: import <csv-file> [--card <card-name>]");
         Environment.ExitCode = 1;
         return;
     }
 
     var csvFilePath = args[1];
+    var importOptions = ParseImportOptions(args.Skip(2));
     if (!File.Exists(csvFilePath))
     {
         Console.Error.WriteLine($"File not found: {csvFilePath}");
@@ -107,8 +111,9 @@ if (command.Equals("import", StringComparison.OrdinalIgnoreCase))
     }
 
     var importService = serviceProvider.GetRequiredService<IStatementFileImportService>();
-    var result = await importService.ImportAsync(csvFilePath, CancellationToken.None);
+    var result = await importService.ImportAsync(csvFilePath, importOptions, CancellationToken.None);
 
+    Console.WriteLine($"Card: {result.CardAccountName}");
     Console.WriteLine($"Rows parsed: {result.ParsedRowCount}");
     Console.WriteLine($"Transactions saved: {result.SavedTransactionCount}");
     Console.WriteLine($"Duplicate transactions skipped: {result.SkippedDuplicateTransactionCount}");
@@ -154,7 +159,7 @@ if (command.Equals("report", StringComparison.OrdinalIgnoreCase))
             return;
         }
 
-        await importService.ImportAsync(csvFilePath, CancellationToken.None);
+            await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), CancellationToken.None);
     }
 
     var reportService = serviceProvider.GetRequiredService<ICategorySpendingReportService>();
@@ -194,7 +199,7 @@ if (command.Equals("ai-report", StringComparison.OrdinalIgnoreCase))
             return;
         }
 
-        await importService.ImportAsync(csvFilePath, CancellationToken.None);
+        await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), CancellationToken.None);
     }
 
     var repository = serviceProvider.GetRequiredService<ITransactionRepository>();
@@ -226,7 +231,7 @@ if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
     Console.WriteLine("Available now:");
     Console.WriteLine("  help");
     Console.WriteLine("  parse <csv-file>");
-    Console.WriteLine("  import <csv-file>");
+    Console.WriteLine("  import <csv-file> [--card <card-name>]");
     Console.WriteLine("  report <csv-file> [csv-file...]");
     Console.WriteLine("  ai-report <csv-file> [csv-file...]");
     Console.WriteLine();
@@ -293,4 +298,22 @@ static void LoadLocalEnvironmentFile(string filePath)
             Environment.SetEnvironmentVariable(key, value);
         }
     }
+}
+
+static StatementFileImportOptions ParseImportOptions(IEnumerable<string> args)
+{
+    var values = args.ToArray();
+    for (var index = 0; index < values.Length; index++)
+    {
+        if (values[index].Equals("--card", StringComparison.OrdinalIgnoreCase)
+            && index + 1 < values.Length)
+        {
+            return new StatementFileImportOptions
+            {
+                CardAccountName = values[index + 1]
+            };
+        }
+    }
+
+    return new StatementFileImportOptions();
 }

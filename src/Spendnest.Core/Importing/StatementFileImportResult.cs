@@ -7,6 +7,8 @@ namespace Spendnest.Core.Importing;
 /// </summary>
 public sealed record StatementFileImportResult(
     string FilePath,
+    Guid CardAccountId,
+    string CardAccountName,
     int ParsedRowCount,
     int SavedTransactionCount,
     int SkippedDuplicateTransactionCount,

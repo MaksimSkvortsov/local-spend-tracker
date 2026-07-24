@@ -1,3 +1,4 @@
+using Spendnest.Core.Accounts;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Transactions;
 
@@ -10,24 +11,35 @@ public sealed class StatementFileImportService : IStatementFileImportService
 {
     private readonly IStatementParser parser;
     private readonly ITransactionRepository transactionRepository;
+    private readonly ICardAccountRepository cardAccountRepository;
 
     public StatementFileImportService(
         IStatementParser parser,
-        ITransactionRepository transactionRepository)
+        ITransactionRepository transactionRepository,
+        ICardAccountRepository cardAccountRepository)
     {
         this.parser = parser;
         this.transactionRepository = transactionRepository;
+        this.cardAccountRepository = cardAccountRepository;
     }
 
     public async Task<StatementFileImportResult> ImportAsync(
         string filePath,
+        StatementFileImportOptions options,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(options);
+
         if (string.IsNullOrWhiteSpace(filePath))
         {
             throw new ArgumentException("File path is required.", nameof(filePath));
         }
 
+        var cardAccountName = NormalizeCardAccountName(options.CardAccountName);
+        var cardAccount = await cardAccountRepository
+            .GetByNameAsync(cardAccountName, cancellationToken)
+            .ConfigureAwait(false)
+            ?? await cardAccountRepository.CreateAsync(cardAccountName, cancellationToken).ConfigureAwait(false);
         await using var stream = File.OpenRead(filePath);
         var parseResult = await parser.ParseAsync(stream, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
 
@@ -41,6 +53,7 @@ public sealed class StatementFileImportService : IStatementFileImportService
             .Select(row => new Transaction
             {
                 Id = Guid.NewGuid(),
+                CardAccountId = cardAccount.Id,
                 PostedDate = row.PostedDate,
                 OriginalDescription = row.OriginalDescription,
                 Amount = row.Amount,
@@ -64,11 +77,20 @@ public sealed class StatementFileImportService : IStatementFileImportService
 
         return new StatementFileImportResult(
             filePath,
+            cardAccount.Id,
+            cardAccount.Name,
             parseResult.Rows.Count,
             transactions.Length,
             skippedDuplicateCount,
             parseResult.FailedRowCount,
             transactions,
             parseResult.Warnings);
+    }
+
+    private static string NormalizeCardAccountName(string cardAccountName)
+    {
+        return string.IsNullOrWhiteSpace(cardAccountName)
+            ? "Default Card"
+            : cardAccountName.Trim();
     }
 }

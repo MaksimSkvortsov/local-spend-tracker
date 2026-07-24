@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Spendnest.Core.Importing;
 using Spendnest.Core;
+using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
@@ -11,6 +12,8 @@ using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure;
 using Spendnest.Infrastructure.Transactions;
+
+LoadLocalEnvironmentFile(".env.local");
 
 var configuration = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json", optional: true)
@@ -27,6 +30,7 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
     .AddSingleton<ITransactionCategoryMapper, KeywordTransactionCategoryMapper>()
+    .AddSingleton<FakeTransactionCategorizer>()
     .AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>()
     .BuildServiceProvider();
 
@@ -165,6 +169,51 @@ if (command.Equals("report", StringComparison.OrdinalIgnoreCase))
     return;
 }
 
+if (command.Equals("ai-report", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: ai-report <csv-file> [csv-file...]");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    var importService = serviceProvider.GetRequiredService<IStatementFileImportService>();
+
+    foreach (var csvFilePath in args.Skip(1))
+    {
+        if (!File.Exists(csvFilePath))
+        {
+            Console.Error.WriteLine($"File not found: {csvFilePath}");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        await importService.ImportAsync(csvFilePath, CancellationToken.None);
+    }
+
+    var repository = serviceProvider.GetRequiredService<ITransactionRepository>();
+    var transactions = await repository.ListAsync(CancellationToken.None);
+    var categorizer = CreateTransactionCategorizer(configuration, serviceProvider);
+    var categorizations = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+    var categoriesByCode = BuiltInCategories.All.ToDictionary(category => category.Code, category => category.Name);
+
+    Console.WriteLine("AI category report");
+    Console.WriteLine();
+
+    foreach (var categorization in categorizations.OrderBy(item => item.NeedsReview).ThenBy(item => item.CategoryCode))
+    {
+        var transaction = transactions.Single(item => item.Id == categorization.TransactionId);
+        var categoryName = categoriesByCode.GetValueOrDefault(categorization.CategoryCode, categorization.CategoryCode);
+        var review = categorization.NeedsReview ? "review" : "ok";
+
+        Console.WriteLine(
+            $"{transaction.PostedDate:yyyy-MM-dd} | {transaction.Amount,10:0.00} | {categoryName,-24} | {categorization.Confidence,4:0.00} | {review} | {transaction.OriginalDescription}");
+    }
+
+    return;
+}
+
 if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Spendnest console");
@@ -174,6 +223,7 @@ if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
     Console.WriteLine("  parse <csv-file>");
     Console.WriteLine("  import <csv-file>");
     Console.WriteLine("  report <csv-file> [csv-file...]");
+    Console.WriteLine("  ai-report <csv-file> [csv-file...]");
     Console.WriteLine();
     Console.WriteLine("Planned:");
     Console.WriteLine("  init");
@@ -188,3 +238,54 @@ if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
 
 logger.LogWarning("Command '{Command}' is not implemented yet.", command);
 Environment.ExitCode = 1;
+
+static ITransactionCategorizer CreateTransactionCategorizer(
+    IConfiguration configuration,
+    IServiceProvider serviceProvider)
+{
+    var apiKey = configuration["OpenAI:ApiKey"]
+        ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+
+    if (string.IsNullOrWhiteSpace(apiKey))
+    {
+        return serviceProvider.GetRequiredService<FakeTransactionCategorizer>();
+    }
+
+    return new OpenAiTransactionCategorizer(
+        new HttpClient(),
+        new OpenAiCategorizerOptions
+        {
+            ApiKey = apiKey,
+            Model = configuration["OpenAI:Model"] ?? "gpt-5.6-sol"
+        });
+}
+
+static void LoadLocalEnvironmentFile(string filePath)
+{
+    if (!File.Exists(filePath))
+    {
+        return;
+    }
+
+    foreach (var line in File.ReadLines(filePath))
+    {
+        var trimmedLine = line.Trim();
+        if (trimmedLine.Length == 0 || trimmedLine.StartsWith('#'))
+        {
+            continue;
+        }
+
+        var separatorIndex = trimmedLine.IndexOf('=');
+        if (separatorIndex <= 0)
+        {
+            continue;
+        }
+
+        var key = trimmedLine[..separatorIndex].Trim();
+        var value = trimmedLine[(separatorIndex + 1)..].Trim().Trim('"');
+        if (Environment.GetEnvironmentVariable(key) is null)
+        {
+            Environment.SetEnvironmentVariable(key, value);
+        }
+    }
+}

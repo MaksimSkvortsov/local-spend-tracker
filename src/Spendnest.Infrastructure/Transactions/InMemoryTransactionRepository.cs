@@ -26,11 +26,26 @@ public sealed class InMemoryTransactionRepository : ITransactionRepository
     public Task<IReadOnlyList<Transaction>> ListAsync(
         CancellationToken cancellationToken)
     {
+        return ListAsync(new TransactionQuery(), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<Transaction>> ListAsync(
+        TransactionQuery query,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(query);
 
         lock (transactions)
         {
-            return Task.FromResult<IReadOnlyList<Transaction>>(transactions.ToArray());
+            var filteredTransactions = transactions
+                .Where(transaction => query.StartDate is null || transaction.PostedDate >= query.StartDate)
+                .Where(transaction => query.EndDate is null || transaction.PostedDate <= query.EndDate)
+                .OrderBy(transaction => transaction.PostedDate)
+                .ThenBy(transaction => transaction.OriginalDescription)
+                .ToArray();
+
+            return Task.FromResult<IReadOnlyList<Transaction>>(filteredTransactions);
         }
     }
 }

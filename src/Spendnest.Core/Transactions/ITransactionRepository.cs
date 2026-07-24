@@ -11,4 +11,8 @@ public interface ITransactionRepository
 
     Task<IReadOnlyList<Transaction>> ListAsync(
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Transaction>> ListAsync(
+        TransactionQuery query,
+        CancellationToken cancellationToken);
 }

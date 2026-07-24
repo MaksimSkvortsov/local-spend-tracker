@@ -3,8 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Spendnest.Core.Importing;
 using Spendnest.Core;
+using Spendnest.Core.Categorization;
+using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
+using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Importing;
+using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure;
 using Spendnest.Infrastructure.Transactions;
 
@@ -22,6 +26,8 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<IStatementParser, CsvStatementParser>()
     .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
+    .AddSingleton<ITransactionCategoryMapper, KeywordTransactionCategoryMapper>()
+    .AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>()
     .BuildServiceProvider();
 
 var logger = serviceProvider
@@ -119,6 +125,46 @@ if (command.Equals("import", StringComparison.OrdinalIgnoreCase))
     return;
 }
 
+if (command.Equals("report", StringComparison.OrdinalIgnoreCase))
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("Usage: report <csv-file> [csv-file...]");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    var importService = serviceProvider.GetRequiredService<IStatementFileImportService>();
+
+    foreach (var csvFilePath in args.Skip(1))
+    {
+        if (!File.Exists(csvFilePath))
+        {
+            Console.Error.WriteLine($"File not found: {csvFilePath}");
+            Environment.ExitCode = 1;
+            return;
+        }
+
+        await importService.ImportAsync(csvFilePath, CancellationToken.None);
+    }
+
+    var reportService = serviceProvider.GetRequiredService<ICategorySpendingReportService>();
+    var report = await reportService.BuildAsync(CancellationToken.None);
+
+    Console.WriteLine("Spending by category");
+    Console.WriteLine();
+
+    foreach (var line in report.Lines)
+    {
+        Console.WriteLine($"{line.CategoryName,-24} {line.TransactionCount,4} {line.Amount,12:0.00}");
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"Total{"",-23} {report.TotalSpending,12:0.00}");
+
+    return;
+}
+
 if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
 {
     Console.WriteLine("Spendnest console");
@@ -127,6 +173,7 @@ if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
     Console.WriteLine("  help");
     Console.WriteLine("  parse <csv-file>");
     Console.WriteLine("  import <csv-file>");
+    Console.WriteLine("  report <csv-file> [csv-file...]");
     Console.WriteLine();
     Console.WriteLine("Planned:");
     Console.WriteLine("  init");

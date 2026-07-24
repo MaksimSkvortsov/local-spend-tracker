@@ -1,3 +1,5 @@
+using Spendnest.Core.Transactions;
+
 namespace Spendnest.Core.Reporting;
 
 /// <summary>
@@ -6,4 +8,8 @@ namespace Spendnest.Core.Reporting;
 public interface ICategorySpendingReportService
 {
     Task<CategorySpendingReport> BuildAsync(CancellationToken cancellationToken);
+
+    Task<CategorySpendingReport> BuildAsync(
+        TransactionQuery query,
+        CancellationToken cancellationToken);
 }

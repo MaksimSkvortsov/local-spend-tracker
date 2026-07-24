@@ -1,0 +1,292 @@
+using Microsoft.Extensions.Logging;
+using Spendnest.Core.Categories;
+using Spendnest.Core.Categorization;
+using Spendnest.Core.Importing;
+using Spendnest.Core.Reporting;
+using Spendnest.Core.Transactions;
+
+namespace Spendnest.Console;
+
+/// <summary>
+/// Dispatches Spendnest console commands to application services.
+/// </summary>
+public sealed class SpendnestCommandDispatcher
+{
+    private readonly IStatementParser parser;
+    private readonly IStatementFileImportService importService;
+    private readonly ITransactionRepository transactionRepository;
+    private readonly ICategorySpendingReportService reportService;
+    private readonly ITransactionCategorizationService categorizationService;
+    private readonly ILogger<SpendnestCommandDispatcher> logger;
+
+    public SpendnestCommandDispatcher(
+        IStatementParser parser,
+        IStatementFileImportService importService,
+        ITransactionRepository transactionRepository,
+        ICategorySpendingReportService reportService,
+        ITransactionCategorizationService categorizationService,
+        ILogger<SpendnestCommandDispatcher> logger)
+    {
+        this.parser = parser;
+        this.importService = importService;
+        this.transactionRepository = transactionRepository;
+        this.reportService = reportService;
+        this.categorizationService = categorizationService;
+        this.logger = logger;
+    }
+
+    public async Task<int> ExecuteAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        var command = args.FirstOrDefault() ?? "help";
+
+        if (command.Equals("parse", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ParseAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("import", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ImportAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("report", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ReportAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("ai-report", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("categorize", StringComparison.OrdinalIgnoreCase))
+        {
+            return await CategorizationReportAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
+        {
+            PrintHelp();
+            return 0;
+        }
+
+        logger.LogWarning("Command '{Command}' is not implemented yet.", command);
+        System.Console.Error.WriteLine($"Unknown command: {command}");
+        return 1;
+    }
+
+    private async Task<int> ParseAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        if (args.Count < 2)
+        {
+            System.Console.Error.WriteLine("Usage: parse <csv-file>");
+            return 1;
+        }
+
+        var csvFilePath = args[1];
+        if (!File.Exists(csvFilePath))
+        {
+            System.Console.Error.WriteLine($"File not found: {csvFilePath}");
+            return 1;
+        }
+
+        await using var stream = File.OpenRead(csvFilePath);
+        var result = await parser.ParseAsync(stream, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
+
+        System.Console.WriteLine($"Rows parsed: {result.Rows.Count}");
+        System.Console.WriteLine($"Total rows: {result.TotalRowCount}");
+        System.Console.WriteLine($"Failed rows: {result.FailedRowCount}");
+        System.Console.WriteLine();
+
+        foreach (var row in result.Rows.Take(10))
+        {
+            System.Console.WriteLine($"{row.PostedDate:yyyy-MM-dd} | {row.Amount,10:0.00} | {row.OriginalDescription}");
+        }
+
+        PrintWarnings(result.Warnings);
+
+        return 0;
+    }
+
+    private async Task<int> ImportAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        if (args.Count < 2)
+        {
+            System.Console.Error.WriteLine("Usage: import <csv-file> [--card <card-name>]");
+            return 1;
+        }
+
+        var csvFilePath = args[1];
+        if (!File.Exists(csvFilePath))
+        {
+            System.Console.Error.WriteLine($"File not found: {csvFilePath}");
+            return 1;
+        }
+
+        var result = await importService.ImportAsync(
+            csvFilePath,
+            ParseImportOptions(args.Skip(2)),
+            cancellationToken).ConfigureAwait(false);
+
+        System.Console.WriteLine($"Card: {result.CardAccountName}");
+        System.Console.WriteLine($"Rows parsed: {result.ParsedRowCount}");
+        System.Console.WriteLine($"Transactions saved: {result.SavedTransactionCount}");
+        System.Console.WriteLine($"Duplicate transactions skipped: {result.SkippedDuplicateTransactionCount}");
+        System.Console.WriteLine($"Failed rows: {result.FailedRowCount}");
+        System.Console.WriteLine();
+
+        foreach (var transaction in result.SavedTransactions.Take(10))
+        {
+            System.Console.WriteLine($"{transaction.PostedDate:yyyy-MM-dd} | {transaction.Amount,10:0.00} | {transaction.OriginalDescription}");
+        }
+
+        PrintWarnings(result.Warnings);
+
+        return 0;
+    }
+
+    private async Task<int> ReportAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        var query = new TransactionQuery();
+
+        if (args.Count >= 3 && args[1].Equals("month", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!ReportMonth.TryParse(args[2], out var reportMonth))
+            {
+                System.Console.Error.WriteLine("Usage: report month <yyyy-mm>");
+                return 1;
+            }
+
+            query = new TransactionQuery
+            {
+                StartDate = reportMonth!.StartDate,
+                EndDate = reportMonth.EndDate
+            };
+        }
+        else if (args.Count > 1)
+        {
+            foreach (var csvFilePath in args.Skip(1))
+            {
+                if (!File.Exists(csvFilePath))
+                {
+                    System.Console.Error.WriteLine($"File not found: {csvFilePath}");
+                    return 1;
+                }
+
+                await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        var report = await reportService.BuildAsync(query, cancellationToken).ConfigureAwait(false);
+        PrintCategoryReport(report, query);
+
+        return 0;
+    }
+
+    private async Task<int> CategorizationReportAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        foreach (var csvFilePath in args.Skip(1))
+        {
+            if (!File.Exists(csvFilePath))
+            {
+                System.Console.Error.WriteLine($"File not found: {csvFilePath}");
+                return 1;
+            }
+
+            await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
+        }
+
+        var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var categorizations = await categorizationService.CategorizeAsync(transactions, cancellationToken).ConfigureAwait(false);
+        var categoriesByCode = BuiltInCategories.All.ToDictionary(category => category.Code, category => category.Name);
+
+        System.Console.WriteLine("Categorization report");
+        System.Console.WriteLine();
+
+        foreach (var categorization in categorizations.OrderBy(item => item.NeedsReview).ThenBy(item => item.CategoryCode))
+        {
+            var transaction = transactions.Single(item => item.Id == categorization.TransactionId);
+            var categoryName = categoriesByCode.GetValueOrDefault(categorization.CategoryCode, categorization.CategoryCode);
+            var review = categorization.NeedsReview ? "review" : "ok";
+
+            System.Console.WriteLine(
+                $"{transaction.PostedDate:yyyy-MM-dd} | {transaction.Amount,10:0.00} | {categoryName,-24} | {categorization.Source,-10} | {categorization.Confidence,4:0.00} | {review} | {transaction.OriginalDescription}");
+        }
+
+        return 0;
+    }
+
+    private static void PrintCategoryReport(
+        CategorySpendingReport report,
+        TransactionQuery query)
+    {
+        System.Console.WriteLine(query.StartDate is null && query.EndDate is null
+            ? "Spending by category"
+            : $"Spending by category ({query.StartDate:yyyy-MM-dd} to {query.EndDate:yyyy-MM-dd})");
+        System.Console.WriteLine();
+
+        foreach (var line in report.Lines)
+        {
+            System.Console.WriteLine($"{line.CategoryName,-24} {line.TransactionCount,4} {line.Amount,12:0.00}");
+        }
+
+        System.Console.WriteLine();
+        System.Console.WriteLine($"Total{"",-23} {report.TotalSpending,12:0.00}");
+    }
+
+    private static void PrintHelp()
+    {
+        System.Console.WriteLine("Spendnest console");
+        System.Console.WriteLine();
+        System.Console.WriteLine("Available now:");
+        System.Console.WriteLine("  run");
+        System.Console.WriteLine("  help");
+        System.Console.WriteLine("  parse <csv-file>");
+        System.Console.WriteLine("  import <csv-file> [--card <card-name>]");
+        System.Console.WriteLine("  report");
+        System.Console.WriteLine("  report <csv-file> [csv-file...]");
+        System.Console.WriteLine("  report month <yyyy-mm>");
+        System.Console.WriteLine("  ai-report [csv-file...]");
+        System.Console.WriteLine("  exit");
+    }
+
+    private static void PrintWarnings(IReadOnlyList<StatementParseWarning> warnings)
+    {
+        if (warnings.Count == 0)
+        {
+            return;
+        }
+
+        System.Console.WriteLine();
+        System.Console.WriteLine("Warnings:");
+        foreach (var warning in warnings)
+        {
+            var prefix = warning.SourceRowNumber is null ? "file" : $"row {warning.SourceRowNumber}";
+            System.Console.WriteLine($"  {prefix}: {warning.Message}");
+        }
+    }
+
+    private static StatementFileImportOptions ParseImportOptions(IEnumerable<string> args)
+    {
+        var values = args.ToArray();
+        for (var index = 0; index < values.Length; index++)
+        {
+            if (values[index].Equals("--card", StringComparison.OrdinalIgnoreCase)
+                && index + 1 < values.Length)
+            {
+                return new StatementFileImportOptions
+                {
+                    CardAccountName = values[index + 1]
+                };
+            }
+        }
+
+        return new StatementFileImportOptions();
+    }
+}

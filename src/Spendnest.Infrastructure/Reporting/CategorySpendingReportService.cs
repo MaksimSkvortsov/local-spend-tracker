@@ -23,7 +23,14 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
 
     public async Task<CategorySpendingReport> BuildAsync(CancellationToken cancellationToken)
     {
-        var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        return await BuildAsync(new TransactionQuery(), cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<CategorySpendingReport> BuildAsync(
+        TransactionQuery query,
+        CancellationToken cancellationToken)
+    {
+        var transactions = await transactionRepository.ListAsync(query, cancellationToken).ConfigureAwait(false);
         var categoryNamesByCode = BuiltInCategories.All.ToDictionary(category => category.Code, category => category.Name);
 
         var lines = transactions

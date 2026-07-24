@@ -9,6 +9,7 @@ public sealed record StatementFileImportResult(
     string FilePath,
     int ParsedRowCount,
     int SavedTransactionCount,
+    int SkippedDuplicateTransactionCount,
     int FailedRowCount,
     IReadOnlyList<Transaction> SavedTransactions,
     IReadOnlyList<StatementParseWarning> Warnings);

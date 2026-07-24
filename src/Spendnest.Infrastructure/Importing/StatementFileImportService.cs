@@ -32,6 +32,11 @@ public sealed class StatementFileImportService : IStatementFileImportService
         var parseResult = await parser.ParseAsync(stream, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
 
         var importedAtUtc = DateTimeOffset.UtcNow;
+        var existingTransactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var seenFingerprints = existingTransactions
+            .Select(TransactionFingerprint.Create)
+            .ToHashSet(StringComparer.Ordinal);
+        var skippedDuplicateCount = 0;
         var transactions = parseResult.Rows
             .Select(row => new Transaction
             {
@@ -42,6 +47,17 @@ public sealed class StatementFileImportService : IStatementFileImportService
                 SourceRowNumber = row.SourceRowNumber,
                 ImportedAtUtc = importedAtUtc
             })
+            .Where(transaction =>
+            {
+                var fingerprint = TransactionFingerprint.Create(transaction);
+                if (!seenFingerprints.Add(fingerprint))
+                {
+                    skippedDuplicateCount++;
+                    return false;
+                }
+
+                return true;
+            })
             .ToArray();
 
         await transactionRepository.AddRangeAsync(transactions, cancellationToken).ConfigureAwait(false);
@@ -50,6 +66,7 @@ public sealed class StatementFileImportService : IStatementFileImportService
             filePath,
             parseResult.Rows.Count,
             transactions.Length,
+            skippedDuplicateCount,
             parseResult.FailedRowCount,
             transactions,
             parseResult.Warnings);

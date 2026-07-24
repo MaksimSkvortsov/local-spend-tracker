@@ -111,6 +111,7 @@ if (command.Equals("import", StringComparison.OrdinalIgnoreCase))
 
     Console.WriteLine($"Rows parsed: {result.ParsedRowCount}");
     Console.WriteLine($"Transactions saved: {result.SavedTransactionCount}");
+    Console.WriteLine($"Duplicate transactions skipped: {result.SkippedDuplicateTransactionCount}");
     Console.WriteLine($"Failed rows: {result.FailedRowCount}");
     Console.WriteLine();
 

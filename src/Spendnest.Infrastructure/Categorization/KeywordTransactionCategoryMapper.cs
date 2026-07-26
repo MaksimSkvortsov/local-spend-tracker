@@ -9,33 +9,33 @@ namespace Spendnest.Infrastructure.Categorization;
 /// </summary>
 public sealed class KeywordTransactionCategoryMapper : ITransactionCategoryMapper
 {
-    private static readonly (string CategoryCode, string[] Keywords)[] Rules =
+    private static readonly (int CategoryId, string[] Keywords)[] Rules =
     [
-        (BuiltInCategoryCodes.CreditCardPayment, ["PAYMENT", "PYMT", "CARD MOBILE PAYMENT"]),
-        (BuiltInCategoryCodes.Groceries, ["GROCERY", "MARKET", "MERCADO", "BULK MART", "WAREHOUSE CLUB"]),
-        (BuiltInCategoryCodes.RestaurantsAndCoffee, ["CAFE", "CAFFE", "BISTRO", "RESTAURANT", "RESTAURANTE", "DINING"]),
-        (BuiltInCategoryCodes.Subscriptions, ["PLAN", "SUBSCRIPTION", "DOORBELL"]),
-        (BuiltInCategoryCodes.Utilities, ["WATER", "ELECTRIC", "UTILITY"]),
-        (BuiltInCategoryCodes.Transportation, ["GAS", "FUEL", "SUNOCO", "TRAIN", "TICKET"]),
-        (BuiltInCategoryCodes.Shopping, ["STORE", "SHOP", "MERCHANDISE"])
+        (BuiltInCategoryIds.CreditCardPayment, ["PAYMENT", "PYMT", "CARD MOBILE PAYMENT"]),
+        (BuiltInCategoryIds.Groceries, ["GROCERY", "MARKET", "MERCADO", "BULK MART", "WAREHOUSE CLUB"]),
+        (BuiltInCategoryIds.RestaurantsAndCoffee, ["CAFE", "CAFFE", "BISTRO", "RESTAURANT", "RESTAURANTE", "DINING"]),
+        (BuiltInCategoryIds.Subscriptions, ["PLAN", "SUBSCRIPTION", "DOORBELL"]),
+        (BuiltInCategoryIds.Utilities, ["WATER", "ELECTRIC", "UTILITY"]),
+        (BuiltInCategoryIds.Transportation, ["GAS", "FUEL", "SUNOCO", "TRAIN", "TICKET"]),
+        (BuiltInCategoryIds.Shopping, ["STORE", "SHOP", "MERCHANDISE"])
     ];
 
-    public string MapCategoryCode(Transaction transaction)
+    public int MapCategoryId(Transaction transaction)
     {
         ArgumentNullException.ThrowIfNull(transaction);
 
         var description = transaction.OriginalDescription.ToUpperInvariant();
 
-        foreach (var (categoryCode, keywords) in Rules)
+        foreach (var (categoryId, keywords) in Rules)
         {
             if (keywords.Any(description.Contains))
             {
-                return categoryCode;
+                return categoryId;
             }
         }
 
         return transaction.Amount < 0
-            ? BuiltInCategoryCodes.Refund
-            : BuiltInCategoryCodes.Other;
+            ? BuiltInCategoryIds.Refund
+            : BuiltInCategoryIds.Other;
     }
 }

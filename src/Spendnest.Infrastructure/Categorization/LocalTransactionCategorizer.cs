@@ -28,31 +28,31 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
         cancellationToken.ThrowIfCancellationRequested();
 
         var rules = await ruleRepository.ListAsync(cancellationToken).ConfigureAwait(false);
-        var decisions = new List<TransactionCategorization>();
+        var results = new List<TransactionCategorization>();
 
         foreach (var transaction in transactions)
         {
-            var categoryCode = FindRuleCategoryCode(transaction, rules)
-                ?? FindKeywordCategoryCode(transaction);
+            var categoryId = FindRuleCategoryId(transaction, rules)
+                ?? FindKeywordCategoryId(transaction);
 
-            if (categoryCode is null)
+            if (categoryId is null)
             {
                 continue;
             }
 
-            decisions.Add(new TransactionCategorization(
+            results.Add(new TransactionCategorization(
                 transaction.Id,
-                categoryCode,
+                categoryId.Value,
                 1m,
                 false,
                 CategorizationSource.LocalRules,
                 "Matched local categorization knowledge."));
         }
 
-        return decisions;
+        return results;
     }
 
-    private static string? FindRuleCategoryCode(
+    private static int? FindRuleCategoryId(
         Transaction transaction,
         IReadOnlyList<CategoryRule> rules)
     {
@@ -70,20 +70,20 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
 
             if (isMatch)
             {
-                return rule.CategoryCode;
+                return rule.CategoryId;
             }
         }
 
         return null;
     }
 
-    private string? FindKeywordCategoryCode(Transaction transaction)
+    private int? FindKeywordCategoryId(Transaction transaction)
     {
-        var categoryCode = keywordMapper.MapCategoryCode(transaction);
+        var categoryId = keywordMapper.MapCategoryId(transaction);
 
-        return categoryCode is BuiltInCategoryCodes.Other or BuiltInCategoryCodes.Refund
+        return categoryId is BuiltInCategoryIds.Other or BuiltInCategoryIds.Refund
             ? null
-            : categoryCode;
+            : categoryId;
     }
 
     private static string Normalize(string value)

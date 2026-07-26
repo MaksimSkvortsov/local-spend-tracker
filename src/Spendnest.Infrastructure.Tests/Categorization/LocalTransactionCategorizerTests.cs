@@ -15,7 +15,7 @@ public class LocalTransactionCategorizerTests
         await ruleRepository.AddAsync(new CategoryRule
         {
             Pattern = "CORNER MARKET",
-            CategoryCode = BuiltInCategoryCodes.Groceries,
+            CategoryId = BuiltInCategoryIds.Groceries,
             MatchType = CategoryRuleMatchType.Contains
         }, CancellationToken.None);
         var categorizer = new LocalTransactionCategorizer(
@@ -32,7 +32,7 @@ public class LocalTransactionCategorizerTests
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,
-            BuiltInCategoryCodes.Groceries,
+            BuiltInCategoryIds.Groceries,
             1m,
             false,
             CategorizationSource.LocalRules,

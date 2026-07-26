@@ -10,13 +10,13 @@ public class KeywordTransactionCategoryMapperTests
     private readonly KeywordTransactionCategoryMapper mapper = new();
 
     [Theory]
-    [InlineData("CARD MOBILE PAYMENT", BuiltInCategoryCodes.CreditCardPayment)]
-    [InlineData("BULK MART #0218 RIVERTON VA", BuiltInCategoryCodes.Groceries)]
-    [InlineData("CAFE RIO VERDE", BuiltInCategoryCodes.RestaurantsAndCoffee)]
-    [InlineData("DOORBELL SOLO PLAN EXAMPLE.COM CA", BuiltInCategoryCodes.Subscriptions)]
-    public void MapCategoryCode_ShouldMapKnownDescriptionKeywords(
+    [InlineData("CARD MOBILE PAYMENT", BuiltInCategoryIds.CreditCardPayment)]
+    [InlineData("BULK MART #0218 RIVERTON VA", BuiltInCategoryIds.Groceries)]
+    [InlineData("CAFE RIO VERDE", BuiltInCategoryIds.RestaurantsAndCoffee)]
+    [InlineData("DOORBELL SOLO PLAN EXAMPLE.COM CA", BuiltInCategoryIds.Subscriptions)]
+    public void MapCategoryId_ShouldMapKnownDescriptionKeywords(
         string description,
-        string expectedCategoryCode)
+        int expectedCategoryId)
     {
         var transaction = new Transaction
         {
@@ -24,11 +24,11 @@ public class KeywordTransactionCategoryMapperTests
             Amount = 10m
         };
 
-        mapper.MapCategoryCode(transaction).Should().Be(expectedCategoryCode);
+        mapper.MapCategoryId(transaction).Should().Be(expectedCategoryId);
     }
 
     [Fact]
-    public void MapCategoryCode_ShouldUseRefundForUnmatchedNegativeTransactions()
+    public void MapCategoryId_ShouldUseRefundForUnmatchedNegativeTransactions()
     {
         var transaction = new Transaction
         {
@@ -36,11 +36,11 @@ public class KeywordTransactionCategoryMapperTests
             Amount = -5m
         };
 
-        mapper.MapCategoryCode(transaction).Should().Be(BuiltInCategoryCodes.Refund);
+        mapper.MapCategoryId(transaction).Should().Be(BuiltInCategoryIds.Refund);
     }
 
     [Fact]
-    public void MapCategoryCode_ShouldKeepKnownMerchantRefundInOriginalSpendingCategory()
+    public void MapCategoryId_ShouldKeepKnownMerchantRefundInOriginalSpendingCategory()
     {
         var transaction = new Transaction
         {
@@ -48,11 +48,11 @@ public class KeywordTransactionCategoryMapperTests
             Amount = -14.25m
         };
 
-        mapper.MapCategoryCode(transaction).Should().Be(BuiltInCategoryCodes.Groceries);
+        mapper.MapCategoryId(transaction).Should().Be(BuiltInCategoryIds.Groceries);
     }
 
     [Fact]
-    public void MapCategoryCode_ShouldUseOtherForUnmatchedPositiveTransactions()
+    public void MapCategoryId_ShouldUseOtherForUnmatchedPositiveTransactions()
     {
         var transaction = new Transaction
         {
@@ -60,6 +60,6 @@ public class KeywordTransactionCategoryMapperTests
             Amount = 5m
         };
 
-        mapper.MapCategoryCode(transaction).Should().Be(BuiltInCategoryCodes.Other);
+        mapper.MapCategoryId(transaction).Should().Be(BuiltInCategoryIds.Other);
     }
 }

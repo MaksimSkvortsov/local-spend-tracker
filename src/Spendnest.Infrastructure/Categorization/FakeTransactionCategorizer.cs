@@ -25,10 +25,10 @@ public sealed class FakeTransactionCategorizer : ITransactionCategorizer
         var categorizations = transactions
             .Select(transaction => new TransactionCategorization(
                 transaction.Id,
-                categoryMapper.MapCategoryCode(transaction),
+                categoryMapper.MapCategoryId(transaction),
                 1m,
                 false,
-                CategorizationSource.FakeAi,
+                CategorizationSource.LocalAi,
                 "Deterministic offline categorizer."))
             .ToArray();
 

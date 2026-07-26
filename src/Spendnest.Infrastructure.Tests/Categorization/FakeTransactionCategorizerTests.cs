@@ -23,10 +23,10 @@ public class FakeTransactionCategorizerTests
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,
-            BuiltInCategoryCodes.RestaurantsAndCoffee,
+            BuiltInCategoryIds.RestaurantsAndCoffee,
             1m,
             false,
-            CategorizationSource.FakeAi,
+            CategorizationSource.LocalAi,
             "Deterministic offline categorizer."));
     }
 }

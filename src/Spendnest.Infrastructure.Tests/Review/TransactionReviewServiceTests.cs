@@ -1,0 +1,160 @@
+namespace Spendnest.Infrastructure.Tests.Review;
+
+using FluentAssertions;
+using Spendnest.Core.Categories;
+using Spendnest.Core.Categorization;
+using Spendnest.Core.Transactions;
+using Spendnest.Infrastructure.Categorization;
+using Spendnest.Infrastructure.Review;
+using Spendnest.Infrastructure.Transactions;
+
+public class TransactionReviewServiceTests
+{
+    [Fact]
+    public async Task ListNeedsReviewAsync_ShouldReturnTransactionsMarkedForReview()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = transaction.Id,
+                CategoryId = BuiltInCategoryIds.Other,
+                Source = CategorizationSource.Unresolved,
+                Confidence = 0m,
+                NeedsReview = true,
+                Explanation = "AI categorization failed."
+            },
+            CancellationToken.None);
+        var service = new TransactionReviewService(repository, assignmentRepository, new InMemoryCategoryRuleRepository());
+
+        var result = await service.ListNeedsReviewAsync(CancellationToken.None);
+
+        result.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            TransactionId = transaction.Id,
+            Description = "MYSTERY PLACE",
+            CategoryId = BuiltInCategoryIds.Other,
+            Source = CategorizationSource.Unresolved,
+            Confidence = 0m,
+            Explanation = "AI categorization failed."
+        });
+    }
+
+    [Fact]
+    public async Task SetCategoryAsync_ShouldSaveAssignmentAndRememberExactRule()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = transaction.Id,
+                CategoryId = BuiltInCategoryIds.Other,
+                Source = CategorizationSource.Unresolved,
+                Confidence = 0m,
+                NeedsReview = true,
+                Explanation = "Needs review."
+            },
+            CancellationToken.None);
+        var service = new TransactionReviewService(repository, assignmentRepository, ruleRepository);
+
+        await service.SetCategoryAsync(
+            transaction.Id,
+            BuiltInCategoryIds.Entertainment,
+            rememberRule: true,
+            CancellationToken.None);
+
+        var assignment = await assignmentRepository.GetByTransactionIdAsync(transaction.Id, CancellationToken.None);
+        var rules = await ruleRepository.ListAsync(CancellationToken.None);
+
+        assignment.Should().NotBeNull();
+        assignment!.CategoryId.Should().Be(BuiltInCategoryIds.Entertainment);
+        assignment.NeedsReview.Should().BeFalse();
+        assignment.Source.Should().Be(CategorizationSource.LocalRules);
+        assignment.Confidence.Should().Be(1m);
+        rules.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            Pattern = "MYSTERY PLACE",
+            CategoryId = BuiltInCategoryIds.Entertainment,
+            MatchType = CategoryRuleMatchType.Exact
+        });
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_ShouldClearReviewAndOptionallyRememberCurrentCategory()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = transaction.Id,
+                CategoryId = BuiltInCategoryIds.Other,
+                Source = CategorizationSource.Unresolved,
+                Confidence = 0m,
+                NeedsReview = true,
+                Explanation = "Needs review."
+            },
+            CancellationToken.None);
+        var service = new TransactionReviewService(repository, assignmentRepository, ruleRepository);
+
+        await service.ConfirmAsync(
+            transaction.Id,
+            rememberRule: true,
+            CancellationToken.None);
+
+        var assignment = await assignmentRepository.GetByTransactionIdAsync(transaction.Id, CancellationToken.None);
+        var rules = await ruleRepository.ListAsync(CancellationToken.None);
+
+        assignment.Should().NotBeNull();
+        assignment!.NeedsReview.Should().BeFalse();
+        assignment.Source.Should().Be(CategorizationSource.LocalRules);
+        rules.Should().ContainSingle(rule =>
+            rule.Pattern == "MYSTERY PLACE"
+            && rule.CategoryId == BuiltInCategoryIds.Other
+            && rule.MatchType == CategoryRuleMatchType.Exact);
+    }
+
+    [Fact]
+    public async Task SetCategoryAsync_ShouldRejectUnknownCategoryIds()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        var service = new TransactionReviewService(
+            repository,
+            new InMemoryTransactionCategoryAssignmentRepository(),
+            new InMemoryCategoryRuleRepository());
+
+        var act = () => service.SetCategoryAsync(
+            transaction.Id,
+            9999,
+            rememberRule: false,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentException>()
+            .WithMessage("Unknown category id*");
+    }
+
+    private static Transaction Transaction(string description)
+    {
+        return new Transaction
+        {
+            Id = Guid.NewGuid(),
+            CardAccountId = Guid.NewGuid(),
+            PostedDate = new DateOnly(2026, 7, 24),
+            OriginalDescription = description,
+            Amount = 10m,
+            ImportedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
+}

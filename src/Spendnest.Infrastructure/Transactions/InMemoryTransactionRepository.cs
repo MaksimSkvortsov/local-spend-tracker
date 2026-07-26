@@ -23,6 +23,18 @@ public sealed class InMemoryTransactionRepository : ITransactionRepository
         return Task.CompletedTask;
     }
 
+    public Task<Transaction?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (transactions)
+        {
+            return Task.FromResult(transactions.FirstOrDefault(transaction => transaction.Id == id));
+        }
+    }
+
     public Task<IReadOnlyList<Transaction>> ListAsync(
         CancellationToken cancellationToken)
     {

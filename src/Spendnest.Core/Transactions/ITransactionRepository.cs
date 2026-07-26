@@ -9,6 +9,10 @@ public interface ITransactionRepository
         IReadOnlyList<Transaction> transactions,
         CancellationToken cancellationToken);
 
+    Task<Transaction?> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<Transaction>> ListAsync(
         CancellationToken cancellationToken);
 

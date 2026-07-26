@@ -9,7 +9,7 @@ public sealed class CategoryRule
 
     public string Pattern { get; init; } = string.Empty;
 
-    public string CategoryCode { get; init; } = string.Empty;
+    public int CategoryId { get; init; }
 
     public CategoryRuleMatchType MatchType { get; init; } = CategoryRuleMatchType.Contains;
 }

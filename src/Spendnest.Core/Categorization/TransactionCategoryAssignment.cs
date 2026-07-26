@@ -7,7 +7,7 @@ public sealed class TransactionCategoryAssignment
 {
     public Guid TransactionId { get; init; }
 
-    public string CategoryCode { get; set; } = string.Empty;
+    public int CategoryId { get; set; }
 
     public decimal Confidence { get; set; }
 

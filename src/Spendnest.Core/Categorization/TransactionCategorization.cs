@@ -1,11 +1,11 @@
 namespace Spendnest.Core.Categorization;
 
 /// <summary>
-/// Represents a category decision for one transaction.
+/// Represents a category result produced for one transaction.
 /// </summary>
 public sealed record TransactionCategorization(
     Guid TransactionId,
-    string CategoryCode,
+    int CategoryId,
     decimal Confidence,
     bool NeedsReview,
     CategorizationSource Source,

@@ -3,9 +3,9 @@ using Spendnest.Core.Transactions;
 namespace Spendnest.Core.Categorization;
 
 /// <summary>
-/// Maps a transaction to one of Spendnest's built-in category codes.
+/// Maps a transaction to one of Spendnest's built-in category ids.
 /// </summary>
 public interface ITransactionCategoryMapper
 {
-    string MapCategoryCode(Transaction transaction);
+    int MapCategoryId(Transaction transaction);
 }

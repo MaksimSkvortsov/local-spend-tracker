@@ -41,7 +41,7 @@ public class StoredOpenAiTransactionCategorizerTests
                 Content = new StringContent(
                     $$"""
                     {
-                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryCode\":\"Other\",\"confidence\":0.88,\"explanation\":\"Test AI result.\"}]}"
+                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{BuiltInCategoryIds.Other}},\"confidence\":0.88,\"explanation\":\"Test AI result.\"}]}"
                     }
                     """,
                     Encoding.UTF8,
@@ -53,10 +53,10 @@ public class StoredOpenAiTransactionCategorizerTests
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,
-            BuiltInCategoryCodes.Other,
+            BuiltInCategoryIds.Other,
             0.88m,
             false,
-            CategorizationSource.OpenAi,
+            CategorizationSource.Ai,
             "Test AI result."));
     }
 

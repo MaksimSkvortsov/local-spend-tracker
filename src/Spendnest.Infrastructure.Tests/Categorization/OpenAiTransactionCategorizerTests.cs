@@ -33,7 +33,7 @@ public class OpenAiTransactionCategorizerTests
                     Content = new StringContent(
                         $$"""
                         {
-                          "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryCode\":\"Groceries\",\"confidence\":0.91,\"explanation\":\"Warehouse club grocery purchase.\"}]}"
+                          "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{BuiltInCategoryIds.Groceries}},\"confidence\":0.91,\"explanation\":\"Warehouse club grocery purchase.\"}]}"
                         }
                         """,
                         Encoding.UTF8,
@@ -61,10 +61,10 @@ public class OpenAiTransactionCategorizerTests
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,
-            BuiltInCategoryCodes.Groceries,
+            BuiltInCategoryIds.Groceries,
             0.91m,
             false,
-            CategorizationSource.OpenAi,
+            CategorizationSource.Ai,
             "Warehouse club grocery purchase."));
     }
 
@@ -79,7 +79,7 @@ public class OpenAiTransactionCategorizerTests
         };
         var categorizer = CreateCategorizerWithOutput(
             transaction,
-            BuiltInCategoryCodes.Other,
+            BuiltInCategoryIds.Other,
             0.42m);
 
         var result = await categorizer.CategorizeAsync([transaction], CancellationToken.None);
@@ -88,7 +88,7 @@ public class OpenAiTransactionCategorizerTests
     }
 
     [Fact]
-    public async Task CategorizeAsync_ShouldRejectUnsupportedCategoryCodes()
+    public async Task CategorizeAsync_ShouldRejectUnsupportedCategoryIds()
     {
         var transaction = new Transaction
         {
@@ -98,18 +98,18 @@ public class OpenAiTransactionCategorizerTests
         };
         var categorizer = CreateCategorizerWithOutput(
             transaction,
-            "NotARealCategory",
+            9999,
             0.98m);
 
         var act = () => categorizer.CategorizeAsync([transaction], CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*unsupported category code*");
+            .WithMessage("*unsupported category id*");
     }
 
     private static OpenAiTransactionCategorizer CreateCategorizerWithOutput(
         Transaction transaction,
-        string categoryCode,
+        int categoryId,
         decimal confidence)
     {
         return new OpenAiTransactionCategorizer(
@@ -118,7 +118,7 @@ public class OpenAiTransactionCategorizerTests
                 Content = new StringContent(
                     $$"""
                     {
-                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryCode\":\"{{categoryCode}}\",\"confidence\":{{confidence}},\"explanation\":\"Test explanation.\"}]}"
+                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{categoryId}},\"confidence\":{{confidence}},\"explanation\":\"Test explanation.\"}]}"
                     }
                     """,
                     Encoding.UTF8,

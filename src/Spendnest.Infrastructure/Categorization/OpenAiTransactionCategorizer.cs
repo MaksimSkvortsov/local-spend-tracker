@@ -63,8 +63,8 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
 
     private object CreateRequestBody(IReadOnlyList<Transaction> transactions)
     {
-        var categoryCodes = BuiltInCategories.All
-            .Select(category => category.Code)
+        var categoryIds = BuiltInCategories.All
+            .Select(category => category.Id)
             .ToArray();
 
         return new
@@ -75,7 +75,7 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
                 new
                 {
                     role = "system",
-                    content = "You categorize credit-card transaction descriptions for Spendnest. Use only the provided category codes. If a description clearly belongs to a spending category, use that category even when the transaction is a refund. Use Refund only when the description is an uncategorized refund or credit. Return concise explanations."
+                    content = "You categorize credit-card transaction descriptions for Spendnest. Use only the provided category ids. If a description clearly belongs to a spending category, use that category even when the transaction is a refund. Use Refund only when the description is an uncategorized refund or credit. Return concise explanations."
                 },
                 new
                 {
@@ -84,7 +84,7 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
                     {
                         categories = BuiltInCategories.All.Select(category => new
                         {
-                            code = category.Code,
+                            id = category.Id,
                             name = category.Name
                         }),
                         transactions = transactions.Select(transaction => new
@@ -118,11 +118,11 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
                                     properties = new
                                     {
                                         transactionId = new { type = "string" },
-                                        categoryCode = new { type = "string", @enum = categoryCodes },
+                                        categoryId = new { type = "integer", @enum = categoryIds },
                                         confidence = new { type = "number", minimum = 0, maximum = 1 },
                                         explanation = new { type = "string" }
                                     },
-                                    required = new[] { "transactionId", "categoryCode", "confidence", "explanation" }
+                                    required = new[] { "transactionId", "categoryId", "confidence", "explanation" }
                                 }
                             }
                         },
@@ -138,7 +138,7 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
         IReadOnlyList<Transaction> transactions)
     {
         var transactionIds = transactions.Select(transaction => transaction.Id).ToHashSet();
-        var categoryCodes = BuiltInCategories.All.Select(category => category.Code).ToHashSet(StringComparer.Ordinal);
+        var categoryIds = BuiltInCategories.All.Select(category => category.Id).ToHashSet();
 
         if (!outputRoot.TryGetProperty("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
         {
@@ -155,10 +155,10 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
                 continue;
             }
 
-            var categoryCode = item.GetProperty("categoryCode").GetString() ?? string.Empty;
-            if (!categoryCodes.Contains(categoryCode))
+            var categoryId = item.GetProperty("categoryId").GetInt32();
+            if (!categoryIds.Contains(categoryId))
             {
-                throw new InvalidOperationException($"OpenAI returned unsupported category code '{categoryCode}'.");
+                throw new InvalidOperationException($"OpenAI returned unsupported category id '{categoryId}'.");
             }
 
             var confidence = item.GetProperty("confidence").GetDecimal();
@@ -166,10 +166,10 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
 
             categorizations.Add(new TransactionCategorization(
                 transactionId,
-                categoryCode,
+                categoryId,
                 confidence,
                 confidence < options.ReviewConfidenceThreshold,
-                CategorizationSource.OpenAi,
+                CategorizationSource.Ai,
                 explanation));
         }
 

@@ -26,24 +26,24 @@ public class TransactionCategorizationServiceTests
         var aiCategorizer = new RecordingTransactionCategorizer(transactions =>
             transactions.Select(transaction => new TransactionCategorization(
                 transaction.Id,
-                BuiltInCategoryCodes.Entertainment,
+                BuiltInCategoryIds.Entertainment,
                 0.82m,
                 false,
-                CategorizationSource.FakeAi,
+                CategorizationSource.LocalAi,
                 "Resolved by test AI.")).ToArray());
         var service = CreateService(aiCategorizer);
 
         var result = await service.CategorizeAsync([localTransaction, unresolvedTransaction], CancellationToken.None);
 
         aiCategorizer.SeenTransactionIds.Should().Equal(unresolvedTransaction.Id);
-        result.Should().Contain(decision =>
-            decision.TransactionId == localTransaction.Id
-            && decision.CategoryCode == BuiltInCategoryCodes.Groceries
-            && decision.Source == CategorizationSource.LocalRules);
-        result.Should().Contain(decision =>
-            decision.TransactionId == unresolvedTransaction.Id
-            && decision.CategoryCode == BuiltInCategoryCodes.Entertainment
-            && decision.Source == CategorizationSource.FakeAi);
+        result.Should().Contain(categorization =>
+            categorization.TransactionId == localTransaction.Id
+            && categorization.CategoryId == BuiltInCategoryIds.Groceries
+            && categorization.Source == CategorizationSource.LocalRules);
+        result.Should().Contain(categorization =>
+            categorization.TransactionId == unresolvedTransaction.Id
+            && categorization.CategoryId == BuiltInCategoryIds.Entertainment
+            && categorization.Source == CategorizationSource.LocalAi);
     }
 
     [Fact]
@@ -61,7 +61,7 @@ public class TransactionCategorizationServiceTests
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,
-            BuiltInCategoryCodes.Other,
+            BuiltInCategoryIds.Other,
             0m,
             true,
             CategorizationSource.Unresolved,
@@ -69,7 +69,7 @@ public class TransactionCategorizationServiceTests
     }
 
     [Fact]
-    public async Task CategorizeAsync_ShouldRejectInvalidAiCategoryCodesForReview()
+    public async Task CategorizeAsync_ShouldRejectInvalidAiCategoryIdsForReview()
     {
         var transaction = new Transaction
         {
@@ -80,30 +80,75 @@ public class TransactionCategorizationServiceTests
         var service = CreateService(new RecordingTransactionCategorizer(transactions =>
             transactions.Select(item => new TransactionCategorization(
                 item.Id,
-                "NotReal",
+                9999,
                 0.99m,
                 false,
-                CategorizationSource.FakeAi,
+                CategorizationSource.LocalAi,
                 "Invalid test category.")).ToArray()));
 
         var result = await service.CategorizeAsync([transaction], CancellationToken.None);
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,
-            BuiltInCategoryCodes.Other,
+            BuiltInCategoryIds.Other,
             0m,
             true,
             CategorizationSource.Unresolved,
-            "Rejected unsupported category code 'NotReal'."));
+            "Rejected unsupported category id '9999'."));
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldPreserveExistingCategoryAssignments()
+    {
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "MYSTERY PLACE",
+            Amount = 19.99m
+        };
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = transaction.Id,
+                CategoryId = BuiltInCategoryIds.Entertainment,
+                Source = CategorizationSource.LocalRules,
+                Confidence = 1m,
+                NeedsReview = false,
+                Explanation = "Set during review."
+            },
+            CancellationToken.None);
+        var aiCategorizer = new RecordingTransactionCategorizer(_ =>
+            throw new InvalidOperationException("AI should not be called."));
+        var service = CreateService(aiCategorizer, assignmentRepository);
+
+        var result = await service.CategorizeAsync([transaction], CancellationToken.None);
+
+        aiCategorizer.SeenTransactionIds.Should().BeEmpty();
+        result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
+            transaction.Id,
+            BuiltInCategoryIds.Entertainment,
+            1m,
+            false,
+            CategorizationSource.LocalRules,
+            "Set during review."));
     }
 
     private static TransactionCategorizationService CreateService(ITransactionCategorizer aiCategorizer)
+    {
+        return CreateService(aiCategorizer, new InMemoryTransactionCategoryAssignmentRepository());
+    }
+
+    private static TransactionCategorizationService CreateService(
+        ITransactionCategorizer aiCategorizer,
+        ITransactionCategoryAssignmentRepository assignmentRepository)
     {
         return new TransactionCategorizationService(
             new LocalTransactionCategorizer(
                 new InMemoryCategoryRuleRepository(),
                 new KeywordTransactionCategoryMapper()),
-            aiCategorizer);
+            aiCategorizer,
+            assignmentRepository);
     }
 
     private sealed class RecordingTransactionCategorizer : ITransactionCategorizer

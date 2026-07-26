@@ -11,13 +11,16 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
 {
     private readonly ILocalTransactionCategorizer localCategorizer;
     private readonly ITransactionCategorizer aiCategorizer;
+    private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
 
     public TransactionCategorizationService(
         ILocalTransactionCategorizer localCategorizer,
-        ITransactionCategorizer aiCategorizer)
+        ITransactionCategorizer aiCategorizer,
+        ITransactionCategoryAssignmentRepository assignmentRepository)
     {
         this.localCategorizer = localCategorizer;
         this.aiCategorizer = aiCategorizer;
+        this.assignmentRepository = assignmentRepository;
     }
 
     public async Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
@@ -27,68 +30,91 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         ArgumentNullException.ThrowIfNull(transactions);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var localDecisions = await localCategorizer.CategorizeKnownAsync(transactions, cancellationToken).ConfigureAwait(false);
-        var categorizedTransactionIds = localDecisions.Select(decision => decision.TransactionId).ToHashSet();
+        var storedAssignments = await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var transactionIds = transactions.Select(transaction => transaction.Id).ToHashSet();
+        var existingAssignments = storedAssignments
+            .Where(assignment => transactionIds.Contains(assignment.TransactionId) && !assignment.NeedsReview)
+            .Select(assignment => new TransactionCategorization(
+                assignment.TransactionId,
+                assignment.CategoryId,
+                assignment.Confidence,
+                false,
+                assignment.Source,
+                assignment.Explanation))
+            .ToArray();
+        var transactionIdsWithExistingAssignments = existingAssignments
+            .Select(assignment => assignment.TransactionId)
+            .ToHashSet();
+        var transactionsToCategorize = transactions
+            .Where(transaction => !transactionIdsWithExistingAssignments.Contains(transaction.Id))
+            .ToArray();
+
+        var localResults = await localCategorizer.CategorizeKnownAsync(transactionsToCategorize, cancellationToken).ConfigureAwait(false);
+        var categorizedTransactionIds = existingAssignments
+            .Concat(localResults)
+            .Select(result => result.TransactionId)
+            .ToHashSet();
         var unresolvedTransactions = transactions
             .Where(transaction => !categorizedTransactionIds.Contains(transaction.Id))
             .ToArray();
 
         if (unresolvedTransactions.Length == 0)
         {
-            return localDecisions;
+            return existingAssignments.Concat(localResults).ToArray();
         }
 
-        IReadOnlyList<TransactionCategorization> aiDecisions;
+        IReadOnlyList<TransactionCategorization> aiResults;
         try
         {
-            aiDecisions = await aiCategorizer.CategorizeAsync(unresolvedTransactions, cancellationToken).ConfigureAwait(false);
+            aiResults = await aiCategorizer.CategorizeAsync(unresolvedTransactions, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
-            aiDecisions = unresolvedTransactions
-                .Select(transaction => CreateUnresolvedDecision(transaction, "AI categorization failed."))
+            aiResults = unresolvedTransactions
+                .Select(transaction => CreateUnresolvedResult(transaction, "AI categorization failed."))
                 .ToArray();
         }
 
-        var validCategoryCodes = BuiltInCategories.All.Select(category => category.Code).ToHashSet(StringComparer.Ordinal);
+        var validCategoryIds = BuiltInCategories.All.Select(category => category.Id).ToHashSet();
         var validTransactionIds = unresolvedTransactions.Select(transaction => transaction.Id).ToHashSet();
-        var acceptedAiDecisions = aiDecisions
-            .Where(decision => validTransactionIds.Contains(decision.TransactionId))
-            .Select(decision => validCategoryCodes.Contains(decision.CategoryCode)
-                ? decision
-                : CreateInvalidDecision(decision))
+        var acceptedAiResults = aiResults
+            .Where(result => validTransactionIds.Contains(result.TransactionId))
+            .Select(result => validCategoryIds.Contains(result.CategoryId)
+                ? result
+                : CreateInvalidResult(result))
             .ToArray();
-        var aiDecisionIds = acceptedAiDecisions.Select(decision => decision.TransactionId).ToHashSet();
+        var aiResultIds = acceptedAiResults.Select(result => result.TransactionId).ToHashSet();
         var stillUnresolved = unresolvedTransactions
-            .Where(transaction => !aiDecisionIds.Contains(transaction.Id))
-            .Select(transaction => CreateUnresolvedDecision(transaction, "No category decision was returned."))
+            .Where(transaction => !aiResultIds.Contains(transaction.Id))
+            .Select(transaction => CreateUnresolvedResult(transaction, "No category result was returned."))
             .ToArray();
 
-        return localDecisions
-            .Concat(acceptedAiDecisions)
+        return existingAssignments
+            .Concat(localResults)
+            .Concat(acceptedAiResults)
             .Concat(stillUnresolved)
             .ToArray();
     }
 
-    private static TransactionCategorization CreateInvalidDecision(TransactionCategorization decision)
+    private static TransactionCategorization CreateInvalidResult(TransactionCategorization result)
     {
-        return decision with
+        return result with
         {
-            CategoryCode = BuiltInCategoryCodes.Other,
+            CategoryId = BuiltInCategoryIds.Other,
             Confidence = 0m,
             NeedsReview = true,
             Source = CategorizationSource.Unresolved,
-            Explanation = $"Rejected unsupported category code '{decision.CategoryCode}'."
+            Explanation = $"Rejected unsupported category id '{result.CategoryId}'."
         };
     }
 
-    private static TransactionCategorization CreateUnresolvedDecision(
+    private static TransactionCategorization CreateUnresolvedResult(
         Transaction transaction,
         string explanation)
     {
         return new TransactionCategorization(
             transaction.Id,
-            BuiltInCategoryCodes.Other,
+            BuiltInCategoryIds.Other,
             0m,
             true,
             CategorizationSource.Unresolved,

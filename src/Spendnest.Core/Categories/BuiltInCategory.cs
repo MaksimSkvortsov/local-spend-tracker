@@ -4,6 +4,6 @@ namespace Spendnest.Core.Categories;
 /// Describes one built-in category before it is persisted.
 /// </summary>
 public sealed record BuiltInCategory(
-    string Code,
+    int Id,
     string Name,
     int SortOrder);

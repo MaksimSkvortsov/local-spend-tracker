@@ -8,33 +8,33 @@ public class BuiltInCategoriesTests
     [Fact]
     public void All_ShouldContainExpectedMvpCategories()
     {
-        var codes = BuiltInCategories.All.Select(category => category.Code);
+        var ids = BuiltInCategories.All.Select(category => category.Id);
 
-        codes.Should().Equal(
-            BuiltInCategoryCodes.Groceries,
-            BuiltInCategoryCodes.RestaurantsAndCoffee,
-            BuiltInCategoryCodes.Transportation,
-            BuiltInCategoryCodes.Shopping,
-            BuiltInCategoryCodes.Entertainment,
-            BuiltInCategoryCodes.Travel,
-            BuiltInCategoryCodes.Healthcare,
-            BuiltInCategoryCodes.Utilities,
-            BuiltInCategoryCodes.Subscriptions,
-            BuiltInCategoryCodes.Insurance,
-            BuiltInCategoryCodes.PersonalCare,
-            BuiltInCategoryCodes.FeesAndCharges,
-            BuiltInCategoryCodes.CreditCardPayment,
-            BuiltInCategoryCodes.Refund,
-            BuiltInCategoryCodes.Other);
+        ids.Should().Equal(
+            BuiltInCategoryIds.Groceries,
+            BuiltInCategoryIds.RestaurantsAndCoffee,
+            BuiltInCategoryIds.Transportation,
+            BuiltInCategoryIds.Shopping,
+            BuiltInCategoryIds.Entertainment,
+            BuiltInCategoryIds.Travel,
+            BuiltInCategoryIds.Healthcare,
+            BuiltInCategoryIds.Utilities,
+            BuiltInCategoryIds.Subscriptions,
+            BuiltInCategoryIds.Insurance,
+            BuiltInCategoryIds.PersonalCare,
+            BuiltInCategoryIds.FeesAndCharges,
+            BuiltInCategoryIds.CreditCardPayment,
+            BuiltInCategoryIds.Refund,
+            BuiltInCategoryIds.Other);
     }
 
     [Fact]
-    public void All_ShouldHaveStableUniqueCodes()
+    public void All_ShouldHaveStableUniqueIds()
     {
-        var codes = BuiltInCategories.All.Select(category => category.Code).ToArray();
+        var ids = BuiltInCategories.All.Select(category => category.Id).ToArray();
 
-        codes.Should().OnlyHaveUniqueItems();
-        codes.Should().AllSatisfy(code => code.Should().NotBeNullOrWhiteSpace());
+        ids.Should().OnlyHaveUniqueItems();
+        ids.Should().AllSatisfy(id => id.Should().BePositive());
     }
 
     [Fact]

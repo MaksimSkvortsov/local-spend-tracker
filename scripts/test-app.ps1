@@ -5,6 +5,20 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$projectPath = "src/Spendnest.Console"
+$tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "spendnest-flow"
+$unknownCsv = Join-Path $tempDir "first-time-unknown.csv"
+
+function Wait-ForUser {
+    param([string]$Message = "Press any key to continue...")
+
+    if (-not [Console]::IsInputRedirected) {
+        Write-Host ""
+        Write-Host $Message -ForegroundColor DarkGray
+        [void][Console]::ReadKey($true)
+    }
+}
+
 function Invoke-Step {
     param(
         [string]$Title,
@@ -14,11 +28,25 @@ function Invoke-Step {
     Write-Host ""
     Write-Host "== $Title ==" -ForegroundColor Cyan
     & $Command
-    Write-Host ""
-    if (-not [Console]::IsInputRedirected) {
-        Write-Host "Press any key to continue..."
-        [void][Console]::ReadKey($true)
-    }
+    Wait-ForUser
+}
+
+function Invoke-ConsoleSession {
+    param(
+        [string[]]$Commands
+    )
+
+    $script = ($Commands + "exit") -join [Environment]::NewLine
+    $script | dotnet run --project $projectPath -- run
+}
+
+function New-UnknownStatement {
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+
+    @"
+Posted Date,Reference Number,Payee,Address,Amount
+07/24/2026,900001,"MYSTERY PLACE","RIVERTON VA",-19.99
+"@ | Set-Content -LiteralPath $unknownCsv
 }
 
 Invoke-Step "Build solution" {
@@ -29,33 +57,69 @@ Invoke-Step "Run tests" {
     dotnet test Spendnest.slnx --no-build
 }
 
-Invoke-Step "Show console help" {
-    dotnet run --project src/Spendnest.Console -- help
-}
+New-UnknownStatement
 
-Invoke-Step "Parse Bank of America fixture" {
-    dotnet run --project src/Spendnest.Console -- parse $BankOfAmericaCsv
-}
+try {
+    Invoke-Step "First launch: discover the app" {
+        Invoke-ConsoleSession @(
+            "help",
+            "ai-key status"
+        )
+    }
 
-Invoke-Step "Import Bank of America fixture to Family Visa" {
-    dotnet run --project src/Spendnest.Console -- import $BankOfAmericaCsv --card "Family Visa"
-}
+    Invoke-Step "First statement: preview before importing" {
+        Invoke-ConsoleSession @(
+            "parse `"$BankOfAmericaCsv`""
+        )
+    }
 
-Invoke-Step "Run category report from both fixture files" {
-    dotnet run --project src/Spendnest.Console -- report $BankOfAmericaCsv $CapitalOneCsv
-}
+    Invoke-Step "First statement: import, report, categorize, review queue" {
+        Invoke-ConsoleSession @(
+            "import `"$BankOfAmericaCsv`" --card `"Family Visa`"",
+            "report",
+            "categorize",
+            "review list",
+            "report month 2026-07"
+        )
+    }
 
-Invoke-Step "Run interactive workflow with monthly reports" {
-    @"
-parse $BankOfAmericaCsv
-import $BankOfAmericaCsv --card "Family Visa"
-report
-import $CapitalOneCsv --card "Travel Visa"
-report month 2026-07
-report month 2025-12
-exit
-"@ | dotnet run --project src/Spendnest.Console -- run
+    Invoke-Step "Update data: import another card statement and run new reports" {
+        Invoke-ConsoleSession @(
+            "import `"$BankOfAmericaCsv`" --card `"Family Visa`"",
+            "categorize",
+            "import `"$CapitalOneCsv`" --card `"Travel Visa`"",
+            "categorize",
+            "report month 2025-12",
+            "report month 2026-07",
+            "report"
+        )
+    }
+
+    Invoke-Step "Review flow: create an unknown transaction and inspect review queue" {
+        Invoke-ConsoleSession @(
+            "import `"$BankOfAmericaCsv`" --card `"Family Visa`"",
+            "import `"$unknownCsv`" --card `"Family Visa`"",
+            "categorize",
+            "review list",
+            "report month 2026-07"
+        )
+    }
+
+    Invoke-Step "Manual review command reference" {
+        Write-Host "In the previous step, copy a transaction id from 'review list'."
+        Write-Host "Then run this in an interactive Spendnest session:"
+        Write-Host ""
+        Write-Host "  review set <transaction-id> 5 --remember"
+        Write-Host "  review list"
+        Write-Host "  report month 2026-07"
+        Write-Host ""
+        Write-Host "Category id 5 is Entertainment in the MVP seed list."
+        Write-Host "The app is still in-memory, so review updates currently last only inside the same app session."
+    }
+}
+finally {
+    Remove-Item -LiteralPath $unknownCsv -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host ""
-Write-Host "Spendnest smoke test complete." -ForegroundColor Green
+Write-Host "Spendnest first-time and update flow complete." -ForegroundColor Green

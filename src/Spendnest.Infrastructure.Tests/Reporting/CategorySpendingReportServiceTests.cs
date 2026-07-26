@@ -22,6 +22,7 @@ public class CategorySpendingReportServiceTests
             new InMemoryCardAccountRepository());
         var reportService = new CategorySpendingReportService(
             repository,
+            new InMemoryTransactionCategoryAssignmentRepository(),
             new KeywordTransactionCategoryMapper());
 
         await importService.ImportAsync(FixturePath("bank-of-america.csv"), new StatementFileImportOptions(), CancellationToken.None);
@@ -30,19 +31,19 @@ public class CategorySpendingReportServiceTests
         var report = await reportService.BuildAsync(CancellationToken.None);
 
         report.Lines.Should().Contain(line =>
-            line.CategoryCode == BuiltInCategoryCodes.Groceries
+            line.CategoryId == BuiltInCategoryIds.Groceries
             && line.TransactionCount == 2
             && line.Amount == 165.96m);
         report.Lines.Should().Contain(line =>
-            line.CategoryCode == BuiltInCategoryCodes.RestaurantsAndCoffee
+            line.CategoryId == BuiltInCategoryIds.RestaurantsAndCoffee
             && line.TransactionCount == 2
             && line.Amount == 30.40m);
         report.Lines.Should().Contain(line =>
-            line.CategoryCode == BuiltInCategoryCodes.Subscriptions
+            line.CategoryId == BuiltInCategoryIds.Subscriptions
             && line.TransactionCount == 1
             && line.Amount == 4.99m);
         report.Lines.Should().Contain(line =>
-            line.CategoryCode == BuiltInCategoryCodes.CreditCardPayment
+            line.CategoryId == BuiltInCategoryIds.CreditCardPayment
             && line.TransactionCount == 1
             && line.Amount == -2193.82m);
         report.TotalSpending.Should().Be(-1992.47m);
@@ -54,6 +55,7 @@ public class CategorySpendingReportServiceTests
         var repository = new InMemoryTransactionRepository();
         var reportService = new CategorySpendingReportService(
             repository,
+            new InMemoryTransactionCategoryAssignmentRepository(),
             new KeywordTransactionCategoryMapper());
         await repository.AddRangeAsync(
             [
@@ -64,15 +66,15 @@ public class CategorySpendingReportServiceTests
 
         var report = await reportService.BuildAsync(CancellationToken.None);
 
-        report.Lines.Should().ContainSingle(line => line.CategoryCode == BuiltInCategoryCodes.Groceries)
+        report.Lines.Should().ContainSingle(line => line.CategoryId == BuiltInCategoryIds.Groceries)
             .Which.Should().BeEquivalentTo(new
             {
-                CategoryCode = BuiltInCategoryCodes.Groceries,
+                CategoryId = BuiltInCategoryIds.Groceries,
                 CategoryName = "Groceries",
                 TransactionCount = 2,
                 Amount = 127.58m
             });
-        report.Lines.Should().NotContain(line => line.CategoryCode == BuiltInCategoryCodes.Refund);
+        report.Lines.Should().NotContain(line => line.CategoryId == BuiltInCategoryIds.Refund);
         report.TotalSpending.Should().Be(127.58m);
     }
 

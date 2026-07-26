@@ -11,13 +11,16 @@ namespace Spendnest.Infrastructure.Reporting;
 public sealed class CategorySpendingReportService : ICategorySpendingReportService
 {
     private readonly ITransactionRepository transactionRepository;
+    private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
     private readonly ITransactionCategoryMapper categoryMapper;
 
     public CategorySpendingReportService(
         ITransactionRepository transactionRepository,
+        ITransactionCategoryAssignmentRepository assignmentRepository,
         ITransactionCategoryMapper categoryMapper)
     {
         this.transactionRepository = transactionRepository;
+        this.assignmentRepository = assignmentRepository;
         this.categoryMapper = categoryMapper;
     }
 
@@ -31,13 +34,16 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
         CancellationToken cancellationToken)
     {
         var transactions = await transactionRepository.ListAsync(query, cancellationToken).ConfigureAwait(false);
-        var categoryNamesByCode = BuiltInCategories.All.ToDictionary(category => category.Code, category => category.Name);
+        var assignmentsByTransactionId = (await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false))
+            .ToDictionary(assignment => assignment.TransactionId);
+        var categoryNamesById = BuiltInCategories.All.ToDictionary(category => category.Id, category => category.Name);
 
         var lines = transactions
-            .GroupBy(categoryMapper.MapCategoryCode)
+            .GroupBy(transaction => assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId
+                ?? categoryMapper.MapCategoryId(transaction))
             .Select(group => new CategorySpendingReportLine(
                 group.Key,
-                categoryNamesByCode.GetValueOrDefault(group.Key, group.Key),
+                categoryNamesById.GetValueOrDefault(group.Key, group.Key.ToString()),
                 group.Count(),
                 group.Sum(transaction => transaction.Amount)))
             .OrderByDescending(line => Math.Abs(line.Amount))

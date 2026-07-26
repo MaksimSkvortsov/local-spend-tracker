@@ -8,6 +8,7 @@ using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
+using Spendnest.Core.Review;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure;
 using Spendnest.Infrastructure.Accounts;
@@ -15,6 +16,7 @@ using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Credentials;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Reporting;
+using Spendnest.Infrastructure.Review;
 using Spendnest.Infrastructure.Transactions;
 
 ConsoleEnvironment.LoadLocalEnvironmentFile(".env.local");
@@ -40,6 +42,7 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
     .AddSingleton<ITransactionCategoryMapper, KeywordTransactionCategoryMapper>()
     .AddSingleton<ICategoryRuleRepository, InMemoryCategoryRuleRepository>()
+    .AddSingleton<ITransactionCategoryAssignmentRepository, InMemoryTransactionCategoryAssignmentRepository>()
     .AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>()
     .AddSingleton<FakeTransactionCategorizer>()
     .AddSingleton<HttpClient>()
@@ -49,7 +52,9 @@ using var serviceProvider = new ServiceCollection()
     })
     .AddSingleton<ITransactionCategorizer, StoredOpenAiTransactionCategorizer>()
     .AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>()
+    .AddSingleton<ITransactionCategorizationApplier, TransactionCategorizationApplier>()
     .AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>()
+    .AddSingleton<ITransactionReviewService, TransactionReviewService>()
     .AddSingleton<SpendnestCommandDispatcher>()
     .AddSingleton<SpendnestConsoleApp>()
     .BuildServiceProvider();

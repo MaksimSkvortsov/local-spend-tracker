@@ -4,6 +4,7 @@ using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
+using Spendnest.Core.Review;
 using Spendnest.Core.Transactions;
 
 namespace Spendnest.Console;
@@ -18,6 +19,8 @@ public sealed class SpendnestCommandDispatcher
     private readonly ITransactionRepository transactionRepository;
     private readonly ICategorySpendingReportService reportService;
     private readonly ITransactionCategorizationService categorizationService;
+    private readonly ITransactionCategorizationApplier categorizationApplier;
+    private readonly ITransactionReviewService reviewService;
     private readonly ICredentialStore credentialStore;
     private readonly ILogger<SpendnestCommandDispatcher> logger;
 
@@ -27,6 +30,8 @@ public sealed class SpendnestCommandDispatcher
         ITransactionRepository transactionRepository,
         ICategorySpendingReportService reportService,
         ITransactionCategorizationService categorizationService,
+        ITransactionCategorizationApplier categorizationApplier,
+        ITransactionReviewService reviewService,
         ICredentialStore credentialStore,
         ILogger<SpendnestCommandDispatcher> logger)
     {
@@ -35,6 +40,8 @@ public sealed class SpendnestCommandDispatcher
         this.transactionRepository = transactionRepository;
         this.reportService = reportService;
         this.categorizationService = categorizationService;
+        this.categorizationApplier = categorizationApplier;
+        this.reviewService = reviewService;
         this.credentialStore = credentialStore;
         this.logger = logger;
     }
@@ -68,7 +75,12 @@ public sealed class SpendnestCommandDispatcher
 
         if (command.Equals("ai-key", StringComparison.OrdinalIgnoreCase))
         {
-            return await OpenAiKeyAsync(args, cancellationToken).ConfigureAwait(false);
+            return await AiKeyAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("review", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ReviewAsync(args, cancellationToken).ConfigureAwait(false);
         }
 
         if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
@@ -213,15 +225,16 @@ public sealed class SpendnestCommandDispatcher
 
         var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
         var categorizations = await categorizationService.CategorizeAsync(transactions, cancellationToken).ConfigureAwait(false);
-        var categoriesByCode = BuiltInCategories.All.ToDictionary(category => category.Code, category => category.Name);
+        await categorizationApplier.ApplyAsync(categorizations, cancellationToken).ConfigureAwait(false);
+        var categoriesById = BuiltInCategories.All.ToDictionary(category => category.Id, category => category.Name);
 
         System.Console.WriteLine("Categorization report");
         System.Console.WriteLine();
 
-        foreach (var categorization in categorizations.OrderBy(item => item.NeedsReview).ThenBy(item => item.CategoryCode))
+        foreach (var categorization in categorizations.OrderBy(item => item.NeedsReview).ThenBy(item => item.CategoryId))
         {
             var transaction = transactions.Single(item => item.Id == categorization.TransactionId);
-            var categoryName = categoriesByCode.GetValueOrDefault(categorization.CategoryCode, categorization.CategoryCode);
+            var categoryName = categoriesById.GetValueOrDefault(categorization.CategoryId, categorization.CategoryId.ToString());
             var review = categorization.NeedsReview ? "review" : "ok";
 
             System.Console.WriteLine(
@@ -231,7 +244,71 @@ public sealed class SpendnestCommandDispatcher
         return 0;
     }
 
-    private async Task<int> OpenAiKeyAsync(
+    private async Task<int> ReviewAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        if (args.Count < 2 || args[1].Equals("list", StringComparison.OrdinalIgnoreCase))
+        {
+            var items = await reviewService.ListNeedsReviewAsync(cancellationToken).ConfigureAwait(false);
+            if (items.Count == 0)
+            {
+                System.Console.WriteLine("No transactions need review.");
+                return 0;
+            }
+
+            System.Console.WriteLine("Transactions needing review");
+            System.Console.WriteLine();
+
+            foreach (var item in items)
+            {
+                System.Console.WriteLine(
+                    $"{item.TransactionId} | {item.PostedDate:yyyy-MM-dd} | {item.Amount,10:0.00} | {FormatCategory(item.CategoryId),-24} | {item.Source?.ToString() ?? "Unknown",-10} | {item.Confidence?.ToString("0.00") ?? "--"} | {item.Description}");
+            }
+
+            return 0;
+        }
+
+        if (args[1].Equals("set", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count < 4
+                || !Guid.TryParse(args[2], out var transactionId)
+                || !int.TryParse(args[3], out var categoryId))
+            {
+                System.Console.Error.WriteLine("Usage: review set <transaction-id> <category-id> [--remember]");
+                return 1;
+            }
+
+            await reviewService.SetCategoryAsync(
+                transactionId,
+                categoryId,
+                HasFlag(args, "--remember"),
+                cancellationToken).ConfigureAwait(false);
+            System.Console.WriteLine("Transaction category updated.");
+            return 0;
+        }
+
+        if (args[1].Equals("confirm", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count < 3 || !Guid.TryParse(args[2], out var transactionId))
+            {
+                System.Console.Error.WriteLine("Usage: review confirm <transaction-id> [--remember]");
+                return 1;
+            }
+
+            await reviewService.ConfirmAsync(
+                transactionId,
+                HasFlag(args, "--remember"),
+                cancellationToken).ConfigureAwait(false);
+            System.Console.WriteLine("Transaction category confirmed.");
+            return 0;
+        }
+
+        System.Console.Error.WriteLine("Usage: review list|set|confirm");
+        return 1;
+    }
+
+    private async Task<int> AiKeyAsync(
         IReadOnlyList<string> args,
         CancellationToken cancellationToken)
     {
@@ -301,6 +378,9 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine("  ai-key set");
         System.Console.WriteLine("  ai-key clear");
         System.Console.WriteLine("  ai-report [csv-file...]");
+        System.Console.WriteLine("  review list");
+        System.Console.WriteLine("  review set <transaction-id> <category-id> [--remember]");
+        System.Console.WriteLine("  review confirm <transaction-id> [--remember]");
         System.Console.WriteLine("  exit");
     }
 
@@ -364,5 +444,25 @@ public sealed class SpendnestCommandDispatcher
 
             secret += key.KeyChar;
         }
+    }
+
+    private static bool HasFlag(
+        IReadOnlyList<string> args,
+        string flag)
+    {
+        return args.Any(arg => arg.Equals(flag, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string FormatCategory(int? categoryId)
+    {
+        if (categoryId is null)
+        {
+            return "Uncategorized";
+        }
+
+        return BuiltInCategories.All
+            .FirstOrDefault(category => category.Id == categoryId.Value)
+            ?.Name
+            ?? categoryId.Value.ToString();
     }
 }

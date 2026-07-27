@@ -7,4 +7,5 @@ public sealed record ParsedStatementRow(
     DateOnly PostedDate,
     string OriginalDescription,
     decimal Amount,
-    int SourceRowNumber);
+    int SourceRowNumber,
+    string? SourceCategory = null);

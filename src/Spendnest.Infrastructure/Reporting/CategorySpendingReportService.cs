@@ -12,16 +12,13 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
 {
     private readonly ITransactionRepository transactionRepository;
     private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
-    private readonly ITransactionCategoryMapper categoryMapper;
 
     public CategorySpendingReportService(
         ITransactionRepository transactionRepository,
-        ITransactionCategoryAssignmentRepository assignmentRepository,
-        ITransactionCategoryMapper categoryMapper)
+        ITransactionCategoryAssignmentRepository assignmentRepository)
     {
         this.transactionRepository = transactionRepository;
         this.assignmentRepository = assignmentRepository;
-        this.categoryMapper = categoryMapper;
     }
 
     public async Task<CategorySpendingReport> BuildAsync(CancellationToken cancellationToken)
@@ -40,7 +37,7 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
 
         var lines = transactions
             .GroupBy(transaction => assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId
-                ?? categoryMapper.MapCategoryId(transaction))
+                ?? BuiltInCategoryIds.Other)
             .Select(group => new CategorySpendingReportLine(
                 group.Key,
                 categoryNamesById.GetValueOrDefault(group.Key, group.Key.ToString()),

@@ -28,7 +28,11 @@ public class TransactionReviewServiceTests
                 Explanation = "AI categorization failed."
             },
             CancellationToken.None);
-        var service = new TransactionReviewService(repository, assignmentRepository, new InMemoryCategoryRuleRepository());
+        var service = new TransactionReviewService(
+            repository,
+            assignmentRepository,
+            new InMemoryCategoryRuleRepository(),
+            new TransactionMerchantCodeResolver());
 
         var result = await service.ListNeedsReviewAsync(CancellationToken.None);
 
@@ -62,7 +66,11 @@ public class TransactionReviewServiceTests
                 Explanation = "Needs review."
             },
             CancellationToken.None);
-        var service = new TransactionReviewService(repository, assignmentRepository, ruleRepository);
+        var service = new TransactionReviewService(
+            repository,
+            assignmentRepository,
+            ruleRepository,
+            new TransactionMerchantCodeResolver());
 
         await service.SetCategoryAsync(
             transaction.Id,
@@ -105,7 +113,11 @@ public class TransactionReviewServiceTests
                 Explanation = "Needs review."
             },
             CancellationToken.None);
-        var service = new TransactionReviewService(repository, assignmentRepository, ruleRepository);
+        var service = new TransactionReviewService(
+            repository,
+            assignmentRepository,
+            ruleRepository,
+            new TransactionMerchantCodeResolver());
 
         await service.ConfirmAsync(
             transaction.Id,
@@ -133,7 +145,8 @@ public class TransactionReviewServiceTests
         var service = new TransactionReviewService(
             repository,
             new InMemoryTransactionCategoryAssignmentRepository(),
-            new InMemoryCategoryRuleRepository());
+            new InMemoryCategoryRuleRepository(),
+            new TransactionMerchantCodeResolver());
 
         var act = () => service.SetCategoryAsync(
             transaction.Id,

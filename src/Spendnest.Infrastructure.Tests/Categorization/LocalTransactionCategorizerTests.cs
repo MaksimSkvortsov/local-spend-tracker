@@ -20,7 +20,7 @@ public class LocalTransactionCategorizerTests
         }, CancellationToken.None);
         var categorizer = new LocalTransactionCategorizer(
             ruleRepository,
-            new KeywordTransactionCategoryMapper());
+            new TransactionMerchantCodeResolver());
         var transaction = new Transaction
         {
             Id = Guid.NewGuid(),
@@ -44,7 +44,7 @@ public class LocalTransactionCategorizerTests
     {
         var categorizer = new LocalTransactionCategorizer(
             new InMemoryCategoryRuleRepository(),
-            new KeywordTransactionCategoryMapper());
+            new TransactionMerchantCodeResolver());
         var transaction = new Transaction
         {
             Id = Guid.NewGuid(),

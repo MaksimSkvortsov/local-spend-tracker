@@ -27,6 +27,7 @@ public sealed class CsvStatementParser : IStatementParser
 
     private static readonly string[] DateHeaders = ["Posted Date", "Post Date", "Date", "Transaction Date"];
     private static readonly string[] DescriptionHeaders = ["Description", "Payee", "Merchant", "Details", "Transaction Description"];
+    private static readonly string[] CategoryHeaders = ["Category", "Transaction Category"];
     private static readonly string[] AmountHeaders = ["Amount", "Transaction Amount"];
     private static readonly string[] DebitHeaders = ["Debit", "Debits", "Withdrawal", "Withdrawals", "Charge"];
     private static readonly string[] CreditHeaders = ["Credit", "Credits", "Deposit", "Deposits", "Payment"];
@@ -102,6 +103,7 @@ public sealed class CsvStatementParser : IStatementParser
         return new StatementColumnMappings(
             FindHeader(headers, options.DateColumnName, DateHeaders),
             FindHeader(headers, options.DescriptionColumnName, DescriptionHeaders),
+            FindHeader(headers, options.CategoryColumnName, CategoryHeaders),
             FindHeader(headers, options.AmountColumnName, AmountHeaders),
             FindHeader(headers, options.DebitColumnName, DebitHeaders),
             FindHeader(headers, options.CreditColumnName, CreditHeaders));
@@ -135,6 +137,7 @@ public sealed class CsvStatementParser : IStatementParser
     {
         var dateText = GetField(csv, mappings.DateColumnName);
         var description = GetField(csv, mappings.DescriptionColumnName);
+        var sourceCategory = GetField(csv, mappings.CategoryColumnName);
 
         if (string.IsNullOrWhiteSpace(dateText) && string.IsNullOrWhiteSpace(description))
         {
@@ -160,7 +163,8 @@ public sealed class CsvStatementParser : IStatementParser
             postedDate,
             description.Trim(),
             amount,
-            sourceRowNumber));
+            sourceRowNumber,
+            string.IsNullOrWhiteSpace(sourceCategory) ? null : sourceCategory.Trim()));
     }
 
     private static bool TryParseDate(
@@ -294,6 +298,7 @@ public sealed class CsvStatementParser : IStatementParser
     private sealed record StatementColumnMappings(
         string? DateColumnName,
         string? DescriptionColumnName,
+        string? CategoryColumnName,
         string? AmountColumnName,
         string? DebitColumnName,
         string? CreditColumnName);

@@ -2,11 +2,9 @@ namespace Spendnest.Infrastructure.Tests.Reporting;
 
 using FluentAssertions;
 using Spendnest.Core.Categories;
-using Spendnest.Core.Importing;
+using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
-using Spendnest.Infrastructure.Accounts;
 using Spendnest.Infrastructure.Categorization;
-using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure.Transactions;
 
@@ -16,52 +14,60 @@ public class CategorySpendingReportServiceTests
     public async Task BuildAsync_ShouldGroupAllRepositoryTransactionsByCategory()
     {
         var repository = new InMemoryTransactionRepository();
-        var importService = new StatementFileImportService(
-            new CsvStatementParser(),
-            repository,
-            new InMemoryCardAccountRepository());
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
         var reportService = new CategorySpendingReportService(
             repository,
-            new InMemoryTransactionCategoryAssignmentRepository(),
-            new KeywordTransactionCategoryMapper());
+            assignmentRepository);
+        var groceries = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
+        var restaurant = Transaction("CAFE RIO VERDE", 30.40m);
+        var unassigned = Transaction("UNKNOWN MERCHANT", 24.13m);
 
-        await importService.ImportAsync(FixturePath("bank-of-america.csv"), new StatementFileImportOptions(), CancellationToken.None);
-        await importService.ImportAsync(FixturePath("capital-one.csv"), new StatementFileImportOptions(), CancellationToken.None);
+        await repository.AddRangeAsync([groceries, restaurant, unassigned], CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(groceries.Id, BuiltInCategoryIds.Groceries),
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(restaurant.Id, BuiltInCategoryIds.RestaurantsAndCoffee),
+            CancellationToken.None);
 
         var report = await reportService.BuildAsync(CancellationToken.None);
 
         report.Lines.Should().Contain(line =>
             line.CategoryId == BuiltInCategoryIds.Groceries
-            && line.TransactionCount == 2
-            && line.Amount == 165.96m);
+            && line.TransactionCount == 1
+            && line.Amount == 141.83m);
         report.Lines.Should().Contain(line =>
             line.CategoryId == BuiltInCategoryIds.RestaurantsAndCoffee
-            && line.TransactionCount == 2
+            && line.TransactionCount == 1
             && line.Amount == 30.40m);
         report.Lines.Should().Contain(line =>
-            line.CategoryId == BuiltInCategoryIds.Subscriptions
+            line.CategoryId == BuiltInCategoryIds.Other
             && line.TransactionCount == 1
-            && line.Amount == 4.99m);
-        report.Lines.Should().Contain(line =>
-            line.CategoryId == BuiltInCategoryIds.CreditCardPayment
-            && line.TransactionCount == 1
-            && line.Amount == -2193.82m);
-        report.TotalSpending.Should().Be(-1992.47m);
+            && line.Amount == 24.13m);
+        report.TotalSpending.Should().Be(196.36m);
     }
 
     [Fact]
     public async Task BuildAsync_ShouldKeepKnownMerchantRefundsInsideOriginalCategory()
     {
         var repository = new InMemoryTransactionRepository();
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
         var reportService = new CategorySpendingReportService(
             repository,
-            new InMemoryTransactionCategoryAssignmentRepository(),
-            new KeywordTransactionCategoryMapper());
+            assignmentRepository);
+        var purchase = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
+        var refund = Transaction("BULK MART REFUND RIVERTON VA", -14.25m);
         await repository.AddRangeAsync(
             [
-                Transaction("BULK MART #0218 RIVERTON VA", 141.83m),
-                Transaction("BULK MART REFUND RIVERTON VA", -14.25m)
+                purchase,
+                refund
             ],
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(purchase.Id, BuiltInCategoryIds.Groceries),
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(refund.Id, BuiltInCategoryIds.Groceries),
             CancellationToken.None);
 
         var report = await reportService.BuildAsync(CancellationToken.None);
@@ -78,11 +84,6 @@ public class CategorySpendingReportServiceTests
         report.TotalSpending.Should().Be(127.58m);
     }
 
-    private static string FixturePath(string fileName)
-    {
-        return Path.Combine(AppContext.BaseDirectory, "Fixtures", "Csv", fileName);
-    }
-
     private static Transaction Transaction(
         string description,
         decimal amount)
@@ -95,6 +96,21 @@ public class CategorySpendingReportServiceTests
             OriginalDescription = description,
             Amount = amount,
             ImportedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
+
+    private static TransactionCategoryAssignment Assignment(
+        Guid transactionId,
+        int categoryId)
+    {
+        return new TransactionCategoryAssignment
+        {
+            TransactionId = transactionId,
+            CategoryId = categoryId,
+            Confidence = 1m,
+            NeedsReview = false,
+            Source = CategorizationSource.LocalRules,
+            Explanation = "Matched learned merchant rule."
         };
     }
 }

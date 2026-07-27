@@ -12,15 +12,21 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
     private readonly ILocalTransactionCategorizer localCategorizer;
     private readonly ITransactionCategorizer aiCategorizer;
     private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
+    private readonly ICategoryRuleRepository categoryRuleRepository;
+    private readonly ITransactionMerchantCodeResolver merchantCodeResolver;
 
     public TransactionCategorizationService(
         ILocalTransactionCategorizer localCategorizer,
         ITransactionCategorizer aiCategorizer,
-        ITransactionCategoryAssignmentRepository assignmentRepository)
+        ITransactionCategoryAssignmentRepository assignmentRepository,
+        ICategoryRuleRepository categoryRuleRepository,
+        ITransactionMerchantCodeResolver merchantCodeResolver)
     {
         this.localCategorizer = localCategorizer;
         this.aiCategorizer = aiCategorizer;
         this.assignmentRepository = assignmentRepository;
+        this.categoryRuleRepository = categoryRuleRepository;
+        this.merchantCodeResolver = merchantCodeResolver;
     }
 
     public async Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
@@ -83,6 +89,10 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
                 ? result
                 : CreateInvalidResult(result))
             .ToArray();
+        await RememberAcceptedAiRulesAsync(
+            acceptedAiResults,
+            unresolvedTransactions,
+            cancellationToken).ConfigureAwait(false);
         var aiResultIds = acceptedAiResults.Select(result => result.TransactionId).ToHashSet();
         var stillUnresolved = unresolvedTransactions
             .Where(transaction => !aiResultIds.Contains(transaction.Id))
@@ -94,6 +104,34 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
             .Concat(acceptedAiResults)
             .Concat(stillUnresolved)
             .ToArray();
+    }
+
+    private async Task RememberAcceptedAiRulesAsync(
+        IReadOnlyList<TransactionCategorization> acceptedAiResults,
+        IReadOnlyList<Transaction> unresolvedTransactions,
+        CancellationToken cancellationToken)
+    {
+        var transactionsById = unresolvedTransactions.ToDictionary(transaction => transaction.Id);
+
+        foreach (var result in acceptedAiResults)
+        {
+            if (result.NeedsReview
+                || result.Source is CategorizationSource.Unresolved
+                || result.CategoryId == BuiltInCategoryIds.Other
+                || !transactionsById.TryGetValue(result.TransactionId, out var transaction))
+            {
+                continue;
+            }
+
+            await categoryRuleRepository.AddAsync(
+                new CategoryRule
+                {
+                    Pattern = merchantCodeResolver.Resolve(transaction),
+                    CategoryId = result.CategoryId,
+                    MatchType = CategoryRuleMatchType.Exact
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static TransactionCategorization CreateInvalidResult(TransactionCategorization result)

@@ -31,9 +31,27 @@ public class CsvStatementParserTests
         result.Rows.Should().HaveCount(4);
         result.Rows.Should().OnlyContain(row => row.PostedDate == new DateOnly(2025, 12, 31));
         result.Rows[0].Amount.Should().Be(-2193.82m);
+        result.Rows[0].SourceCategory.Should().Be("Payment/Credit");
         result.Rows[1].Amount.Should().Be(8.40m);
+        result.Rows[1].SourceCategory.Should().Be("Dining");
         result.Rows[2].Amount.Should().Be(24.13m);
+        result.Rows[2].SourceCategory.Should().Be("Merchandise");
         result.Rows[3].Amount.Should().Be(22.00m);
+        result.Rows[3].SourceCategory.Should().Be("Dining");
+    }
+
+    [Fact]
+    public async Task ParseAsync_ShouldCaptureOptionalSourceCategory()
+    {
+        const string csv = """
+            Date,Description,Category,Amount
+            07/01/2026,Hotel Stay,Lodging,-142.10
+            """;
+
+        var result = await ParseAsync(csv);
+
+        result.Rows.Should().ContainSingle()
+            .Which.SourceCategory.Should().Be("Lodging");
     }
 
     [Fact]

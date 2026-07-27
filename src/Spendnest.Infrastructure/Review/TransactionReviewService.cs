@@ -13,15 +13,18 @@ public sealed class TransactionReviewService : ITransactionReviewService
     private readonly ITransactionRepository transactionRepository;
     private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
     private readonly ICategoryRuleRepository categoryRuleRepository;
+    private readonly ITransactionMerchantCodeResolver merchantCodeResolver;
 
     public TransactionReviewService(
         ITransactionRepository transactionRepository,
         ITransactionCategoryAssignmentRepository assignmentRepository,
-        ICategoryRuleRepository categoryRuleRepository)
+        ICategoryRuleRepository categoryRuleRepository,
+        ITransactionMerchantCodeResolver merchantCodeResolver)
     {
         this.transactionRepository = transactionRepository;
         this.assignmentRepository = assignmentRepository;
         this.categoryRuleRepository = categoryRuleRepository;
+        this.merchantCodeResolver = merchantCodeResolver;
     }
 
     public async Task<IReadOnlyList<TransactionReviewItem>> ListNeedsReviewAsync(CancellationToken cancellationToken)
@@ -129,7 +132,7 @@ public sealed class TransactionReviewService : ITransactionReviewService
         await categoryRuleRepository.AddAsync(
             new CategoryRule
             {
-                Pattern = transaction.OriginalDescription,
+                Pattern = merchantCodeResolver.Resolve(transaction),
                 CategoryId = categoryId,
                 MatchType = CategoryRuleMatchType.Exact
             },

@@ -11,6 +11,13 @@ public class TransactionCategorizationServiceTests
     [Fact]
     public async Task CategorizeAsync_ShouldUseLocalFirstAndSendOnlyUnresolvedTransactionsToAi()
     {
+        var ruleRepository = new InMemoryCategoryRuleRepository();
+        await ruleRepository.AddAsync(new CategoryRule
+        {
+            Pattern = "BULK MART",
+            CategoryId = BuiltInCategoryIds.Groceries,
+            MatchType = CategoryRuleMatchType.Exact
+        }, CancellationToken.None);
         var localTransaction = new Transaction
         {
             Id = Guid.NewGuid(),
@@ -31,7 +38,7 @@ public class TransactionCategorizationServiceTests
                 false,
                 CategorizationSource.LocalAi,
                 "Resolved by test AI.")).ToArray());
-        var service = CreateService(aiCategorizer);
+        var service = CreateService(aiCategorizer, categoryRuleRepository: ruleRepository);
 
         var result = await service.CategorizeAsync([localTransaction, unresolvedTransaction], CancellationToken.None);
 
@@ -44,6 +51,50 @@ public class TransactionCategorizationServiceTests
             categorization.TransactionId == unresolvedTransaction.Id
             && categorization.CategoryId == BuiltInCategoryIds.Entertainment
             && categorization.Source == CategorizationSource.LocalAi);
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldRememberHighConfidenceAiResultsAsMerchantRules()
+    {
+        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var firstTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "TINY CINEMA #7781",
+            Amount = 19.99m
+        };
+        var secondTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "TINY CINEMA #9912",
+            Amount = 21.99m
+        };
+        var aiCategorizer = new RecordingTransactionCategorizer(transactions =>
+            transactions.Select(transaction => new TransactionCategorization(
+                transaction.Id,
+                BuiltInCategoryIds.Entertainment,
+                0.91m,
+                false,
+                CategorizationSource.Ai,
+                "Resolved by test AI.")).ToArray());
+        var service = CreateService(aiCategorizer, categoryRuleRepository: ruleRepository);
+
+        var firstResult = await service.CategorizeAsync([firstTransaction], CancellationToken.None);
+        var secondResult = await service.CategorizeAsync([secondTransaction], CancellationToken.None);
+
+        firstResult.Should().ContainSingle(categorization =>
+            categorization.TransactionId == firstTransaction.Id
+            && categorization.Source == CategorizationSource.Ai);
+        secondResult.Should().ContainSingle(categorization =>
+            categorization.TransactionId == secondTransaction.Id
+            && categorization.CategoryId == BuiltInCategoryIds.Entertainment
+            && categorization.Source == CategorizationSource.LocalRules);
+        aiCategorizer.SeenTransactionIds.Should().Equal(firstTransaction.Id);
+        var rules = await ruleRepository.ListAsync(CancellationToken.None);
+        rules.Should().ContainSingle(rule =>
+            rule.Pattern == "TINY CINEMA"
+            && rule.CategoryId == BuiltInCategoryIds.Entertainment
+            && rule.MatchType == CategoryRuleMatchType.Exact);
     }
 
     [Fact]
@@ -141,14 +192,20 @@ public class TransactionCategorizationServiceTests
 
     private static TransactionCategorizationService CreateService(
         ITransactionCategorizer aiCategorizer,
-        ITransactionCategoryAssignmentRepository assignmentRepository)
+        ITransactionCategoryAssignmentRepository? assignmentRepository = null,
+        ICategoryRuleRepository? categoryRuleRepository = null)
     {
+        var rules = categoryRuleRepository ?? new InMemoryCategoryRuleRepository();
+        var merchantCodeResolver = new TransactionMerchantCodeResolver();
+
         return new TransactionCategorizationService(
             new LocalTransactionCategorizer(
-                new InMemoryCategoryRuleRepository(),
-                new KeywordTransactionCategoryMapper()),
+                rules,
+                merchantCodeResolver),
             aiCategorizer,
-            assignmentRepository);
+            assignmentRepository ?? new InMemoryTransactionCategoryAssignmentRepository(),
+            rules,
+            merchantCodeResolver);
     }
 
     private sealed class RecordingTransactionCategorizer : ITransactionCategorizer

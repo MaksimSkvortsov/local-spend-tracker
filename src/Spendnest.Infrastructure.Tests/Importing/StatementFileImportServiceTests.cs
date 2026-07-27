@@ -2,7 +2,6 @@ namespace Spendnest.Infrastructure.Tests.Importing;
 
 using FluentAssertions;
 using Spendnest.Core.Importing;
-using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Accounts;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Transactions;

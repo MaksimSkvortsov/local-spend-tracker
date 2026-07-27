@@ -50,16 +50,17 @@ public sealed class StatementFileImportService : IStatementFileImportService
             .ToHashSet(StringComparer.Ordinal);
         var skippedDuplicateCount = 0;
         var transactions = parseResult.Rows
-            .Select(row => new Transaction
-            {
-                Id = Guid.NewGuid(),
-                CardAccountId = cardAccount.Id,
-                PostedDate = row.PostedDate,
-                OriginalDescription = row.OriginalDescription,
-                Amount = row.Amount,
-                SourceRowNumber = row.SourceRowNumber,
-                ImportedAtUtc = importedAtUtc
-            })
+            .Select(row =>
+                new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    CardAccountId = cardAccount.Id,
+                    PostedDate = row.PostedDate,
+                    OriginalDescription = row.OriginalDescription,
+                    Amount = row.Amount,
+                    SourceRowNumber = row.SourceRowNumber,
+                    ImportedAtUtc = importedAtUtc
+                })
             .Where(transaction =>
             {
                 var fingerprint = TransactionFingerprint.Create(transaction);

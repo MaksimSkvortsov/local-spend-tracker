@@ -5,19 +5,19 @@ using Spendnest.Core.Transactions;
 namespace Spendnest.Infrastructure.Categorization;
 
 /// <summary>
-/// Applies stored local rules and deterministic keywords before AI is used.
+/// Applies stored local rules before AI is used.
 /// </summary>
 public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
 {
     private readonly ICategoryRuleRepository ruleRepository;
-    private readonly ITransactionCategoryMapper keywordMapper;
+    private readonly ITransactionMerchantCodeResolver merchantCodeResolver;
 
     public LocalTransactionCategorizer(
         ICategoryRuleRepository ruleRepository,
-        ITransactionCategoryMapper keywordMapper)
+        ITransactionMerchantCodeResolver merchantCodeResolver)
     {
         this.ruleRepository = ruleRepository;
-        this.keywordMapper = keywordMapper;
+        this.merchantCodeResolver = merchantCodeResolver;
     }
 
     public async Task<IReadOnlyList<TransactionCategorization>> CategorizeKnownAsync(
@@ -32,8 +32,7 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
 
         foreach (var transaction in transactions)
         {
-            var categoryId = FindRuleCategoryId(transaction, rules)
-                ?? FindKeywordCategoryId(transaction);
+            var categoryId = FindRuleCategoryId(transaction, rules);
 
             if (categoryId is null)
             {
@@ -52,18 +51,19 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
         return results;
     }
 
-    private static int? FindRuleCategoryId(
+    private int? FindRuleCategoryId(
         Transaction transaction,
         IReadOnlyList<CategoryRule> rules)
     {
         var description = Normalize(transaction.OriginalDescription);
+        var merchantCode = merchantCodeResolver.Resolve(transaction);
 
         foreach (var rule in rules.OrderBy(rule => rule.MatchType))
         {
             var pattern = Normalize(rule.Pattern);
             var isMatch = rule.MatchType switch
             {
-                CategoryRuleMatchType.Exact => description == pattern,
+                CategoryRuleMatchType.Exact => merchantCode == pattern,
                 CategoryRuleMatchType.Contains => description.Contains(pattern),
                 _ => false
             };
@@ -75,15 +75,6 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
         }
 
         return null;
-    }
-
-    private int? FindKeywordCategoryId(Transaction transaction)
-    {
-        var categoryId = keywordMapper.MapCategoryId(transaction);
-
-        return categoryId is BuiltInCategoryIds.Other
-            ? null
-            : categoryId;
     }
 
     private static string Normalize(string value)

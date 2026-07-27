@@ -40,11 +40,10 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<ICardAccountRepository, InMemoryCardAccountRepository>()
     .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
-    .AddSingleton<ITransactionCategoryMapper, KeywordTransactionCategoryMapper>()
+    .AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>()
     .AddSingleton<ICategoryRuleRepository, InMemoryCategoryRuleRepository>()
     .AddSingleton<ITransactionCategoryAssignmentRepository, InMemoryTransactionCategoryAssignmentRepository>()
     .AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>()
-    .AddSingleton<FakeTransactionCategorizer>()
     .AddSingleton<HttpClient>()
     .AddSingleton(new OpenAiCategorizerOptions
     {

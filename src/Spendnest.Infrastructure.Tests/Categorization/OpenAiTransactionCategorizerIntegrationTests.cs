@@ -49,6 +49,12 @@ public class OpenAiTransactionCategorizerIntegrationTests
             categorization.Confidence >= 0m && categorization.Confidence <= 1m);
         result.Should().OnlyContain(categorization => categorization.Source == CategorizationSource.Ai);
         result.Should().OnlyContain(categorization => !string.IsNullOrWhiteSpace(categorization.Explanation));
+        result.Single(categorization => categorization.TransactionId == transactions[0].Id)
+            .CategoryId.Should().Be(BuiltInCategoryIds.Groceries);
+        result.Single(categorization => categorization.TransactionId == transactions[1].Id)
+            .CategoryId.Should().Be(BuiltInCategoryIds.Entertainment);
+        result.Single(categorization => categorization.TransactionId == transactions[2].Id)
+            .CategoryId.Should().Be(BuiltInCategoryIds.CreditCardPayment);
     }
 
     private static bool IsEnabled()

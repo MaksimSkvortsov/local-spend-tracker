@@ -2,6 +2,7 @@ namespace Spendnest.Infrastructure.Tests.Categorization;
 
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using FluentAssertions;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
@@ -58,6 +59,127 @@ public class StoredOpenAiTransactionCategorizerTests
             false,
             CategorizationSource.Ai,
             "Test AI result."));
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldSplitLargeInputsIntoConfiguredBatches()
+    {
+        var transactions = new[]
+        {
+            Transaction("FIRST PLACE"),
+            Transaction("SECOND PLACE"),
+            Transaction("THIRD PLACE")
+        };
+        var requestTransactionCounts = new List<int>();
+        var categorizer = new StoredOpenAiTransactionCategorizer(
+            new InMemoryCredentialStore(new Dictionary<string, string?>
+            {
+                [CredentialKeys.OpenAiApiKey] = "test-key"
+            }),
+            new HttpClient(new StubHttpMessageHandler(request =>
+            {
+                var requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                using var requestJson = JsonDocument.Parse(requestBody);
+                var userContent = requestJson.RootElement.GetProperty("input")[1].GetProperty("content").GetString();
+                using var userContentJson = JsonDocument.Parse(userContent!);
+                var batchTransactionIds = userContentJson.RootElement
+                    .GetProperty("transactions")
+                    .EnumerateArray()
+                    .Select(transaction => transaction.GetProperty("id").GetString())
+                    .ToArray();
+                requestTransactionCounts.Add(batchTransactionIds.Length);
+                var responseItems = batchTransactionIds.Select(transactionId => new
+                {
+                    transactionId,
+                    categoryId = BuiltInCategoryIds.Other,
+                    confidence = 0.82m,
+                    explanation = "Test batch result."
+                });
+                var output = JsonSerializer.Serialize(new { items = responseItems });
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { output_text = output }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            })),
+            new OpenAiCategorizerOptions
+            {
+                MaxTransactionsPerRequest = 2
+            });
+
+        var result = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+
+        requestTransactionCounts.Should().Equal(2, 1);
+        result.Select(categorization => categorization.TransactionId)
+            .Should().BeEquivalentTo(transactions.Select(transaction => transaction.Id));
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldKeepSuccessfulBatchesWhenLaterBatchTimesOut()
+    {
+        var transactions = new[]
+        {
+            Transaction("FIRST PLACE"),
+            Transaction("SECOND PLACE"),
+            Transaction("THIRD PLACE")
+        };
+        var requestCount = 0;
+        var categorizer = new StoredOpenAiTransactionCategorizer(
+            new InMemoryCredentialStore(new Dictionary<string, string?>
+            {
+                [CredentialKeys.OpenAiApiKey] = "test-key"
+            }),
+            new HttpClient(new StubHttpMessageHandler(request =>
+            {
+                requestCount++;
+                if (requestCount == 2)
+                {
+                    throw new TimeoutException("Batch timeout.");
+                }
+
+                var requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                using var requestJson = JsonDocument.Parse(requestBody);
+                var userContent = requestJson.RootElement.GetProperty("input")[1].GetProperty("content").GetString();
+                using var userContentJson = JsonDocument.Parse(userContent!);
+                var batchTransactionIds = userContentJson.RootElement
+                    .GetProperty("transactions")
+                    .EnumerateArray()
+                    .Select(transaction => transaction.GetProperty("id").GetString())
+                    .ToArray();
+                var responseItems = batchTransactionIds.Select(transactionId => new
+                {
+                    transactionId,
+                    categoryId = BuiltInCategoryIds.Groceries,
+                    confidence = 0.91m,
+                    explanation = "Test batch result."
+                });
+                var output = JsonSerializer.Serialize(new { items = responseItems });
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { output_text = output }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            })),
+            new OpenAiCategorizerOptions
+            {
+                MaxTransactionsPerRequest = 2
+            });
+
+        var result = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+
+        result.Should().HaveCount(3);
+        result.Where(categorization => categorization.Source == CategorizationSource.Ai)
+            .Should().HaveCount(2);
+        result.Should().ContainSingle(categorization =>
+            categorization.TransactionId == transactions[2].Id
+            && categorization.Source == CategorizationSource.Unresolved
+            && categorization.Explanation == "AI categorization timed out.");
     }
 
     private static Transaction Transaction(string description)

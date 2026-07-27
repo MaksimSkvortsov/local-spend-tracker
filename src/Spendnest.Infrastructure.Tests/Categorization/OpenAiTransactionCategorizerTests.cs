@@ -55,9 +55,10 @@ public class OpenAiTransactionCategorizerTests
         using var userContentJson = JsonDocument.Parse(userContent!);
         var transactionJson = userContentJson.RootElement.GetProperty("transactions").EnumerateArray().Single();
         transactionJson.EnumerateObject().Select(property => property.Name)
-            .Should().BeEquivalentTo(["id", "description"]);
+            .Should().BeEquivalentTo(["id", "description", "amount"]);
         transactionJson.GetProperty("id").GetString().Should().Be(transaction.Id.ToString());
         transactionJson.GetProperty("description").GetString().Should().Be("BULK MART #0218 RIVERTON VA");
+        transactionJson.GetProperty("amount").GetDecimal().Should().Be(141.83m);
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,

@@ -47,7 +47,7 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<HttpClient>()
     .AddSingleton(new OpenAiCategorizerOptions
     {
-        Model = configuration["OpenAI:Model"] ?? "gpt-5.6-sol"
+        Model = configuration["OpenAI:Model"] ?? "gpt-5.6-luna"
     })
     .AddSingleton<ITransactionCategorizer, StoredOpenAiTransactionCategorizer>()
     .AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>()

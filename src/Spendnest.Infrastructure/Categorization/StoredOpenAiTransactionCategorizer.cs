@@ -1,5 +1,6 @@
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
+using Spendnest.Core.Categories;
 using Spendnest.Core.Transactions;
 
 namespace Spendnest.Infrastructure.Categorization;
@@ -33,27 +34,54 @@ public sealed class StoredOpenAiTransactionCategorizer : ITransactionCategorizer
             throw new InvalidOperationException("OpenAI API key is required for OpenAI categorization.");
         }
 
-        var categorizer = new OpenAiTransactionCategorizer(
-            httpClient,
-            new OpenAiCategorizerOptions
+        var batchSize = Math.Max(1, options.MaxTransactionsPerRequest);
+        var results = new List<TransactionCategorization>();
+        var categorizerOptions = new OpenAiCategorizerOptions
+        {
+            ApiKey = apiKey,
+            Endpoint = options.Endpoint,
+            Model = options.Model,
+            ReviewConfidenceThreshold = options.ReviewConfidenceThreshold,
+            RequestTimeout = options.RequestTimeout,
+            MaxTransactionsPerRequest = options.MaxTransactionsPerRequest
+        };
+        var categorizer = new OpenAiTransactionCategorizer(httpClient, categorizerOptions);
+
+        foreach (var batch in transactions.Chunk(batchSize))
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(options.RequestTimeout);
+
+            try
             {
-                ApiKey = apiKey,
-                Endpoint = options.Endpoint,
-                Model = options.Model,
-                ReviewConfidenceThreshold = options.ReviewConfidenceThreshold,
-                RequestTimeout = options.RequestTimeout
-            });
-
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(options.RequestTimeout);
-
-        try
-        {
-            return await categorizer.CategorizeAsync(transactions, timeout.Token).ConfigureAwait(false);
+                var batchResults = await categorizer.CategorizeAsync(batch, timeout.Token).ConfigureAwait(false);
+                results.AddRange(batchResults);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
+            {
+                results.AddRange(CreateUnresolvedResults(batch, "AI categorization timed out."));
+            }
+            catch (TimeoutException)
+            {
+                results.AddRange(CreateUnresolvedResults(batch, "AI categorization timed out."));
+            }
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
-        {
-            throw new TimeoutException($"OpenAI categorization timed out after {options.RequestTimeout.TotalSeconds:0} seconds.");
-        }
+
+        return results;
+    }
+
+    private static IReadOnlyList<TransactionCategorization> CreateUnresolvedResults(
+        IReadOnlyList<Transaction> transactions,
+        string explanation)
+    {
+        return transactions
+            .Select(transaction => new TransactionCategorization(
+                transaction.Id,
+                BuiltInCategoryIds.Other,
+                0m,
+                true,
+                CategorizationSource.Unresolved,
+                explanation))
+            .ToArray();
     }
 }

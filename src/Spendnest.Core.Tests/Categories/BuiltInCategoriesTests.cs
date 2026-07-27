@@ -24,8 +24,16 @@ public class BuiltInCategoriesTests
             BuiltInCategoryIds.PersonalCare,
             BuiltInCategoryIds.FeesAndCharges,
             BuiltInCategoryIds.CreditCardPayment,
-            BuiltInCategoryIds.Refund,
             BuiltInCategoryIds.Other);
+    }
+
+    [Fact]
+    public void All_ShouldNotContainRefundCategory()
+    {
+        BuiltInCategories.All
+            .Select(category => category.Name)
+            .Should()
+            .NotContain("Refund");
     }
 
     [Fact]

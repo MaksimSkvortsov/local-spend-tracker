@@ -74,7 +74,7 @@ public class CategorySpendingReportServiceTests
                 TransactionCount = 2,
                 Amount = 127.58m
             });
-        report.Lines.Should().NotContain(line => line.CategoryId == BuiltInCategoryIds.Refund);
+        report.Lines.Should().NotContain(line => line.CategoryName == "Refund");
         report.TotalSpending.Should().Be(127.58m);
     }
 

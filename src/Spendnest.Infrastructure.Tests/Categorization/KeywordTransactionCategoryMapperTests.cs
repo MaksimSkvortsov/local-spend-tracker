@@ -28,7 +28,7 @@ public class KeywordTransactionCategoryMapperTests
     }
 
     [Fact]
-    public void MapCategoryId_ShouldUseRefundForUnmatchedNegativeTransactions()
+    public void MapCategoryId_ShouldUseOtherForUnmatchedNegativeTransactions()
     {
         var transaction = new Transaction
         {
@@ -36,7 +36,7 @@ public class KeywordTransactionCategoryMapperTests
             Amount = -5m
         };
 
-        mapper.MapCategoryId(transaction).Should().Be(BuiltInCategoryIds.Refund);
+        mapper.MapCategoryId(transaction).Should().Be(BuiltInCategoryIds.Other);
     }
 
     [Fact]

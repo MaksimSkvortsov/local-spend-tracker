@@ -81,7 +81,7 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
     {
         var categoryId = keywordMapper.MapCategoryId(transaction);
 
-        return categoryId is BuiltInCategoryIds.Other or BuiltInCategoryIds.Refund
+        return categoryId is BuiltInCategoryIds.Other
             ? null
             : categoryId;
     }

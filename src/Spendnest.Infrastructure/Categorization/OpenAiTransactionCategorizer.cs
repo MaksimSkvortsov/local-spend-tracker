@@ -75,7 +75,7 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
                 new
                 {
                     role = "system",
-                    content = "You categorize credit-card transaction descriptions for Spendnest. Use only the provided category ids. If a description clearly belongs to a spending category, use that category even when the transaction is a refund. Use Refund only when the description is an uncategorized refund or credit. Return concise explanations."
+                    content = "You categorize credit-card transaction descriptions for Spendnest. Use only the provided category ids. Refunds and credits are not a category. If a description clearly belongs to a spending category, use that original spending category even when the amount is a refund or credit. Use Other when the original spending category cannot be inferred. Return concise explanations."
                 },
                 new
                 {

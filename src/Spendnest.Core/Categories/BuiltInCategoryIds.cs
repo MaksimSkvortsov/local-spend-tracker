@@ -18,6 +18,5 @@ public static class BuiltInCategoryIds
     public const int PersonalCare = 11;
     public const int FeesAndCharges = 12;
     public const int CreditCardPayment = 13;
-    public const int Refund = 14;
     public const int Other = 15;
 }

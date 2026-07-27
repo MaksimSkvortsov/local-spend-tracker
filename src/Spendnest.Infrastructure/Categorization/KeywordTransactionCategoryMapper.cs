@@ -34,8 +34,6 @@ public sealed class KeywordTransactionCategoryMapper : ITransactionCategoryMappe
             }
         }
 
-        return transaction.Amount < 0
-            ? BuiltInCategoryIds.Refund
-            : BuiltInCategoryIds.Other;
+        return BuiltInCategoryIds.Other;
     }
 }

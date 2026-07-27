@@ -20,7 +20,6 @@ public static class BuiltInCategories
         new(BuiltInCategoryIds.PersonalCare, "Personal Care", 110),
         new(BuiltInCategoryIds.FeesAndCharges, "Fees & Charges", 120),
         new(BuiltInCategoryIds.CreditCardPayment, "Credit Card Payment", 130),
-        new(BuiltInCategoryIds.Refund, "Refund", 140),
         new(BuiltInCategoryIds.Other, "Other", 150)
     ];
 }

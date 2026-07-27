@@ -146,7 +146,7 @@ public sealed class SpendnestCommandDispatcher
             return 1;
         }
 
-        var result = await importService.ImportAsync(
+        var (result, categorizations) = await ImportAndCategorizeAsync(
             csvFilePath,
             ParseImportOptions(args.Skip(2)),
             cancellationToken).ConfigureAwait(false);
@@ -156,6 +156,7 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine($"Transactions saved: {result.SavedTransactionCount}");
         System.Console.WriteLine($"Duplicate transactions skipped: {result.SkippedDuplicateTransactionCount}");
         System.Console.WriteLine($"Failed rows: {result.FailedRowCount}");
+        PrintCategorizationSummary(categorizations);
         System.Console.WriteLine();
 
         foreach (var transaction in result.SavedTransactions.Take(10))
@@ -198,7 +199,7 @@ public sealed class SpendnestCommandDispatcher
                     return 1;
                 }
 
-                await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
+                await ImportAndCategorizeAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -220,7 +221,7 @@ public sealed class SpendnestCommandDispatcher
                 return 1;
             }
 
-            await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
+            await ImportAndCategorizeAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
         }
 
         var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
@@ -416,6 +417,42 @@ public sealed class SpendnestCommandDispatcher
         }
 
         return new StatementFileImportOptions();
+    }
+
+    private async Task<(StatementFileImportResult Result, IReadOnlyList<TransactionCategorization> Categorizations)> ImportAndCategorizeAsync(
+        string csvFilePath,
+        StatementFileImportOptions options,
+        CancellationToken cancellationToken)
+    {
+        var result = await importService.ImportAsync(csvFilePath, options, cancellationToken).ConfigureAwait(false);
+        var categorizations = await categorizationService
+            .CategorizeAsync(result.SavedTransactions, cancellationToken)
+            .ConfigureAwait(false);
+        await categorizationApplier.ApplyAsync(categorizations, cancellationToken).ConfigureAwait(false);
+
+        return (result, categorizations);
+    }
+
+    private static void PrintCategorizationSummary(IReadOnlyList<TransactionCategorization> categorizations)
+    {
+        if (categorizations.Count == 0)
+        {
+            return;
+        }
+
+        var needsReviewCount = categorizations.Count(categorization => categorization.NeedsReview);
+        var timeoutCount = categorizations.Count(categorization => categorization.Explanation.Contains("timed out", StringComparison.OrdinalIgnoreCase));
+        var aiCount = categorizations.Count(categorization => categorization.Source == CategorizationSource.Ai);
+        var localCount = categorizations.Count(categorization => categorization.Source == CategorizationSource.LocalRules);
+
+        System.Console.WriteLine($"Categorized: {categorizations.Count}");
+        System.Console.WriteLine($"Saved-rule matches: {localCount}");
+        System.Console.WriteLine($"AI matches: {aiCount}");
+        System.Console.WriteLine($"Needs review: {needsReviewCount}");
+        if (timeoutCount > 0)
+        {
+            System.Console.WriteLine($"AI timeouts: {timeoutCount}");
+        }
     }
 
     private static string ReadSecret(string prompt)

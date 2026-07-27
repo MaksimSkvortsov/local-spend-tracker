@@ -74,6 +74,16 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         {
             aiResults = await aiCategorizer.CategorizeAsync(unresolvedTransactions, cancellationToken).ConfigureAwait(false);
         }
+        catch (TimeoutException)
+        {
+            aiResults = unresolvedTransactions
+                .Select(transaction => CreateUnresolvedResult(transaction, "AI categorization timed out."))
+                .ToArray();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch
         {
             aiResults = unresolvedTransactions

@@ -120,6 +120,46 @@ public class TransactionCategorizationServiceTests
     }
 
     [Fact]
+    public async Task CategorizeAsync_ShouldMarkUnresolvedWhenAiTimesOut()
+    {
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "MYSTERY PLACE",
+            Amount = 19.99m
+        };
+        var service = CreateService(new TimeoutTransactionCategorizer());
+
+        var result = await service.CategorizeAsync([transaction], CancellationToken.None);
+
+        result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
+            transaction.Id,
+            BuiltInCategoryIds.Other,
+            0m,
+            true,
+            CategorizationSource.Unresolved,
+            "AI categorization timed out."));
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldPropagateCallerCancellation()
+    {
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "MYSTERY PLACE",
+            Amount = 19.99m
+        };
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var service = CreateService(new CanceledTransactionCategorizer());
+
+        var act = () => service.CategorizeAsync([transaction], cancellation.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
     public async Task CategorizeAsync_ShouldRejectInvalidAiCategoryIdsForReview()
     {
         var transaction = new Transaction
@@ -237,6 +277,26 @@ public class TransactionCategorizationServiceTests
             CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("AI unavailable.");
+        }
+    }
+
+    private sealed class TimeoutTransactionCategorizer : ITransactionCategorizer
+    {
+        public Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
+            IReadOnlyList<Transaction> transactions,
+            CancellationToken cancellationToken)
+        {
+            throw new TimeoutException("AI timeout.");
+        }
+    }
+
+    private sealed class CanceledTransactionCategorizer : ITransactionCategorizer
+    {
+        public Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
+            IReadOnlyList<Transaction> transactions,
+            CancellationToken cancellationToken)
+        {
+            throw new OperationCanceledException(cancellationToken);
         }
     }
 }

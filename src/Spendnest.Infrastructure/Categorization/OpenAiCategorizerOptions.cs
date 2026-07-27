@@ -12,4 +12,6 @@ public sealed class OpenAiCategorizerOptions
     public Uri Endpoint { get; init; } = new("https://api.openai.com/v1/responses");
 
     public decimal ReviewConfidenceThreshold { get; init; } = 0.75m;
+
+    public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(25);
 }

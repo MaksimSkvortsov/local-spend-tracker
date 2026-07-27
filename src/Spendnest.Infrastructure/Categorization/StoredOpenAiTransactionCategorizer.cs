@@ -40,9 +40,20 @@ public sealed class StoredOpenAiTransactionCategorizer : ITransactionCategorizer
                 ApiKey = apiKey,
                 Endpoint = options.Endpoint,
                 Model = options.Model,
-                ReviewConfidenceThreshold = options.ReviewConfidenceThreshold
+                ReviewConfidenceThreshold = options.ReviewConfidenceThreshold,
+                RequestTimeout = options.RequestTimeout
             });
 
-        return await categorizer.CategorizeAsync(transactions, cancellationToken).ConfigureAwait(false);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(options.RequestTimeout);
+
+        try
+        {
+            return await categorizer.CategorizeAsync(transactions, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            throw new TimeoutException($"OpenAI categorization timed out after {options.RequestTimeout.TotalSeconds:0} seconds.");
+        }
     }
 }

@@ -12,10 +12,7 @@ public class StatementFileImportServiceTests
     public async Task ImportAsync_ShouldParseAndSaveTransactionsToRepository()
     {
         var repository = new InMemoryTransactionRepository();
-        var service = new StatementFileImportService(
-            new CsvStatementParser(),
-            repository,
-            new InMemoryCardAccountRepository());
+        var service = CreateService(repository);
 
         var result = await service.ImportAsync(
             FixturePath("bank-of-america.csv"),
@@ -37,13 +34,40 @@ public class StatementFileImportServiceTests
     }
 
     [Fact]
+    public async Task ImportAsync_ShouldRecordStatementImportHistory()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var statementImportRepository = new InMemoryStatementImportRepository();
+        var service = CreateService(repository, statementImportRepository);
+
+        var filePath = FixturePath("bank-of-america.csv");
+        var result = await service.ImportAsync(
+            filePath,
+            new StatementFileImportOptions(),
+            CancellationToken.None);
+
+        var statementImports = await statementImportRepository.ListAsync(CancellationToken.None);
+        var savedTransactions = await repository.ListAsync(CancellationToken.None);
+
+        var statementImport = statementImports.Should().ContainSingle().Subject;
+        statementImport.Id.Should().Be(result.StatementImportId);
+        statementImport.CardAccountId.Should().Be(result.CardAccountId);
+        statementImport.FilePath.Should().Be(filePath);
+        statementImport.FileName.Should().Be("bank-of-america.csv");
+        statementImport.Status.Should().Be(StatementImportStatus.Completed);
+        statementImport.ParsedRowCount.Should().Be(2);
+        statementImport.SavedTransactionCount.Should().Be(2);
+        statementImport.SkippedDuplicateTransactionCount.Should().Be(0);
+        statementImport.FailedRowCount.Should().Be(0);
+        statementImport.CompletedAtUtc.Should().NotBeNull();
+        savedTransactions.Should().OnlyContain(transaction => transaction.StatementImportId == statementImport.Id);
+    }
+
+    [Fact]
     public async Task ImportAsync_ShouldAppendTransactionsAcrossImports()
     {
         var repository = new InMemoryTransactionRepository();
-        var service = new StatementFileImportService(
-            new CsvStatementParser(),
-            repository,
-            new InMemoryCardAccountRepository());
+        var service = CreateService(repository);
 
         await service.ImportAsync(FixturePath("bank-of-america.csv"), new StatementFileImportOptions(), CancellationToken.None);
         await service.ImportAsync(FixturePath("capital-one.csv"), new StatementFileImportOptions(), CancellationToken.None);
@@ -58,10 +82,7 @@ public class StatementFileImportServiceTests
     public async Task ImportAsync_ShouldSkipTransactionsThatAlreadyExist()
     {
         var repository = new InMemoryTransactionRepository();
-        var service = new StatementFileImportService(
-            new CsvStatementParser(),
-            repository,
-            new InMemoryCardAccountRepository());
+        var service = CreateService(repository);
 
         await service.ImportAsync(FixturePath("bank-of-america.csv"), new StatementFileImportOptions(), CancellationToken.None);
         var secondResult = await service.ImportAsync(
@@ -81,10 +102,7 @@ public class StatementFileImportServiceTests
     public async Task ImportAsync_ShouldAllowSameTransactionOnDifferentCards()
     {
         var repository = new InMemoryTransactionRepository();
-        var service = new StatementFileImportService(
-            new CsvStatementParser(),
-            repository,
-            new InMemoryCardAccountRepository());
+        var service = CreateService(repository);
 
         var firstResult = await service.ImportAsync(
             FixturePath("bank-of-america.csv"),
@@ -107,10 +125,7 @@ public class StatementFileImportServiceTests
     public async Task ImportAsync_ShouldSkipDuplicateRowsInsideSameFile()
     {
         var repository = new InMemoryTransactionRepository();
-        var service = new StatementFileImportService(
-            new CsvStatementParser(),
-            repository,
-            new InMemoryCardAccountRepository());
+        var service = CreateService(repository);
         var filePath = Path.GetTempFileName();
         await File.WriteAllTextAsync(
             filePath,
@@ -143,5 +158,16 @@ public class StatementFileImportServiceTests
     private static string FixturePath(string fileName)
     {
         return Path.Combine(AppContext.BaseDirectory, "Fixtures", "Csv", fileName);
+    }
+
+    private static StatementFileImportService CreateService(
+        InMemoryTransactionRepository repository,
+        InMemoryStatementImportRepository? statementImportRepository = null)
+    {
+        return new StatementFileImportService(
+            new CsvStatementParser(),
+            repository,
+            new InMemoryCardAccountRepository(),
+            statementImportRepository ?? new InMemoryStatementImportRepository());
     }
 }

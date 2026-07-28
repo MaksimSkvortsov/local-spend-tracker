@@ -6,6 +6,7 @@ namespace Spendnest.Core.Importing;
 /// Summarizes the result of parsing and saving one statement file.
 /// </summary>
 public sealed record StatementFileImportResult(
+    Guid StatementImportId,
     string FilePath,
     Guid CardAccountId,
     string CardAccountName,

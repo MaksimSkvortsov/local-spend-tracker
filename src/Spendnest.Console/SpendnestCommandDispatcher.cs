@@ -16,6 +16,7 @@ public sealed class SpendnestCommandDispatcher
 {
     private readonly IStatementParser parser;
     private readonly IStatementFileImportService importService;
+    private readonly IStatementImportRepository statementImportRepository;
     private readonly ITransactionRepository transactionRepository;
     private readonly ICategorySpendingReportService reportService;
     private readonly ITransactionCategorizationService categorizationService;
@@ -27,6 +28,7 @@ public sealed class SpendnestCommandDispatcher
     public SpendnestCommandDispatcher(
         IStatementParser parser,
         IStatementFileImportService importService,
+        IStatementImportRepository statementImportRepository,
         ITransactionRepository transactionRepository,
         ICategorySpendingReportService reportService,
         ITransactionCategorizationService categorizationService,
@@ -37,6 +39,7 @@ public sealed class SpendnestCommandDispatcher
     {
         this.parser = parser;
         this.importService = importService;
+        this.statementImportRepository = statementImportRepository;
         this.transactionRepository = transactionRepository;
         this.reportService = reportService;
         this.categorizationService = categorizationService;
@@ -60,6 +63,11 @@ public sealed class SpendnestCommandDispatcher
         if (command.Equals("import", StringComparison.OrdinalIgnoreCase))
         {
             return await ImportAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("imports", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ImportsAsync(cancellationToken).ConfigureAwait(false);
         }
 
         if (command.Equals("report", StringComparison.OrdinalIgnoreCase))
@@ -152,6 +160,7 @@ public sealed class SpendnestCommandDispatcher
             cancellationToken).ConfigureAwait(false);
 
         System.Console.WriteLine($"Card: {result.CardAccountName}");
+        System.Console.WriteLine($"Import id: {result.StatementImportId}");
         System.Console.WriteLine($"Rows parsed: {result.ParsedRowCount}");
         System.Console.WriteLine($"Transactions saved: {result.SavedTransactionCount}");
         System.Console.WriteLine($"Duplicate transactions skipped: {result.SkippedDuplicateTransactionCount}");
@@ -165,6 +174,27 @@ public sealed class SpendnestCommandDispatcher
         }
 
         PrintWarnings(result.Warnings);
+
+        return 0;
+    }
+
+    private async Task<int> ImportsAsync(CancellationToken cancellationToken)
+    {
+        var statementImports = await statementImportRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        if (statementImports.Count == 0)
+        {
+            System.Console.WriteLine("No statement imports yet.");
+            return 0;
+        }
+
+        System.Console.WriteLine("Statement imports");
+        System.Console.WriteLine();
+
+        foreach (var statementImport in statementImports)
+        {
+            System.Console.WriteLine(
+                $"{statementImport.StartedAtUtc.LocalDateTime:g} | {statementImport.Status,-9} | saved {statementImport.SavedTransactionCount,3} | skipped {statementImport.SkippedDuplicateTransactionCount,3} | failed {statementImport.FailedRowCount,3} | {statementImport.FileName}");
+        }
 
         return 0;
     }
@@ -372,6 +402,7 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine("  help");
         System.Console.WriteLine("  parse <csv-file>");
         System.Console.WriteLine("  import <csv-file> [--card <card-name>]");
+        System.Console.WriteLine("  imports");
         System.Console.WriteLine("  report");
         System.Console.WriteLine("  report <csv-file> [csv-file...]");
         System.Console.WriteLine("  report month <yyyy-mm>");

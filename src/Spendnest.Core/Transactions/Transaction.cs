@@ -9,6 +9,8 @@ public sealed class Transaction
 
     public Guid CardAccountId { get; set; }
 
+    public Guid StatementImportId { get; set; }
+
     public DateOnly PostedDate { get; set; }
 
     public string OriginalDescription { get; set; } = string.Empty;

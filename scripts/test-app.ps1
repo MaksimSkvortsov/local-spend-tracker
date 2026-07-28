@@ -152,6 +152,7 @@ try {
     Wait-ForUser
 
     Invoke-AppCommand $app "Discover available commands" "help" | Out-Null
+    Invoke-AppCommand $app "Check import history before first import" "imports" | Out-Null
 
     Invoke-AppCommand $app "AI key status on first launch" "ai-key status" | Out-Null
     Invoke-AppCommand $app "Store an AI key for this app session" "ai-key set test-openai-key" | Out-Null
@@ -161,13 +162,16 @@ try {
 
     Invoke-AppCommand $app "Preview a statement before importing" "parse `"$BankOfAmericaCsv`"" | Out-Null
     Invoke-AppCommand $app "Import first statement" "import `"$BankOfAmericaCsv`" --card `"Family Visa`"" | Out-Null
+    Invoke-AppCommand $app "Review import history after first import" "imports" | Out-Null
     Invoke-AppCommand $app "Import same statement again to show duplicate protection" "import `"$BankOfAmericaCsv`" --card `"Family Visa`"" | Out-Null
+    Invoke-AppCommand $app "Review import history after duplicate import" "imports" | Out-Null
     Invoke-AppCommand $app "Run first category report" "report" | Out-Null
     Invoke-AppCommand $app "Categorize first imported transactions and save assignments" "categorize" | Out-Null
     Invoke-AppCommand $app "Check review queue after known merchants" "review list" | Out-Null
     Invoke-AppCommand $app "Run July report after categorization" "report month 2026-07" | Out-Null
 
     Invoke-AppCommand $app "Update data by importing another card statement" "import `"$CapitalOneCsv`" --card `"Travel Visa`"" | Out-Null
+    Invoke-AppCommand $app "Review import history across cards" "imports" | Out-Null
     Invoke-AppCommand $app "Categorize all current transactions" "categorize" | Out-Null
     Invoke-AppCommand $app "Run report for newly imported month" "report month 2025-12" | Out-Null
     Invoke-AppCommand $app "Run updated July report" "report month 2026-07" | Out-Null
@@ -187,6 +191,7 @@ try {
     Invoke-AppCommand $app "Run July report after review updates" "report month 2026-07" | Out-Null
 
     Invoke-AppCommand $app "Import another Mystery Place transaction to prove remembered rule applies" "import `"$rememberedMysteryCsv`" --card `"Family Visa`"" | Out-Null
+    Invoke-AppCommand $app "Review final import history" "imports" | Out-Null
     Invoke-AppCommand $app "Categorize again after remembered rule" "categorize" | Out-Null
     Invoke-AppCommand $app "Review queue should remain clear after remembered rule" "review list" | Out-Null
     Invoke-AppCommand $app "Final July report after remembered rule" "report month 2026-07" | Out-Null

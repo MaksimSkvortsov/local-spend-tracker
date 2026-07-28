@@ -12,15 +12,18 @@ public sealed class StatementFileImportService : IStatementFileImportService
     private readonly IStatementParser parser;
     private readonly ITransactionRepository transactionRepository;
     private readonly ICardAccountRepository cardAccountRepository;
+    private readonly IStatementImportRepository statementImportRepository;
 
     public StatementFileImportService(
         IStatementParser parser,
         ITransactionRepository transactionRepository,
-        ICardAccountRepository cardAccountRepository)
+        ICardAccountRepository cardAccountRepository,
+        IStatementImportRepository statementImportRepository)
     {
         this.parser = parser;
         this.transactionRepository = transactionRepository;
         this.cardAccountRepository = cardAccountRepository;
+        this.statementImportRepository = statementImportRepository;
     }
 
     public async Task<StatementFileImportResult> ImportAsync(
@@ -40,10 +43,20 @@ public sealed class StatementFileImportService : IStatementFileImportService
             .GetByNameAsync(cardAccountName, cancellationToken)
             .ConfigureAwait(false)
             ?? await cardAccountRepository.CreateAsync(cardAccountName, cancellationToken).ConfigureAwait(false);
+
+        var importedAtUtc = DateTimeOffset.UtcNow;
+        var statementImport = new StatementImport
+        {
+            CardAccountId = cardAccount.Id,
+            FilePath = filePath,
+            FileName = Path.GetFileName(filePath),
+            StartedAtUtc = importedAtUtc
+        };
+        await statementImportRepository.AddAsync(statementImport, cancellationToken).ConfigureAwait(false);
+
         await using var stream = File.OpenRead(filePath);
         var parseResult = await parser.ParseAsync(stream, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
 
-        var importedAtUtc = DateTimeOffset.UtcNow;
         var existingTransactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
         var seenFingerprints = existingTransactions
             .Select(TransactionFingerprint.Create)
@@ -55,6 +68,7 @@ public sealed class StatementFileImportService : IStatementFileImportService
                 {
                     Id = Guid.NewGuid(),
                     CardAccountId = cardAccount.Id,
+                    StatementImportId = statementImport.Id,
                     PostedDate = row.PostedDate,
                     OriginalDescription = row.OriginalDescription,
                     Amount = row.Amount,
@@ -76,7 +90,16 @@ public sealed class StatementFileImportService : IStatementFileImportService
 
         await transactionRepository.AddRangeAsync(transactions, cancellationToken).ConfigureAwait(false);
 
+        statementImport.Status = StatementImportStatus.Completed;
+        statementImport.ParsedRowCount = parseResult.Rows.Count;
+        statementImport.SavedTransactionCount = transactions.Length;
+        statementImport.SkippedDuplicateTransactionCount = skippedDuplicateCount;
+        statementImport.FailedRowCount = parseResult.FailedRowCount;
+        statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
+        await statementImportRepository.UpdateAsync(statementImport, cancellationToken).ConfigureAwait(false);
+
         return new StatementFileImportResult(
+            statementImport.Id,
             filePath,
             cardAccount.Id,
             cardAccount.Name,

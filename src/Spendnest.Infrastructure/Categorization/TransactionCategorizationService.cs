@@ -1,5 +1,6 @@
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
+using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
 
 namespace Spendnest.Infrastructure.Categorization;
@@ -31,6 +32,14 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
 
     public async Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
         IReadOnlyList<Transaction> transactions,
+        CancellationToken cancellationToken)
+    {
+        return await CategorizeAsync(transactions, null, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
+        IReadOnlyList<Transaction> transactions,
+        IProgress<FileUploadProgress>? progress,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(transactions);
@@ -72,6 +81,11 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         IReadOnlyList<TransactionCategorization> aiResults;
         try
         {
+            progress?.Report(new FileUploadProgress(
+                FileUploadProgressStage.CategorizingWithAi,
+                "Categorizing with AI",
+                0,
+                unresolvedTransactions.Length));
             aiResults = await aiCategorizer.CategorizeAsync(unresolvedTransactions, cancellationToken).ConfigureAwait(false);
         }
         catch (TimeoutException)

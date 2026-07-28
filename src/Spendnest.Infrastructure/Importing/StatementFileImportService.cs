@@ -1,5 +1,6 @@
 using Spendnest.Core.Accounts;
 using Spendnest.Core.Importing;
+using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
 
 namespace Spendnest.Infrastructure.Importing;
@@ -54,7 +55,13 @@ public sealed class StatementFileImportService : IStatementFileImportService
         };
         await statementImportRepository.AddAsync(statementImport, cancellationToken).ConfigureAwait(false);
 
+        options.Progress?.Report(new FileUploadProgress(
+            FileUploadProgressStage.ReadingFile,
+            "Reading file"));
         await using var stream = File.OpenRead(filePath);
+        options.Progress?.Report(new FileUploadProgress(
+            FileUploadProgressStage.ParsingTransactions,
+            "Parsing transactions"));
         var parseResult = await parser.ParseAsync(stream, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
 
         var existingTransactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
@@ -88,6 +95,11 @@ public sealed class StatementFileImportService : IStatementFileImportService
             })
             .ToArray();
 
+        options.Progress?.Report(new FileUploadProgress(
+            FileUploadProgressStage.SavingTransactions,
+            "Saving transactions",
+            transactions.Length,
+            parseResult.Rows.Count));
         await transactionRepository.AddRangeAsync(transactions, cancellationToken).ConfigureAwait(false);
 
         statementImport.Status = StatementImportStatus.Completed;

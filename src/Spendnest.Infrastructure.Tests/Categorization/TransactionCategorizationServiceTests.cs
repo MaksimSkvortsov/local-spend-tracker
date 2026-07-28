@@ -3,6 +3,7 @@ namespace Spendnest.Infrastructure.Tests.Categorization;
 using FluentAssertions;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
+using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categorization;
 
@@ -51,6 +52,35 @@ public class TransactionCategorizationServiceTests
             categorization.TransactionId == unresolvedTransaction.Id
             && categorization.CategoryId == BuiltInCategoryIds.Entertainment
             && categorization.Source == CategorizationSource.LocalAi);
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldReportAiProgressForUnresolvedTransactions()
+    {
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "MYSTERY PLACE",
+            Amount = 19.99m
+        };
+        var aiCategorizer = new RecordingTransactionCategorizer(transactions =>
+            transactions.Select(item => new TransactionCategorization(
+                item.Id,
+                BuiltInCategoryIds.Other,
+                0.82m,
+                false,
+                CategorizationSource.Ai,
+                "Resolved by test AI.")).ToArray());
+        var service = CreateService(aiCategorizer);
+        var progress = new RecordingProgress();
+
+        await service.CategorizeAsync([transaction], progress, CancellationToken.None);
+
+        progress.Events.Should().ContainSingle().Which.Should().BeEquivalentTo(new FileUploadProgress(
+            FileUploadProgressStage.CategorizingWithAi,
+            "Categorizing with AI",
+            0,
+            1));
     }
 
     [Fact]
@@ -297,6 +327,18 @@ public class TransactionCategorizationServiceTests
             CancellationToken cancellationToken)
         {
             throw new OperationCanceledException(cancellationToken);
+        }
+    }
+
+    private sealed class RecordingProgress : IProgress<FileUploadProgress>
+    {
+        private readonly List<FileUploadProgress> events = [];
+
+        public IReadOnlyList<FileUploadProgress> Events => events;
+
+        public void Report(FileUploadProgress value)
+        {
+            events.Add(value);
         }
     }
 }

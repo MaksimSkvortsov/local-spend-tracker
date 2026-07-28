@@ -2,6 +2,7 @@ namespace Spendnest.Infrastructure.Tests.Importing;
 
 using FluentAssertions;
 using Spendnest.Core.Importing;
+using Spendnest.Core.Progress;
 using Spendnest.Infrastructure.Accounts;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Transactions;
@@ -61,6 +62,29 @@ public class StatementFileImportServiceTests
         statementImport.FailedRowCount.Should().Be(0);
         statementImport.CompletedAtUtc.Should().NotBeNull();
         savedTransactions.Should().OnlyContain(transaction => transaction.StatementImportId == statementImport.Id);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldReportLongRunningProgressStages()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var service = CreateService(repository);
+        var progress = new RecordingProgress();
+
+        await service.ImportAsync(
+            FixturePath("bank-of-america.csv"),
+            new StatementFileImportOptions { Progress = progress },
+            CancellationToken.None);
+
+        progress.Events.Select(progressEvent => progressEvent.Stage)
+            .Should().Equal(
+                FileUploadProgressStage.ReadingFile,
+                FileUploadProgressStage.ParsingTransactions,
+                FileUploadProgressStage.SavingTransactions);
+        progress.Events.Should().ContainSingle(progressEvent =>
+            progressEvent.Stage == FileUploadProgressStage.SavingTransactions
+            && progressEvent.Current == 2
+            && progressEvent.Total == 2);
     }
 
     [Fact]
@@ -169,5 +193,17 @@ public class StatementFileImportServiceTests
             repository,
             new InMemoryCardAccountRepository(),
             statementImportRepository ?? new InMemoryStatementImportRepository());
+    }
+
+    private sealed class RecordingProgress : IProgress<FileUploadProgress>
+    {
+        private readonly List<FileUploadProgress> events = [];
+
+        public IReadOnlyList<FileUploadProgress> Events => events;
+
+        public void Report(FileUploadProgress value)
+        {
+            events.Add(value);
+        }
     }
 }

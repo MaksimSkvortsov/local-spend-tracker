@@ -4,6 +4,7 @@ using FluentAssertions;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
+using Spendnest.Infrastructure.Categories;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure.Transactions;
@@ -17,7 +18,8 @@ public class CategorySpendingReportServiceTests
         var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
         var reportService = new CategorySpendingReportService(
             repository,
-            assignmentRepository);
+            assignmentRepository,
+            new InMemoryCategoryRepository());
         var groceries = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var restaurant = Transaction("CAFE RIO VERDE", 30.40m);
         var unassigned = Transaction("UNKNOWN MERCHANT", 24.13m);
@@ -54,7 +56,8 @@ public class CategorySpendingReportServiceTests
         var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
         var reportService = new CategorySpendingReportService(
             repository,
-            assignmentRepository);
+            assignmentRepository,
+            new InMemoryCategoryRepository());
         var purchase = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var refund = Transaction("BULK MART REFUND RIVERTON VA", -14.25m);
         await repository.AddRangeAsync(

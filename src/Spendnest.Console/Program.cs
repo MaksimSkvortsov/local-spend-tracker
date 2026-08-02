@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Spendnest.Console;
 using Spendnest.Core;
 using Spendnest.Core.Accounts;
+using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
@@ -12,6 +13,7 @@ using Spendnest.Core.Review;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure;
 using Spendnest.Infrastructure.Accounts;
+using Spendnest.Infrastructure.Categories;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Credentials;
 using Spendnest.Infrastructure.Importing;
@@ -38,6 +40,7 @@ using var serviceProvider = new ServiceCollection()
         [CredentialKeys.OpenAiApiKey] = ReadConfiguredOpenAiApiKey(configuration)
     }))
     .AddSingleton<ICardAccountRepository, InMemoryCardAccountRepository>()
+    .AddSingleton<ICategoryRepository, InMemoryCategoryRepository>()
     .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
     .AddSingleton<IStatementImportRepository, InMemoryStatementImportRepository>()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()

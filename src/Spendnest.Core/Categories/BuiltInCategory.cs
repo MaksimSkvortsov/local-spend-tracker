@@ -6,4 +6,5 @@ namespace Spendnest.Core.Categories;
 public sealed record BuiltInCategory(
     int Id,
     string Name,
-    int SortOrder);
+    int SortOrder,
+    string ColorHex);

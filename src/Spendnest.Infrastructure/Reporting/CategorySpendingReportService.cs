@@ -12,13 +12,16 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
 {
     private readonly ITransactionRepository transactionRepository;
     private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
+    private readonly ICategoryRepository categoryRepository;
 
     public CategorySpendingReportService(
         ITransactionRepository transactionRepository,
-        ITransactionCategoryAssignmentRepository assignmentRepository)
+        ITransactionCategoryAssignmentRepository assignmentRepository,
+        ICategoryRepository categoryRepository)
     {
         this.transactionRepository = transactionRepository;
         this.assignmentRepository = assignmentRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     public async Task<CategorySpendingReport> BuildAsync(CancellationToken cancellationToken)
@@ -33,7 +36,8 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
         var transactions = await transactionRepository.ListAsync(query, cancellationToken).ConfigureAwait(false);
         var assignmentsByTransactionId = (await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false))
             .ToDictionary(assignment => assignment.TransactionId);
-        var categoryNamesById = BuiltInCategories.All.ToDictionary(category => category.Id, category => category.Name);
+        var categoryNamesById = (await categoryRepository.ListAsync(cancellationToken).ConfigureAwait(false))
+            .ToDictionary(category => category.Id, category => category.Name);
 
         var lines = transactions
             .GroupBy(transaction => assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId

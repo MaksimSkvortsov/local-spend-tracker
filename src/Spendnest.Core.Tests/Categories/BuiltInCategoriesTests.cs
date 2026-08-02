@@ -53,4 +53,17 @@ public class BuiltInCategoriesTests
             .Should()
             .OnlyHaveUniqueItems();
     }
+
+    [Fact]
+    public void All_ShouldHaveValidDefaultColors()
+    {
+        BuiltInCategories.All
+            .Select(category => category.ColorHex)
+            .Should()
+            .AllSatisfy(color =>
+            {
+                color.Should().StartWith("#");
+                color.Should().HaveLength(7);
+            });
+    }
 }

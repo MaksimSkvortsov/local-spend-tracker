@@ -46,6 +46,20 @@ public sealed class InMemoryStatementImportRepository : IStatementImportReposito
         return Task.CompletedTask;
     }
 
+    public Task<StatementImport?> GetByFileHashAsync(
+        string fileHash,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        lock (statementImports)
+        {
+            return Task.FromResult(statementImports.FirstOrDefault(statementImport =>
+                statementImport.FileHash.Equals(fileHash, StringComparison.OrdinalIgnoreCase)
+                && statementImport.Status != StatementImportStatus.Failed));
+        }
+    }
+
     public Task<IReadOnlyList<StatementImport>> ListAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

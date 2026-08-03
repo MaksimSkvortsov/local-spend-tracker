@@ -13,6 +13,10 @@ public interface IStatementImportRepository
         StatementImport statementImport,
         CancellationToken cancellationToken);
 
+    Task<StatementImport?> GetByFileHashAsync(
+        string fileHash,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<StatementImport>> ListAsync(
         CancellationToken cancellationToken);
 }

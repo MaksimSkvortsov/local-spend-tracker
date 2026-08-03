@@ -13,6 +13,8 @@ public sealed class StatementImport
 
     public string FileName { get; init; } = string.Empty;
 
+    public string FileHash { get; init; } = string.Empty;
+
     public StatementImportStatus Status { get; set; } = StatementImportStatus.Pending;
 
     public int ParsedRowCount { get; set; }

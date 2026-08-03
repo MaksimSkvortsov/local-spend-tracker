@@ -7,6 +7,8 @@ public interface ITransactionReviewService
 {
     Task<IReadOnlyList<TransactionReviewItem>> ListNeedsReviewAsync(CancellationToken cancellationToken);
 
+    Task<int> CountNeedsReviewAsync(CancellationToken cancellationToken);
+
     Task ConfirmAsync(
         Guid transactionId,
         bool rememberRule,

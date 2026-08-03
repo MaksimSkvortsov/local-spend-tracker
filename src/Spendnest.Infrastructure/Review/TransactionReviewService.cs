@@ -52,6 +52,16 @@ public sealed class TransactionReviewService : ITransactionReviewService
             .ToArray();
     }
 
+    public async Task<int> CountNeedsReviewAsync(CancellationToken cancellationToken)
+    {
+        var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var transactionIds = transactions.Select(transaction => transaction.Id).ToHashSet();
+        var assignments = await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+
+        return assignments.Count(assignment =>
+            assignment.NeedsReview && transactionIds.Contains(assignment.TransactionId));
+    }
+
     public async Task ConfirmAsync(
         Guid transactionId,
         bool rememberRule,

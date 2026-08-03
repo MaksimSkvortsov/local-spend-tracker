@@ -48,6 +48,58 @@ public class TransactionReviewServiceTests
     }
 
     [Fact]
+    public async Task CountNeedsReviewAsync_ShouldReturnReviewCountForExistingTransactions()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var reviewTransaction = Transaction("MYSTERY PLACE");
+        var resolvedTransaction = Transaction("KNOWN PLACE");
+        await repository.AddRangeAsync([reviewTransaction, resolvedTransaction], CancellationToken.None);
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = reviewTransaction.Id,
+                CategoryId = BuiltInCategoryIds.Other,
+                Source = CategorizationSource.Unresolved,
+                Confidence = 0m,
+                NeedsReview = true,
+                Explanation = "AI categorization failed."
+            },
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = resolvedTransaction.Id,
+                CategoryId = BuiltInCategoryIds.Groceries,
+                Source = CategorizationSource.LocalRules,
+                Confidence = 1m,
+                NeedsReview = false,
+                Explanation = "Known merchant."
+            },
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = Guid.NewGuid(),
+                CategoryId = BuiltInCategoryIds.Other,
+                Source = CategorizationSource.Unresolved,
+                Confidence = 0m,
+                NeedsReview = true,
+                Explanation = "Orphaned assignment."
+            },
+            CancellationToken.None);
+        var service = new TransactionReviewService(
+            repository,
+            assignmentRepository,
+            new InMemoryCategoryRuleRepository(),
+            new TransactionMerchantCodeResolver());
+
+        var count = await service.CountNeedsReviewAsync(CancellationToken.None);
+
+        count.Should().Be(1);
+    }
+
+    [Fact]
     public async Task SetCategoryAsync_ShouldSaveAssignmentAndRememberExactRule()
     {
         var repository = new InMemoryTransactionRepository();

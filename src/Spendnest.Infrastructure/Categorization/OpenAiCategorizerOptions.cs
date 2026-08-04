@@ -5,15 +5,15 @@ namespace Spendnest.Infrastructure.Categorization;
 /// </summary>
 public sealed class OpenAiCategorizerOptions
 {
-    public string? ApiKey { get; init; }
+    public string? ApiKey { get; set; }
 
-    public string Model { get; init; } = "gpt-5.6-luna";
+    public string Model { get; set; } = "gpt-5.6-luna";
 
-    public Uri Endpoint { get; init; } = new("https://api.openai.com/v1/responses");
+    public Uri Endpoint { get; set; } = new("https://api.openai.com/v1/responses");
 
-    public decimal ReviewConfidenceThreshold { get; init; } = 0.75m;
+    public decimal ReviewConfidenceThreshold { get; set; } = 0.75m;
 
-    public TimeSpan RequestTimeout { get; init; } = TimeSpan.FromSeconds(25);
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(25);
 
-    public int MaxTransactionsPerRequest { get; init; } = 50;
+    public int MaxTransactionsPerRequest { get; set; } = 50;
 }

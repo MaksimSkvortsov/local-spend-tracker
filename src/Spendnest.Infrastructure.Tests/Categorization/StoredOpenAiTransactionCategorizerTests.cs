@@ -42,7 +42,7 @@ public class StoredOpenAiTransactionCategorizerTests
                 Content = new StringContent(
                     $$"""
                     {
-                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{BuiltInCategoryIds.Other}},\"confidence\":0.88,\"explanation\":\"Test AI result.\"}]}"
+                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{BuiltInCategoryIds.Other}},\"rulePrefix\":\"MYSTERY PLACE\",\"confidence\":0.88,\"explanation\":\"Test AI result.\"}]}"
                     }
                     """,
                     Encoding.UTF8,
@@ -58,7 +58,8 @@ public class StoredOpenAiTransactionCategorizerTests
             0.88m,
             false,
             CategorizationSource.Ai,
-            "Test AI result."));
+            "Test AI result.",
+            "MYSTERY PLACE"));
     }
 
     [Fact]
@@ -92,6 +93,7 @@ public class StoredOpenAiTransactionCategorizerTests
                 {
                     transactionId,
                     categoryId = BuiltInCategoryIds.Other,
+                    rulePrefix = "TEST PLACE",
                     confidence = 0.82m,
                     explanation = "Test batch result."
                 });
@@ -153,6 +155,7 @@ public class StoredOpenAiTransactionCategorizerTests
                 {
                     transactionId,
                     categoryId = BuiltInCategoryIds.Groceries,
+                    rulePrefix = "TEST PLACE",
                     confidence = 0.91m,
                     explanation = "Test batch result."
                 });

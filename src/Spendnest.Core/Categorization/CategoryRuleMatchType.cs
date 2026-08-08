@@ -6,5 +6,6 @@ namespace Spendnest.Core.Categorization;
 public enum CategoryRuleMatchType
 {
     Exact = 1,
-    Contains = 2
+    Prefix = 2,
+    Contains = 3
 }

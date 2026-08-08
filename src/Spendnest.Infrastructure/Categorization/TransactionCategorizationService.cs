@@ -78,6 +78,13 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
             return existingAssignments.Concat(localResults).ToArray();
         }
 
+        var unresolvedGroups = unresolvedTransactions
+            .GroupBy(transaction => merchantCodeResolver.Resolve(transaction), StringComparer.Ordinal)
+            .ToArray();
+        var representativeTransactions = unresolvedGroups
+            .Select(group => group.First())
+            .ToArray();
+
         IReadOnlyList<TransactionCategorization> aiResults;
         try
         {
@@ -85,8 +92,12 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
                 FileUploadProgressStage.CategorizingWithAi,
                 "Categorizing with AI",
                 0,
-                unresolvedTransactions.Length));
-            aiResults = await aiCategorizer.CategorizeAsync(unresolvedTransactions, cancellationToken).ConfigureAwait(false);
+                representativeTransactions.Length));
+            var representativeAiResults = await aiCategorizer.CategorizeAsync(representativeTransactions, cancellationToken).ConfigureAwait(false);
+            aiResults = CreateAiResultsForUnresolvedTransactions(
+                representativeAiResults,
+                representativeTransactions,
+                unresolvedTransactions);
         }
         catch (TimeoutException)
         {
@@ -136,6 +147,7 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         CancellationToken cancellationToken)
     {
         var transactionsById = unresolvedTransactions.ToDictionary(transaction => transaction.Id);
+        var rememberedRules = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var result in acceptedAiResults)
         {
@@ -147,15 +159,99 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
                 continue;
             }
 
+            var rulePrefix = NormalizeRulePrefix(result.LearnedRulePrefix);
+            var merchantCode = NormalizeRulePrefix(merchantCodeResolver.Resolve(transaction));
+            if (string.IsNullOrWhiteSpace(rulePrefix)
+                || !merchantCode.StartsWith(rulePrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var ruleKey = $"{rulePrefix}|{result.CategoryId}";
+            if (!rememberedRules.Add(ruleKey))
+            {
+                continue;
+            }
+
             await categoryRuleRepository.AddAsync(
                 new CategoryRule
                 {
-                    Pattern = merchantCodeResolver.Resolve(transaction),
+                    Pattern = rulePrefix,
                     CategoryId = result.CategoryId,
-                    MatchType = CategoryRuleMatchType.Exact
+                    MatchType = CategoryRuleMatchType.Prefix
                 },
                 cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    private IReadOnlyList<TransactionCategorization> CreateAiResultsForUnresolvedTransactions(
+        IReadOnlyList<TransactionCategorization> representativeAiResults,
+        IReadOnlyList<Transaction> representativeTransactions,
+        IReadOnlyList<Transaction> unresolvedTransactions)
+    {
+        var representativeTransactionsById = representativeTransactions.ToDictionary(transaction => transaction.Id);
+        var representativeResultsByMerchantCode = representativeAiResults
+            .Where(result => representativeTransactionsById.ContainsKey(result.TransactionId))
+            .ToDictionary(
+                result => merchantCodeResolver.Resolve(representativeTransactionsById[result.TransactionId]),
+                result => result,
+                StringComparer.Ordinal);
+        var learnedPrefixResults = representativeAiResults
+            .Where(result => representativeTransactionsById.ContainsKey(result.TransactionId)
+                && !result.NeedsReview
+                && result.Source is not CategorizationSource.Unresolved
+                && result.CategoryId != BuiltInCategoryIds.Other
+                && !string.IsNullOrWhiteSpace(result.LearnedRulePrefix))
+            .Select(result => new
+            {
+                Result = result,
+                Prefix = NormalizeRulePrefix(result.LearnedRulePrefix),
+                MerchantCode = NormalizeRulePrefix(merchantCodeResolver.Resolve(representativeTransactionsById[result.TransactionId]))
+            })
+            .Where(item => item.Prefix.Length > 0
+                && item.MerchantCode.StartsWith(item.Prefix, StringComparison.Ordinal))
+            .OrderByDescending(item => item.Prefix.Length)
+            .ToArray();
+        var results = new List<TransactionCategorization>();
+
+        foreach (var transaction in unresolvedTransactions)
+        {
+            var merchantCode = NormalizeRulePrefix(merchantCodeResolver.Resolve(transaction));
+            var learnedMatch = learnedPrefixResults
+                .FirstOrDefault(item => merchantCode.StartsWith(item.Prefix, StringComparison.Ordinal));
+
+            if (learnedMatch is not null)
+            {
+                results.Add(CopyResultForTransaction(learnedMatch.Result, transaction.Id, learnedMatch.Prefix));
+                continue;
+            }
+
+            if (representativeResultsByMerchantCode.TryGetValue(merchantCode, out var representativeResult))
+            {
+                results.Add(CopyResultForTransaction(representativeResult, transaction.Id, representativeResult.LearnedRulePrefix));
+            }
+        }
+
+        return results;
+    }
+
+    private static TransactionCategorization CopyResultForTransaction(
+        TransactionCategorization result,
+        Guid transactionId,
+        string? learnedRulePrefix)
+    {
+        return result with
+        {
+            TransactionId = transactionId,
+            LearnedRulePrefix = learnedRulePrefix
+        };
+    }
+
+    private static string NormalizeRulePrefix(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim().ToUpperInvariant();
     }
 
     private static TransactionCategorization CreateInvalidResult(TransactionCategorization result)

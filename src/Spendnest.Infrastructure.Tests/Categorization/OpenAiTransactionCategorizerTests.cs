@@ -12,7 +12,7 @@ using Spendnest.Infrastructure.Categorization;
 public class OpenAiTransactionCategorizerTests
 {
     [Fact]
-    public async Task CategorizeAsync_ShouldSendMinimalTransactionDataAndReadStructuredOutput()
+    public async Task CategorizeAsync_ShouldSendMinimalPrivateTransactionDataAndReadStructuredOutput()
     {
         var transaction = new Transaction
         {
@@ -33,7 +33,7 @@ public class OpenAiTransactionCategorizerTests
                     Content = new StringContent(
                         $$"""
                         {
-                          "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{BuiltInCategoryIds.Groceries}},\"confidence\":0.91,\"explanation\":\"Warehouse club grocery purchase.\"}]}"
+                          "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{BuiltInCategoryIds.Groceries}},\"rulePrefix\":\"BULK MART\",\"confidence\":0.91,\"explanation\":\"Warehouse club grocery purchase.\"}]}"
                         }
                         """,
                         Encoding.UTF8,
@@ -55,10 +55,11 @@ public class OpenAiTransactionCategorizerTests
         using var userContentJson = JsonDocument.Parse(userContent!);
         var transactionJson = userContentJson.RootElement.GetProperty("transactions").EnumerateArray().Single();
         transactionJson.EnumerateObject().Select(property => property.Name)
-            .Should().BeEquivalentTo(["id", "description", "amount"]);
+            .Should().BeEquivalentTo(["id", "description", "transactionDirection"]);
         transactionJson.GetProperty("id").GetString().Should().Be(transaction.Id.ToString());
         transactionJson.GetProperty("description").GetString().Should().Be("BULK MART #0218 RIVERTON VA");
-        transactionJson.GetProperty("amount").GetDecimal().Should().Be(141.83m);
+        transactionJson.GetProperty("transactionDirection").GetString().Should().Be("charge");
+        transactionJson.TryGetProperty("amount", out _).Should().BeFalse();
 
         result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
             transaction.Id,
@@ -66,7 +67,52 @@ public class OpenAiTransactionCategorizerTests
             0.91m,
             false,
             CategorizationSource.Ai,
-            "Warehouse club grocery purchase."));
+            "Warehouse club grocery purchase.",
+            "BULK MART"));
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldSendRefundOrCreditDirectionInsteadOfAmount()
+    {
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            PostedDate = new DateOnly(2026, 7, 18),
+            OriginalDescription = "TARGET REFUND",
+            Amount = -42.19m
+        };
+        string? requestBody = null;
+        var categorizer = new OpenAiTransactionCategorizer(
+            new HttpClient(new StubHttpMessageHandler(request =>
+            {
+                requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        $$"""
+                        {
+                          "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{BuiltInCategoryIds.Shopping}},\"rulePrefix\":\"TARGET\",\"confidence\":0.91,\"explanation\":\"Retail refund.\"}]}"
+                        }
+                        """,
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            })),
+            new OpenAiCategorizerOptions
+            {
+                ApiKey = "test-key"
+            });
+
+        await categorizer.CategorizeAsync([transaction], CancellationToken.None);
+
+        requestBody.Should().NotBeNull();
+        using var requestJson = JsonDocument.Parse(requestBody!);
+        var userContent = requestJson.RootElement.GetProperty("input")[1].GetProperty("content").GetString();
+        using var userContentJson = JsonDocument.Parse(userContent!);
+        var transactionJson = userContentJson.RootElement.GetProperty("transactions").EnumerateArray().Single();
+        transactionJson.GetProperty("transactionDirection").GetString().Should().Be("refund_or_credit");
+        transactionJson.TryGetProperty("amount", out _).Should().BeFalse();
     }
 
     [Fact]
@@ -119,7 +165,7 @@ public class OpenAiTransactionCategorizerTests
                 Content = new StringContent(
                     $$"""
                     {
-                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{categoryId}},\"confidence\":{{confidence}},\"explanation\":\"Test explanation.\"}]}"
+                      "output_text": "{\"items\":[{\"transactionId\":\"{{transaction.Id}}\",\"categoryId\":{{categoryId}},\"rulePrefix\":\"MYSTERY PLACE\",\"confidence\":{{confidence}},\"explanation\":\"Test explanation.\"}]}"
                     }
                     """,
                     Encoding.UTF8,

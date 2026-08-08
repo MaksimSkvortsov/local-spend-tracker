@@ -58,12 +58,15 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
         var description = Normalize(transaction.OriginalDescription);
         var merchantCode = merchantCodeResolver.Resolve(transaction);
 
-        foreach (var rule in rules.OrderBy(rule => rule.MatchType))
+        foreach (var rule in rules
+            .OrderBy(rule => rule.MatchType)
+            .ThenByDescending(rule => Normalize(rule.Pattern).Length))
         {
             var pattern = Normalize(rule.Pattern);
             var isMatch = rule.MatchType switch
             {
                 CategoryRuleMatchType.Exact => merchantCode == pattern,
+                CategoryRuleMatchType.Prefix => merchantCode.StartsWith(pattern, StringComparison.Ordinal),
                 CategoryRuleMatchType.Contains => description.Contains(pattern),
                 _ => false
             };

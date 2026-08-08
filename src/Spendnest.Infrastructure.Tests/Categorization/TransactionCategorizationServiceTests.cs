@@ -106,7 +106,8 @@ public class TransactionCategorizationServiceTests
                 0.91m,
                 false,
                 CategorizationSource.Ai,
-                "Resolved by test AI.")).ToArray());
+                "Resolved by test AI.",
+                "TINY CINEMA")).ToArray());
         var service = CreateService(aiCategorizer, categoryRuleRepository: ruleRepository);
 
         var firstResult = await service.CategorizeAsync([firstTransaction], CancellationToken.None);
@@ -124,7 +125,43 @@ public class TransactionCategorizationServiceTests
         rules.Should().ContainSingle(rule =>
             rule.Pattern == "TINY CINEMA"
             && rule.CategoryId == BuiltInCategoryIds.Entertainment
-            && rule.MatchType == CategoryRuleMatchType.Exact);
+            && rule.MatchType == CategoryRuleMatchType.Prefix);
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldSendOnlyOneRepresentativePerUnknownMerchantCode()
+    {
+        var firstTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "MYSTERY PLACE #7781",
+            Amount = 19.99m
+        };
+        var secondTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "MYSTERY PLACE #9912",
+            Amount = 21.99m
+        };
+        var aiCategorizer = new RecordingTransactionCategorizer(transactions =>
+            transactions.Select(transaction => new TransactionCategorization(
+                transaction.Id,
+                BuiltInCategoryIds.Entertainment,
+                0.91m,
+                false,
+                CategorizationSource.Ai,
+                "Resolved by test AI.",
+                "MYSTERY PLACE")).ToArray());
+        var service = CreateService(aiCategorizer);
+
+        var result = await service.CategorizeAsync([firstTransaction, secondTransaction], CancellationToken.None);
+
+        aiCategorizer.SeenTransactionIds.Should().ContainSingle();
+        result.Should().HaveCount(2);
+        result.Should().OnlyContain(categorization =>
+            categorization.CategoryId == BuiltInCategoryIds.Entertainment
+            && categorization.Source == CategorizationSource.Ai
+            && categorization.LearnedRulePrefix == "MYSTERY PLACE");
     }
 
     [Fact]

@@ -56,4 +56,37 @@ public class LocalTransactionCategorizerTests
 
         result.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task CategorizeKnownAsync_ShouldUseLongestStoredPrefixRule()
+    {
+        var ruleRepository = new InMemoryCategoryRuleRepository();
+        await ruleRepository.AddAsync(new CategoryRule
+        {
+            Pattern = "AMAZON",
+            CategoryId = BuiltInCategoryIds.Shopping,
+            MatchType = CategoryRuleMatchType.Prefix
+        }, CancellationToken.None);
+        await ruleRepository.AddAsync(new CategoryRule
+        {
+            Pattern = "AMAZON PRIME",
+            CategoryId = BuiltInCategoryIds.Subscriptions,
+            MatchType = CategoryRuleMatchType.Prefix
+        }, CancellationToken.None);
+        var categorizer = new LocalTransactionCategorizer(
+            ruleRepository,
+            new TransactionMerchantCodeResolver());
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "AMAZON PRIME MONTHLY",
+            Amount = 14.99m
+        };
+
+        var result = await categorizer.CategorizeKnownAsync([transaction], CancellationToken.None);
+
+        result.Should().ContainSingle(categorization =>
+            categorization.TransactionId == transaction.Id
+            && categorization.CategoryId == BuiltInCategoryIds.Subscriptions);
+    }
 }

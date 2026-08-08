@@ -9,4 +9,5 @@ public sealed record TransactionCategorization(
     decimal Confidence,
     bool NeedsReview,
     CategorizationSource Source,
-    string Explanation);
+    string Explanation,
+    string? LearnedRulePrefix = null);

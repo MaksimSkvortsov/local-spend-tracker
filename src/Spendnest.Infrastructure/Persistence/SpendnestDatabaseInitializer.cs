@@ -25,6 +25,20 @@ public sealed class SpendnestDatabaseInitializer
         await SeedBuiltInCategoriesAsync(dbContext, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task DeleteUserDataAsync(CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory
+            .CreateDbContextAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        await dbContext.TransactionCategoryAssignments.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.CategoryRules.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.Transactions.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.StatementImports.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await dbContext.CardAccounts.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await SeedBuiltInCategoriesAsync(dbContext, cancellationToken).ConfigureAwait(false);
+    }
+
     private static async Task MarkExistingInitialSchemaAsync(
         SpendnestDbContext dbContext,
         CancellationToken cancellationToken)

@@ -118,4 +118,87 @@ public class SqlitePersistenceTests
             Directory.Delete(tempDirectory, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task DeleteUserDataAsync_ShouldClearUserDataAndKeepBuiltInCategories()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+
+            var initializer = serviceProvider.GetRequiredService<SpendnestDatabaseInitializer>();
+            await initializer.InitializeAsync(CancellationToken.None);
+
+            var cardAccounts = serviceProvider.GetRequiredService<ICardAccountRepository>();
+            var statementImports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var transactions = serviceProvider.GetRequiredService<ITransactionRepository>();
+            var assignments = serviceProvider.GetRequiredService<ITransactionCategoryAssignmentRepository>();
+            var rules = serviceProvider.GetRequiredService<ICategoryRuleRepository>();
+
+            var cardAccount = await cardAccounts.CreateAsync("Family Visa", CancellationToken.None);
+            var statementImport = new StatementImport
+            {
+                CardAccountId = cardAccount.Id,
+                FilePath = "statement.csv",
+                FileName = "statement.csv",
+                FileHash = "ABC123",
+                Status = StatementImportStatus.Completed,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
+            await statementImports.AddAsync(statementImport, CancellationToken.None);
+
+            var transaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = cardAccount.Id,
+                StatementImportId = statementImport.Id,
+                PostedDate = new DateOnly(2026, 7, 18),
+                OriginalDescription = "BULK MART #0218 RIVERTON VA",
+                Amount = 141.83m,
+                SourceRowNumber = 2,
+                ImportedAtUtc = DateTimeOffset.UtcNow
+            };
+            await transactions.AddRangeAsync([transaction], CancellationToken.None);
+            await assignments.SaveAsync(
+                new TransactionCategoryAssignment
+                {
+                    TransactionId = transaction.Id,
+                    CategoryId = BuiltInCategoryIds.Groceries,
+                    Confidence = 1m,
+                    NeedsReview = false,
+                    Source = CategorizationSource.LocalRules,
+                    Explanation = "Matched learned merchant rule."
+                },
+                CancellationToken.None);
+            await rules.AddAsync(
+                new CategoryRule
+                {
+                    Pattern = "BULK MART",
+                    CategoryId = BuiltInCategoryIds.Groceries
+                },
+                CancellationToken.None);
+
+            await initializer.DeleteUserDataAsync(CancellationToken.None);
+
+            (await cardAccounts.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await statementImports.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await transactions.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await assignments.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await rules.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await serviceProvider.GetRequiredService<ICategoryRepository>().ListAsync(CancellationToken.None))
+                .Should().Contain(category => category.Id == BuiltInCategoryIds.Groceries);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
 }

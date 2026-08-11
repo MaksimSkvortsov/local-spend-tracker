@@ -3,23 +3,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Spendnest.Console;
 using Spendnest.Core;
-using Spendnest.Core.Accounts;
-using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Review;
-using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure;
-using Spendnest.Infrastructure.Accounts;
-using Spendnest.Infrastructure.Categories;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Credentials;
 using Spendnest.Infrastructure.Importing;
+using Spendnest.Infrastructure.Persistence;
 using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure.Review;
-using Spendnest.Infrastructure.Transactions;
 
 ConsoleEnvironment.LoadLocalEnvironmentFile(".env.local");
 
@@ -31,7 +26,9 @@ var configuration = new ConfigurationBuilder()
 
 using var serviceProvider = new ServiceCollection()
     .AddSingleton<IConfiguration>(configuration)
-    .AddLogging(builder => builder.AddSimpleConsole())
+    .AddLogging(builder => builder
+        .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)
+        .AddSimpleConsole())
     .AddSingleton<CoreAssemblyMarker>()
     .AddSingleton<InfrastructureAssemblyMarker>()
     .AddSingleton<IStatementParser, CsvStatementParser>()
@@ -39,14 +36,9 @@ using var serviceProvider = new ServiceCollection()
     {
         [CredentialKeys.OpenAiApiKey] = ReadConfiguredOpenAiApiKey(configuration)
     }))
-    .AddSingleton<ICardAccountRepository, InMemoryCardAccountRepository>()
-    .AddSingleton<ICategoryRepository, InMemoryCategoryRepository>()
-    .AddSingleton<ITransactionRepository, InMemoryTransactionRepository>()
-    .AddSingleton<IStatementImportRepository, InMemoryStatementImportRepository>()
+    .AddSpendnestSqlitePersistence()
     .AddSingleton<IStatementFileImportService, StatementFileImportService>()
     .AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>()
-    .AddSingleton<ICategoryRuleRepository, InMemoryCategoryRuleRepository>()
-    .AddSingleton<ITransactionCategoryAssignmentRepository, InMemoryTransactionCategoryAssignmentRepository>()
     .AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>()
     .AddSingleton<HttpClient>()
     .AddSingleton(new OpenAiCategorizerOptions
@@ -61,6 +53,11 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<SpendnestCommandDispatcher>()
     .AddSingleton<SpendnestConsoleApp>()
     .BuildServiceProvider();
+
+await serviceProvider
+    .GetRequiredService<SpendnestDatabaseInitializer>()
+    .InitializeAsync(CancellationToken.None)
+    .ConfigureAwait(false);
 
 var app = serviceProvider.GetRequiredService<SpendnestConsoleApp>();
 Environment.ExitCode = await app.RunAsync(args, CancellationToken.None);

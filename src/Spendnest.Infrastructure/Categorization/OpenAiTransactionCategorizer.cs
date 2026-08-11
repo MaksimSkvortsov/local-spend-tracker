@@ -1,6 +1,9 @@
 using System.Net.Http.Headers;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
@@ -16,13 +19,16 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
 
     private readonly HttpClient httpClient;
     private readonly OpenAiCategorizerOptions options;
+    private readonly ILogger<OpenAiTransactionCategorizer> logger;
 
     public OpenAiTransactionCategorizer(
         HttpClient httpClient,
-        OpenAiCategorizerOptions options)
+        OpenAiCategorizerOptions options,
+        ILogger<OpenAiTransactionCategorizer>? logger = null)
     {
         this.httpClient = httpClient;
         this.options = options;
+        this.logger = logger ?? NullLogger<OpenAiTransactionCategorizer>.Instance;
     }
 
     public async Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
@@ -39,6 +45,7 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
 
         if (string.IsNullOrWhiteSpace(options.ApiKey))
         {
+            logger.LogWarning("OpenAI categorization skipped because no API key is configured.");
             throw new InvalidOperationException("OpenAI API key is required for OpenAI categorization.");
         }
 
@@ -50,16 +57,43 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
             Encoding.UTF8,
             "application/json");
 
+        logger.LogInformation(
+            "Sending OpenAI categorization request for {TransactionCount} transactions using model {Model}.",
+            transactions.Count,
+            options.Model);
+        var stopwatch = Stopwatch.StartNew();
         using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        logger.LogInformation(
+            "Received OpenAI categorization response with status {StatusCode} in {ElapsedMilliseconds} ms.",
+            (int)response.StatusCode,
+            stopwatch.ElapsedMilliseconds);
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning(
+                "OpenAI categorization request failed with status {StatusCode} {ReasonPhrase}.",
+                (int)response.StatusCode,
+                response.ReasonPhrase);
+        }
+
         response.EnsureSuccessStatusCode();
 
         await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         var outputText = ReadOutputText(document.RootElement);
+        logger.LogDebug(
+            "Received OpenAI categorization output text with {CharacterCount} characters.",
+            outputText.Length);
         using var outputDocument = JsonDocument.Parse(outputText);
 
-        return ReadCategorizations(outputDocument.RootElement, transactions);
+        var categorizations = ReadCategorizations(outputDocument.RootElement, transactions);
+        logger.LogInformation(
+            "Parsed {CategorizationCount} OpenAI categorizations for {TransactionCount} transactions; {NeedsReviewCount} need review.",
+            categorizations.Count,
+            transactions.Count,
+            categorizations.Count(categorization => categorization.NeedsReview));
+
+        return categorizations;
     }
 
     private object CreateRequestBody(IReadOnlyList<Transaction> transactions)

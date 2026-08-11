@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Spendnest.Core.Ai;
 using Spendnest.Core.Credentials;
 
@@ -16,15 +19,18 @@ public sealed class OpenAiConnectionTestService : IAiConnectionTestService
     private readonly ICredentialStore credentialStore;
     private readonly HttpClient httpClient;
     private readonly OpenAiCategorizerOptions options;
+    private readonly ILogger<OpenAiConnectionTestService> logger;
 
     public OpenAiConnectionTestService(
         ICredentialStore credentialStore,
         HttpClient httpClient,
-        OpenAiCategorizerOptions options)
+        OpenAiCategorizerOptions options,
+        ILogger<OpenAiConnectionTestService>? logger = null)
     {
         this.credentialStore = credentialStore;
         this.httpClient = httpClient;
         this.options = options;
+        this.logger = logger ?? NullLogger<OpenAiConnectionTestService>.Instance;
     }
 
     public async Task<AiConnectionTestResult> TestOpenAiAsync(
@@ -36,6 +42,7 @@ public sealed class OpenAiConnectionTestService : IAiConnectionTestService
 
         if (string.IsNullOrWhiteSpace(request.Model))
         {
+            logger.LogWarning("OpenAI connection test skipped because no model is selected.");
             return new AiConnectionTestResult(false, "Choose a ChatGPT model.");
         }
 
@@ -45,6 +52,7 @@ public sealed class OpenAiConnectionTestService : IAiConnectionTestService
             : request.ApiKey.Trim();
         if (string.IsNullOrWhiteSpace(apiKey))
         {
+            logger.LogWarning("OpenAI connection test skipped because no API key is configured.");
             return new AiConnectionTestResult(false, "OpenAI API key is required.");
         }
 
@@ -56,6 +64,10 @@ public sealed class OpenAiConnectionTestService : IAiConnectionTestService
 
         try
         {
+            logger.LogInformation(
+                "Sending OpenAI connection test using model {Model}.",
+                model);
+            var stopwatch = Stopwatch.StartNew();
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, options.Endpoint);
             httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             httpRequest.Content = new StringContent(
@@ -64,22 +76,34 @@ public sealed class OpenAiConnectionTestService : IAiConnectionTestService
                 "application/json");
 
             using var response = await httpClient.SendAsync(httpRequest, timeout.Token).ConfigureAwait(false);
+            logger.LogInformation(
+                "Received OpenAI connection test response with status {StatusCode} in {ElapsedMilliseconds} ms.",
+                (int)response.StatusCode,
+                stopwatch.ElapsedMilliseconds);
             if (response.IsSuccessStatusCode)
             {
                 return new AiConnectionTestResult(true, "OpenAI connection succeeded.");
             }
 
             var responseText = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
+            logger.LogWarning(
+                "OpenAI connection test failed with status {StatusCode} {ReasonPhrase}.",
+                (int)response.StatusCode,
+                response.ReasonPhrase);
             return new AiConnectionTestResult(
                 false,
                 $"OpenAI returned {(int)response.StatusCode} {response.ReasonPhrase}: {TrimResponse(responseText)}");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
         {
+            logger.LogWarning(
+                "OpenAI connection test timed out after {TimeoutSeconds} seconds.",
+                requestTimeout.TotalSeconds);
             return new AiConnectionTestResult(false, "OpenAI connection timed out.");
         }
         catch (HttpRequestException ex)
         {
+            logger.LogWarning(ex, "OpenAI connection test failed before a successful response was received.");
             return new AiConnectionTestResult(false, $"OpenAI connection failed: {ex.Message}");
         }
     }

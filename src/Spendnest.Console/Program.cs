@@ -12,6 +12,7 @@ using Spendnest.Infrastructure;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Credentials;
 using Spendnest.Infrastructure.Importing;
+using Spendnest.Infrastructure.Logging;
 using Spendnest.Infrastructure.Persistence;
 using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure.Review;
@@ -28,6 +29,7 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<IConfiguration>(configuration)
     .AddLogging(builder => builder
         .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)
+        .AddSpendnestFile()
         .AddSimpleConsole())
     .AddSingleton<CoreAssemblyMarker>()
     .AddSingleton<InfrastructureAssemblyMarker>()

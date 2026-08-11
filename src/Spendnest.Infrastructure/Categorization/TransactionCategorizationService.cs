@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Progress;
@@ -15,19 +17,22 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
     private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
     private readonly ICategoryRuleRepository categoryRuleRepository;
     private readonly ITransactionMerchantCodeResolver merchantCodeResolver;
+    private readonly ILogger<TransactionCategorizationService> logger;
 
     public TransactionCategorizationService(
         ILocalTransactionCategorizer localCategorizer,
         ITransactionCategorizer aiCategorizer,
         ITransactionCategoryAssignmentRepository assignmentRepository,
         ICategoryRuleRepository categoryRuleRepository,
-        ITransactionMerchantCodeResolver merchantCodeResolver)
+        ITransactionMerchantCodeResolver merchantCodeResolver,
+        ILogger<TransactionCategorizationService>? logger = null)
     {
         this.localCategorizer = localCategorizer;
         this.aiCategorizer = aiCategorizer;
         this.assignmentRepository = assignmentRepository;
         this.categoryRuleRepository = categoryRuleRepository;
         this.merchantCodeResolver = merchantCodeResolver;
+        this.logger = logger ?? NullLogger<TransactionCategorizationService>.Instance;
     }
 
     public async Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
@@ -72,6 +77,12 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         var unresolvedTransactions = transactions
             .Where(transaction => !categorizedTransactionIds.Contains(transaction.Id))
             .ToArray();
+        logger.LogInformation(
+            "Categorization prepared {TransactionCount} transactions: {ExistingCount} existing, {LocalCount} local, {UnresolvedCount} unresolved.",
+            transactions.Count,
+            existingAssignments.Length,
+            localResults.Count,
+            unresolvedTransactions.Length);
 
         if (unresolvedTransactions.Length == 0)
         {
@@ -88,6 +99,10 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         IReadOnlyList<TransactionCategorization> aiResults;
         try
         {
+            logger.LogInformation(
+                "Sending {RepresentativeCount} representative transactions to AI for {UnresolvedCount} unresolved transactions.",
+                representativeTransactions.Length,
+                unresolvedTransactions.Length);
             progress?.Report(new FileUploadProgress(
                 FileUploadProgressStage.CategorizingWithAi,
                 "Categorizing with AI",
@@ -98,9 +113,16 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
                 representativeAiResults,
                 representativeTransactions,
                 unresolvedTransactions);
+            logger.LogInformation(
+                "AI categorization returned {AiResultCount} expanded results for {UnresolvedCount} unresolved transactions.",
+                aiResults.Count,
+                unresolvedTransactions.Length);
         }
         catch (TimeoutException)
         {
+            logger.LogWarning(
+                "AI categorization timed out for {UnresolvedCount} unresolved transactions.",
+                unresolvedTransactions.Length);
             aiResults = unresolvedTransactions
                 .Select(transaction => CreateUnresolvedResult(transaction, "AI categorization timed out."))
                 .ToArray();
@@ -109,8 +131,12 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         {
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            logger.LogError(
+                exception,
+                "AI categorization failed for {UnresolvedCount} unresolved transactions.",
+                unresolvedTransactions.Length);
             aiResults = unresolvedTransactions
                 .Select(transaction => CreateUnresolvedResult(transaction, "AI categorization failed."))
                 .ToArray();

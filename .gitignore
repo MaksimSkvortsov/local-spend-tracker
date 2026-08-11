@@ -1,10 +1,14 @@
 # Build output
 bin/
 obj/
+dist/
+artifacts/
 
 # User-specific IDE state
 .vs/
 .vscode/
+.playwright-mcp/
+.codex
 *.user
 *.suo
 

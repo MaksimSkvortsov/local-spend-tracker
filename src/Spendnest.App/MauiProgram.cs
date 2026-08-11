@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Spendnest.App.Credentials;
 using Spendnest.Core.Ai;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
@@ -8,7 +9,6 @@ using Spendnest.Core.Reporting;
 using Spendnest.Core.Review;
 using Spendnest.App.State;
 using Spendnest.Infrastructure.Categorization;
-using Spendnest.Infrastructure.Credentials;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Persistence;
 using Spendnest.Infrastructure.Reporting;
@@ -39,11 +39,9 @@ public static class MauiProgram
         builder.Services.AddMauiBlazorWebView();
         builder.Services.AddSingleton<IConfiguration>(configuration);
         builder.Services.AddSingleton<AppDataRefreshNotifier>();
+        builder.Services.AddSingleton<DashboardPeriodState>();
         builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
-        builder.Services.AddSingleton<ICredentialStore>(_ => new InMemoryCredentialStore(new Dictionary<string, string?>
-        {
-            [CredentialKeys.OpenAiApiKey] = ReadConfiguredOpenAiApiKey(configuration)
-        }));
+        builder.Services.AddSingleton<ICredentialStore, SecureStorageCredentialStore>();
         builder.Services.AddSpendnestSqlitePersistence();
         builder.Services.AddSingleton<IStatementFileImportService, StatementFileImportService>();
         builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();
@@ -73,11 +71,5 @@ public static class MauiProgram
             .GetResult();
 
         return app;
-    }
-
-    private static string? ReadConfiguredOpenAiApiKey(IConfiguration configuration)
-    {
-        return configuration["OpenAI:ApiKey"]
-            ?? Environment.GetEnvironmentVariable("OPENAI_API_KEY");
     }
 }

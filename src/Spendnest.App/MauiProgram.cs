@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Spendnest.App.Credentials;
+using Spendnest.App.Infrastructure.Credentials;
 using Spendnest.Core.Ai;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
@@ -10,6 +10,7 @@ using Spendnest.Core.Review;
 using Spendnest.App.State;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Importing;
+using Spendnest.Infrastructure.Logging;
 using Spendnest.Infrastructure.Persistence;
 using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure.Review;
@@ -57,6 +58,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>();
         builder.Services.AddSingleton<ITransactionReviewService, TransactionReviewService>();
         builder.Services.AddSingleton<IAiConnectionTestService, OpenAiConnectionTestService>();
+
+        builder.Logging
+            .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)
+            .AddSpendnestFile();
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

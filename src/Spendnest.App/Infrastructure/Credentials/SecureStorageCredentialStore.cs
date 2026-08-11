@@ -1,6 +1,6 @@
 using Spendnest.Core.Credentials;
 
-namespace Spendnest.App.Credentials;
+namespace Spendnest.App.Infrastructure.Credentials;
 
 public sealed class SecureStorageCredentialStore : ICredentialStore
 {
@@ -11,7 +11,6 @@ public sealed class SecureStorageCredentialStore : ICredentialStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
-
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         await SecureStorage.Default

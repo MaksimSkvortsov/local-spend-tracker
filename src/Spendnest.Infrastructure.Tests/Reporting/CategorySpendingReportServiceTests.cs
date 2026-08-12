@@ -87,6 +87,41 @@ public class CategorySpendingReportServiceTests
         report.TotalSpending.Should().Be(127.58m);
     }
 
+    [Fact]
+    public async Task BuildAsync_ShouldExcludeCreditCardPaymentsFromSpending()
+    {
+        var repository = new InMemoryTransactionRepository();
+        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var reportService = new CategorySpendingReportService(
+            repository,
+            assignmentRepository,
+            new InMemoryCategoryRepository());
+        var groceries = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
+        var travel = Transaction("UNITED AIRLINES", 750m);
+        var payment = Transaction("CAPITAL ONE MOBILE PYMT", -700m);
+        await repository.AddRangeAsync(
+            [
+                groceries,
+                travel,
+                payment
+            ],
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(groceries.Id, BuiltInCategoryIds.Groceries),
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(travel.Id, BuiltInCategoryIds.Travel),
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(payment.Id, BuiltInCategoryIds.CreditCardPayment),
+            CancellationToken.None);
+
+        var report = await reportService.BuildAsync(CancellationToken.None);
+
+        report.Lines.Should().NotContain(line => line.CategoryId == BuiltInCategoryIds.CreditCardPayment);
+        report.TotalSpending.Should().Be(891.83m);
+    }
+
     private static Transaction Transaction(
         string description,
         decimal amount)

@@ -39,14 +39,23 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
         var categoryNamesById = (await categoryRepository.ListAsync(cancellationToken).ConfigureAwait(false))
             .ToDictionary(category => category.Id, category => category.Name);
 
-        var lines = transactions
-            .GroupBy(transaction => assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId
-                ?? BuiltInCategoryIds.Other)
+        var categorizedTransactions = transactions
+            .Select(transaction => new
+            {
+                Transaction = transaction,
+                CategoryId = assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId
+                    ?? BuiltInCategoryIds.Other
+            })
+            .Where(item => item.CategoryId != BuiltInCategoryIds.CreditCardPayment)
+            .ToArray();
+
+        var lines = categorizedTransactions
+            .GroupBy(item => item.CategoryId)
             .Select(group => new CategorySpendingReportLine(
                 group.Key,
                 categoryNamesById.GetValueOrDefault(group.Key, group.Key.ToString()),
                 group.Count(),
-                group.Sum(transaction => transaction.Amount)))
+                group.Sum(item => item.Transaction.Amount)))
             .OrderByDescending(line => Math.Abs(line.Amount))
             .ThenBy(line => line.CategoryName)
             .ToArray();

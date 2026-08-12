@@ -641,7 +641,7 @@ else
         filteredTransactions = await TransactionRepository.ListAsync(query, CancellationToken.None);
         report = await ReportService.BuildAsync(query, CancellationToken.None);
 
-        totalSpending = filteredTransactions.Sum(transaction => transaction.Amount);
+        totalSpending = report.TotalSpending;
         averageTransaction = filteredTransactions.Count == 0 ? 0 : totalSpending / filteredTransactions.Count;
         largestCharge = filteredTransactions.Where(transaction => transaction.Amount > 0).DefaultIfEmpty().Max(transaction => transaction?.Amount ?? 0);
         creditTotal = filteredTransactions.Where(transaction => transaction.Amount < 0).Sum(transaction => transaction.Amount);

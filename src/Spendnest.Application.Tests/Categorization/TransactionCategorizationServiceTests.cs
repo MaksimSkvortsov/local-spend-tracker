@@ -1,10 +1,11 @@
-namespace Spendnest.Infrastructure.Tests.Categorization;
+namespace Spendnest.Application.Tests.Categorization;
 
 using FluentAssertions;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
+using Spendnest.Application.Categorization;
 using Spendnest.Infrastructure.Categorization;
 
 public class TransactionCategorizationServiceTests

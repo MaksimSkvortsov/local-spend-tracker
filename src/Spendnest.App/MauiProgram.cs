@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Spendnest.App.Infrastructure.Credentials;
+using Spendnest.Application;
+using Spendnest.Application.Importing;
 using Spendnest.Core.Ai;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
@@ -12,8 +14,6 @@ using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Logging;
 using Spendnest.Infrastructure.Persistence;
-using Spendnest.Infrastructure.Reporting;
-using Spendnest.Infrastructure.Review;
 
 namespace Spendnest.App;
 
@@ -42,9 +42,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppDataRefreshNotifier>();
         builder.Services.AddSingleton<DashboardPeriodState>();
         builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
+        builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();
         builder.Services.AddSingleton<ICredentialStore, SecureStorageCredentialStore>();
         builder.Services.AddSpendnestSqlitePersistence();
-        builder.Services.AddSingleton<IStatementFileImportService, StatementFileImportService>();
         builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();
         builder.Services.AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>();
         builder.Services.AddSingleton<HttpClient>();
@@ -53,10 +53,8 @@ public static class MauiProgram
             Model = configuration["OpenAI:Model"] ?? "gpt-5.6-luna"
         });
         builder.Services.AddSingleton<ITransactionCategorizer, StoredOpenAiTransactionCategorizer>();
-        builder.Services.AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>();
         builder.Services.AddSingleton<ITransactionCategorizationApplier, TransactionCategorizationApplier>();
-        builder.Services.AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>();
-        builder.Services.AddSingleton<ITransactionReviewService, TransactionReviewService>();
+        builder.Services.AddSpendnestApplicationServices();
         builder.Services.AddSingleton<IAiConnectionTestService, OpenAiConnectionTestService>();
 
         builder.Logging

@@ -1,11 +1,11 @@
-namespace Spendnest.Infrastructure.Tests.Review;
+namespace Spendnest.Application.Tests.Review;
 
 using FluentAssertions;
+using Spendnest.Application.Review;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categorization;
-using Spendnest.Infrastructure.Review;
 using Spendnest.Infrastructure.Transactions;
 
 public class TransactionReviewServiceTests

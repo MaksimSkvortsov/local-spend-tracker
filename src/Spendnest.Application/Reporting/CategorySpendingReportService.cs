@@ -3,7 +3,7 @@ using Spendnest.Core.Categorization;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
 
-namespace Spendnest.Infrastructure.Reporting;
+namespace Spendnest.Application.Reporting;
 
 /// <summary>
 /// Builds category spending reports from the current transaction repository.

@@ -1,12 +1,12 @@
-namespace Spendnest.Infrastructure.Tests.Reporting;
+namespace Spendnest.Application.Tests.Reporting;
 
 using FluentAssertions;
+using Spendnest.Application.Reporting;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categories;
 using Spendnest.Infrastructure.Categorization;
-using Spendnest.Infrastructure.Reporting;
 using Spendnest.Infrastructure.Transactions;
 
 public class CategorySpendingReportServiceTests

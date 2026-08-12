@@ -5,7 +5,7 @@ using Spendnest.Core.Categorization;
 using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
 
-namespace Spendnest.Infrastructure.Categorization;
+namespace Spendnest.Application.Categorization;
 
 /// <summary>
 /// Runs local categorization first and uses AI only for remaining transactions.

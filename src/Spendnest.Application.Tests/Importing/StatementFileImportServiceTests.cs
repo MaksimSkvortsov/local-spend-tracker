@@ -1,6 +1,7 @@
-namespace Spendnest.Infrastructure.Tests.Importing;
+namespace Spendnest.Application.Tests.Importing;
 
 using FluentAssertions;
+using Spendnest.Application.Importing;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Progress;
 using Spendnest.Infrastructure.Accounts;
@@ -286,7 +287,8 @@ public class StatementFileImportServiceTests
             parser ?? new CsvStatementParser(),
             repository,
             new InMemoryCardAccountRepository(),
-            statementImportRepository ?? new InMemoryStatementImportRepository());
+            statementImportRepository ?? new InMemoryStatementImportRepository(),
+            new LocalStatementFileReader());
     }
 
     private sealed class RecordingProgress : IProgress<FileUploadProgress>

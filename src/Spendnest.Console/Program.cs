@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Spendnest.Application;
+using Spendnest.Application.Importing;
 using Spendnest.Console;
 using Spendnest.Core;
 using Spendnest.Core.Categorization;
@@ -14,8 +16,6 @@ using Spendnest.Infrastructure.Credentials;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Logging;
 using Spendnest.Infrastructure.Persistence;
-using Spendnest.Infrastructure.Reporting;
-using Spendnest.Infrastructure.Review;
 
 ConsoleEnvironment.LoadLocalEnvironmentFile(".env.local");
 
@@ -34,12 +34,12 @@ using var serviceProvider = new ServiceCollection()
     .AddSingleton<CoreAssemblyMarker>()
     .AddSingleton<InfrastructureAssemblyMarker>()
     .AddSingleton<IStatementParser, CsvStatementParser>()
+    .AddSingleton<IStatementFileReader, LocalStatementFileReader>()
     .AddSingleton<ICredentialStore>(_ => new InMemoryCredentialStore(new Dictionary<string, string?>
     {
         [CredentialKeys.OpenAiApiKey] = ReadConfiguredOpenAiApiKey(configuration)
     }))
     .AddSpendnestSqlitePersistence()
-    .AddSingleton<IStatementFileImportService, StatementFileImportService>()
     .AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>()
     .AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>()
     .AddSingleton<HttpClient>()
@@ -48,10 +48,8 @@ using var serviceProvider = new ServiceCollection()
         Model = configuration["OpenAI:Model"] ?? "gpt-5.6-luna"
     })
     .AddSingleton<ITransactionCategorizer, StoredOpenAiTransactionCategorizer>()
-    .AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>()
     .AddSingleton<ITransactionCategorizationApplier, TransactionCategorizationApplier>()
-    .AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>()
-    .AddSingleton<ITransactionReviewService, TransactionReviewService>()
+    .AddSpendnestApplicationServices()
     .AddSingleton<SpendnestCommandDispatcher>()
     .AddSingleton<SpendnestConsoleApp>()
     .BuildServiceProvider();

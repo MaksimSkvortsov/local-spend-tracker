@@ -3,7 +3,7 @@ using Spendnest.Core.Categorization;
 using Spendnest.Core.Review;
 using Spendnest.Core.Transactions;
 
-namespace Spendnest.Infrastructure.Review;
+namespace Spendnest.Application.Review;
 
 /// <summary>
 /// Manages user review of transaction category assignments.

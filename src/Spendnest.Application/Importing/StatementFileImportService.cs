@@ -2,9 +2,8 @@ using Spendnest.Core.Accounts;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
-using System.Security.Cryptography;
 
-namespace Spendnest.Infrastructure.Importing;
+namespace Spendnest.Application.Importing;
 
 /// <summary>
 /// Parses a statement file and saves normalized transactions to a repository.
@@ -15,17 +14,20 @@ public sealed class StatementFileImportService : IStatementFileImportService
     private readonly ITransactionRepository transactionRepository;
     private readonly ICardAccountRepository cardAccountRepository;
     private readonly IStatementImportRepository statementImportRepository;
+    private readonly IStatementFileReader fileReader;
 
     public StatementFileImportService(
         IStatementParser parser,
         ITransactionRepository transactionRepository,
         ICardAccountRepository cardAccountRepository,
-        IStatementImportRepository statementImportRepository)
+        IStatementImportRepository statementImportRepository,
+        IStatementFileReader fileReader)
     {
         this.parser = parser;
         this.transactionRepository = transactionRepository;
         this.cardAccountRepository = cardAccountRepository;
         this.statementImportRepository = statementImportRepository;
+        this.fileReader = fileReader;
     }
 
     public async Task<StatementFileImportResult> ImportAsync(
@@ -43,13 +45,13 @@ public sealed class StatementFileImportService : IStatementFileImportService
         options.Progress?.Report(new FileUploadProgress(
             FileUploadProgressStage.ReadingFile,
             "Reading file"));
-        var fileHash = await ComputeFileHashAsync(filePath, cancellationToken).ConfigureAwait(false);
+        await using var statementFile = await fileReader.OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
         var existingStatementImport = await statementImportRepository
-            .GetByFileHashAsync(fileHash, cancellationToken)
+            .GetByFileHashAsync(statementFile.FileHash, cancellationToken)
             .ConfigureAwait(false);
         if (existingStatementImport is not null)
         {
-            throw new DuplicateStatementImportException(Path.GetFileName(filePath));
+            throw new DuplicateStatementImportException(statementFile.FileName);
         }
 
         var cardAccountName = NormalizeCardAccountName(options.CardAccountName);
@@ -62,20 +64,19 @@ public sealed class StatementFileImportService : IStatementFileImportService
         var statementImport = new StatementImport
         {
             CardAccountId = cardAccount.Id,
-            FilePath = filePath,
-            FileName = Path.GetFileName(filePath),
-            FileHash = fileHash,
+            FilePath = statementFile.FilePath,
+            FileName = statementFile.FileName,
+            FileHash = statementFile.FileHash,
             StartedAtUtc = importedAtUtc
         };
         await statementImportRepository.AddAsync(statementImport, cancellationToken).ConfigureAwait(false);
 
         try
         {
-            await using var stream = File.OpenRead(filePath);
             options.Progress?.Report(new FileUploadProgress(
                 FileUploadProgressStage.ParsingTransactions,
                 "Parsing transactions"));
-            var parseResult = await parser.ParseAsync(stream, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
+            var parseResult = await parser.ParseAsync(statementFile.Content, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
 
             var existingTransactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
             var seenFingerprints = existingTransactions
@@ -125,7 +126,7 @@ public sealed class StatementFileImportService : IStatementFileImportService
 
             return new StatementFileImportResult(
                 statementImport.Id,
-                filePath,
+                statementFile.FilePath,
                 cardAccount.Id,
                 cardAccount.Name,
                 parseResult.Rows.Count,
@@ -152,12 +153,4 @@ public sealed class StatementFileImportService : IStatementFileImportService
             : cardAccountName.Trim();
     }
 
-    private static async Task<string> ComputeFileHashAsync(
-        string filePath,
-        CancellationToken cancellationToken)
-    {
-        await using var stream = File.OpenRead(filePath);
-        var hashBytes = await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
-        return Convert.ToHexString(hashBytes);
-    }
 }

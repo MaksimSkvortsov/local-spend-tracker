@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\Spendnest.Application\Spendnest.Application.csproj" />
     <ProjectReference Include="..\Spendnest.Core\Spendnest.Core.csproj" />
     <ProjectReference Include="..\Spendnest.Infrastructure\Spendnest.Infrastructure.csproj" />
   </ItemGroup>

@@ -2,21 +2,21 @@ namespace Spendnest.Application.Tests.Review;
 
 using FluentAssertions;
 using Spendnest.Application.Review;
+using Spendnest.Application.Tests.TestDoubles;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categorization;
-using Spendnest.Infrastructure.Transactions;
 
 public class TransactionReviewServiceTests
 {
     [Fact]
     public async Task ListNeedsReviewAsync_ShouldReturnTransactionsMarkedForReview()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var transaction = Transaction("MYSTERY PLACE");
         await repository.AddRangeAsync([transaction], CancellationToken.None);
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
         await assignmentRepository.SaveAsync(
             new TransactionCategoryAssignment
             {
@@ -31,7 +31,7 @@ public class TransactionReviewServiceTests
         var service = new TransactionReviewService(
             repository,
             assignmentRepository,
-            new InMemoryCategoryRuleRepository(),
+            new FakeCategoryRuleRepository(),
             new TransactionMerchantCodeResolver());
 
         var result = await service.ListNeedsReviewAsync(CancellationToken.None);
@@ -50,11 +50,11 @@ public class TransactionReviewServiceTests
     [Fact]
     public async Task CountNeedsReviewAsync_ShouldReturnReviewCountForExistingTransactions()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var reviewTransaction = Transaction("MYSTERY PLACE");
         var resolvedTransaction = Transaction("KNOWN PLACE");
         await repository.AddRangeAsync([reviewTransaction, resolvedTransaction], CancellationToken.None);
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
         await assignmentRepository.SaveAsync(
             new TransactionCategoryAssignment
             {
@@ -91,7 +91,7 @@ public class TransactionReviewServiceTests
         var service = new TransactionReviewService(
             repository,
             assignmentRepository,
-            new InMemoryCategoryRuleRepository(),
+            new FakeCategoryRuleRepository(),
             new TransactionMerchantCodeResolver());
 
         var count = await service.CountNeedsReviewAsync(CancellationToken.None);
@@ -102,9 +102,9 @@ public class TransactionReviewServiceTests
     [Fact]
     public async Task SetCategoryAsync_ShouldSaveAssignmentAndRememberExactRule()
     {
-        var repository = new InMemoryTransactionRepository();
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
-        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
         var transaction = Transaction("MYSTERY PLACE");
         await repository.AddRangeAsync([transaction], CancellationToken.None);
         await assignmentRepository.SaveAsync(
@@ -149,9 +149,9 @@ public class TransactionReviewServiceTests
     [Fact]
     public async Task ConfirmAsync_ShouldClearReviewAndOptionallyRememberCurrentCategory()
     {
-        var repository = new InMemoryTransactionRepository();
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
-        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
         var transaction = Transaction("MYSTERY PLACE");
         await repository.AddRangeAsync([transaction], CancellationToken.None);
         await assignmentRepository.SaveAsync(
@@ -191,13 +191,13 @@ public class TransactionReviewServiceTests
     [Fact]
     public async Task SetCategoryAsync_ShouldRejectUnknownCategoryIds()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var transaction = Transaction("MYSTERY PLACE");
         await repository.AddRangeAsync([transaction], CancellationToken.None);
         var service = new TransactionReviewService(
             repository,
-            new InMemoryTransactionCategoryAssignmentRepository(),
-            new InMemoryCategoryRuleRepository(),
+            new FakeTransactionCategoryAssignmentRepository(),
+            new FakeCategoryRuleRepository(),
             new TransactionMerchantCodeResolver());
 
         var act = () => service.SetCategoryAsync(

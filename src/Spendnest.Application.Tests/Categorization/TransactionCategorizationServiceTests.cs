@@ -6,6 +6,7 @@ using Spendnest.Core.Categorization;
 using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
 using Spendnest.Application.Categorization;
+using Spendnest.Application.Tests.TestDoubles;
 using Spendnest.Infrastructure.Categorization;
 
 public class TransactionCategorizationServiceTests
@@ -13,7 +14,7 @@ public class TransactionCategorizationServiceTests
     [Fact]
     public async Task CategorizeAsync_ShouldUseLocalFirstAndSendOnlyUnresolvedTransactionsToAi()
     {
-        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
         await ruleRepository.AddAsync(new CategoryRule
         {
             Pattern = "BULK MART",
@@ -87,7 +88,7 @@ public class TransactionCategorizationServiceTests
     [Fact]
     public async Task CategorizeAsync_ShouldRememberHighConfidenceAiResultsAsMerchantRules()
     {
-        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
         var firstTransaction = new Transaction
         {
             Id = Guid.NewGuid(),
@@ -265,7 +266,7 @@ public class TransactionCategorizationServiceTests
             OriginalDescription = "MYSTERY PLACE",
             Amount = 19.99m
         };
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
         await assignmentRepository.SaveAsync(
             new TransactionCategoryAssignment
             {
@@ -295,7 +296,7 @@ public class TransactionCategorizationServiceTests
 
     private static TransactionCategorizationService CreateService(ITransactionCategorizer aiCategorizer)
     {
-        return CreateService(aiCategorizer, new InMemoryTransactionCategoryAssignmentRepository());
+        return CreateService(aiCategorizer, new FakeTransactionCategoryAssignmentRepository());
     }
 
     private static TransactionCategorizationService CreateService(
@@ -303,7 +304,7 @@ public class TransactionCategorizationServiceTests
         ITransactionCategoryAssignmentRepository? assignmentRepository = null,
         ICategoryRuleRepository? categoryRuleRepository = null)
     {
-        var rules = categoryRuleRepository ?? new InMemoryCategoryRuleRepository();
+        var rules = categoryRuleRepository ?? new FakeCategoryRuleRepository();
         var merchantCodeResolver = new TransactionMerchantCodeResolver();
 
         return new TransactionCategorizationService(
@@ -311,7 +312,7 @@ public class TransactionCategorizationServiceTests
                 rules,
                 merchantCodeResolver),
             aiCategorizer,
-            assignmentRepository ?? new InMemoryTransactionCategoryAssignmentRepository(),
+            assignmentRepository ?? new FakeTransactionCategoryAssignmentRepository(),
             rules,
             merchantCodeResolver);
     }

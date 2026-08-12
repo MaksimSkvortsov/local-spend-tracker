@@ -2,18 +2,17 @@ namespace Spendnest.Application.Tests.Importing;
 
 using FluentAssertions;
 using Spendnest.Application.Importing;
+using Spendnest.Application.Tests.TestDoubles;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Progress;
-using Spendnest.Infrastructure.Accounts;
 using Spendnest.Infrastructure.Importing;
-using Spendnest.Infrastructure.Transactions;
 
 public class StatementFileImportServiceTests
 {
     [Fact]
     public async Task ImportAsync_ShouldParseAndSaveTransactionsToRepository()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var service = CreateService(repository);
 
         var result = await service.ImportAsync(
@@ -38,8 +37,8 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldRecordStatementImportHistory()
     {
-        var repository = new InMemoryTransactionRepository();
-        var statementImportRepository = new InMemoryStatementImportRepository();
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
         var service = CreateService(repository, statementImportRepository);
 
         var filePath = FixturePath("bank-of-america.csv");
@@ -69,7 +68,7 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldReportLongRunningProgressStages()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var service = CreateService(repository);
         var progress = new RecordingProgress();
 
@@ -92,8 +91,8 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldMarkStatementImportFailedWhenParsingFails()
     {
-        var repository = new InMemoryTransactionRepository();
-        var statementImportRepository = new InMemoryStatementImportRepository();
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
         var service = CreateService(
             repository,
             statementImportRepository,
@@ -117,7 +116,7 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldAppendTransactionsAcrossImports()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var service = CreateService(repository);
 
         await service.ImportAsync(FixturePath("bank-of-america.csv"), new StatementFileImportOptions(), CancellationToken.None);
@@ -132,8 +131,8 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldRejectStatementFileThatWasAlreadyImported()
     {
-        var repository = new InMemoryTransactionRepository();
-        var statementImportRepository = new InMemoryStatementImportRepository();
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
         var service = CreateService(repository, statementImportRepository);
 
         await service.ImportAsync(FixturePath("bank-of-america.csv"), new StatementFileImportOptions(), CancellationToken.None);
@@ -154,7 +153,7 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldAllowSameTransactionOnDifferentCards()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var service = CreateService(repository);
         var firstFilePath = Path.GetTempFileName();
         var secondFilePath = Path.GetTempFileName();
@@ -201,7 +200,7 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldSkipSameTransactionFromDifferentStatementFiles()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var service = CreateService(repository);
         var firstFilePath = Path.GetTempFileName();
         var secondFilePath = Path.GetTempFileName();
@@ -242,7 +241,7 @@ public class StatementFileImportServiceTests
     [Fact]
     public async Task ImportAsync_ShouldSkipDuplicateRowsInsideSameFile()
     {
-        var repository = new InMemoryTransactionRepository();
+        var repository = new FakeTransactionRepository();
         var service = CreateService(repository);
         var filePath = Path.GetTempFileName();
         await File.WriteAllTextAsync(
@@ -279,15 +278,15 @@ public class StatementFileImportServiceTests
     }
 
     private static StatementFileImportService CreateService(
-        InMemoryTransactionRepository repository,
-        InMemoryStatementImportRepository? statementImportRepository = null,
+        FakeTransactionRepository repository,
+        FakeStatementImportRepository? statementImportRepository = null,
         IStatementParser? parser = null)
     {
         return new StatementFileImportService(
             parser ?? new CsvStatementParser(),
             repository,
-            new InMemoryCardAccountRepository(),
-            statementImportRepository ?? new InMemoryStatementImportRepository(),
+            new FakeCardAccountRepository(),
+            statementImportRepository ?? new FakeStatementImportRepository(),
             new LocalStatementFileReader());
     }
 

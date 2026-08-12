@@ -2,24 +2,22 @@ namespace Spendnest.Application.Tests.Reporting;
 
 using FluentAssertions;
 using Spendnest.Application.Reporting;
+using Spendnest.Application.Tests.TestDoubles;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
-using Spendnest.Infrastructure.Categories;
-using Spendnest.Infrastructure.Categorization;
-using Spendnest.Infrastructure.Transactions;
 
 public class CategorySpendingReportServiceTests
 {
     [Fact]
     public async Task BuildAsync_ShouldGroupAllRepositoryTransactionsByCategory()
     {
-        var repository = new InMemoryTransactionRepository();
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
         var reportService = new CategorySpendingReportService(
             repository,
             assignmentRepository,
-            new InMemoryCategoryRepository());
+            new FakeCategoryRepository());
         var groceries = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var restaurant = Transaction("CAFE RIO VERDE", 30.40m);
         var unassigned = Transaction("UNKNOWN MERCHANT", 24.13m);
@@ -52,12 +50,12 @@ public class CategorySpendingReportServiceTests
     [Fact]
     public async Task BuildAsync_ShouldKeepKnownMerchantRefundsInsideOriginalCategory()
     {
-        var repository = new InMemoryTransactionRepository();
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
         var reportService = new CategorySpendingReportService(
             repository,
             assignmentRepository,
-            new InMemoryCategoryRepository());
+            new FakeCategoryRepository());
         var purchase = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var refund = Transaction("BULK MART REFUND RIVERTON VA", -14.25m);
         await repository.AddRangeAsync(
@@ -90,12 +88,12 @@ public class CategorySpendingReportServiceTests
     [Fact]
     public async Task BuildAsync_ShouldExcludeCreditCardPaymentsFromSpending()
     {
-        var repository = new InMemoryTransactionRepository();
-        var assignmentRepository = new InMemoryTransactionCategoryAssignmentRepository();
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
         var reportService = new CategorySpendingReportService(
             repository,
             assignmentRepository,
-            new InMemoryCategoryRepository());
+            new FakeCategoryRepository());
         var groceries = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var travel = Transaction("UNITED AIRLINES", 750m);
         var payment = Transaction("CAPITAL ONE MOBILE PYMT", -700m);

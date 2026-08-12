@@ -5,7 +5,7 @@ using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categorization;
-using Spendnest.Infrastructure.Transactions;
+using Spendnest.Infrastructure.Tests.TestDoubles;
 
 public class TransactionCategorizationApplierTests
 {
@@ -13,7 +13,7 @@ public class TransactionCategorizationApplierTests
     public async Task ApplyAsync_ShouldSaveCategoryAssignment()
     {
         var transaction = Transaction("MYSTERY PLACE");
-        var repository = new InMemoryTransactionCategoryAssignmentRepository();
+        var repository = new FakeTransactionCategoryAssignmentRepository();
         var applier = new TransactionCategorizationApplier(repository);
 
         await applier.ApplyAsync(

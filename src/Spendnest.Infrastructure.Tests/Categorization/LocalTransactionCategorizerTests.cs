@@ -5,13 +5,14 @@ using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categorization;
+using Spendnest.Infrastructure.Tests.TestDoubles;
 
 public class LocalTransactionCategorizerTests
 {
     [Fact]
     public async Task CategorizeKnownAsync_ShouldUseStoredLocalRules()
     {
-        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
         await ruleRepository.AddAsync(new CategoryRule
         {
             Pattern = "CORNER MARKET",
@@ -43,7 +44,7 @@ public class LocalTransactionCategorizerTests
     public async Task CategorizeKnownAsync_ShouldLeaveUnmatchedRefundsForAi()
     {
         var categorizer = new LocalTransactionCategorizer(
-            new InMemoryCategoryRuleRepository(),
+            new FakeCategoryRuleRepository(),
             new TransactionMerchantCodeResolver());
         var transaction = new Transaction
         {
@@ -60,7 +61,7 @@ public class LocalTransactionCategorizerTests
     [Fact]
     public async Task CategorizeKnownAsync_ShouldUseLongestStoredPrefixRule()
     {
-        var ruleRepository = new InMemoryCategoryRuleRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
         await ruleRepository.AddAsync(new CategoryRule
         {
             Pattern = "AMAZON",

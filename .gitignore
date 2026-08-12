@@ -2,6 +2,8 @@
 bin/
 obj/
 dist/
+!src/Spendnest.App/wwwroot/lib/bootstrap/dist/
+!src/Spendnest.App/wwwroot/lib/bootstrap/dist/**
 artifacts/
 
 # User-specific IDE state

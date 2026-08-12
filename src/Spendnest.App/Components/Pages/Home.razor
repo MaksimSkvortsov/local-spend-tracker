@@ -1,0 +1,818 @@
+@page "/import"
+@inject IStatementFileImportService ImportService
+@inject ITransactionRepository TransactionRepository
+@inject ITransactionCategorizationService CategorizationService
+@inject ITransactionCategorizationApplier CategorizationApplier
+@inject IStatementImportRepository ImportHistoryRepository
+@inject IStatementParser StatementParser
+@inject ICardAccountRepository CardAccountRepository
+@inject AppDataRefreshNotifier DataRefreshNotifier
+
+<PageTitle>Import - PeasantMoney</PageTitle>
+
+<section class="import-page-header">
+    <h1>Import Transactions</h1>
+    <p>Upload your bank statements to reconcile your accounts and gain clarity on your spending habits. Your data is processed securely and remains private.</p>
+</section>
+
+@if (string.IsNullOrWhiteSpace(selectedFilePath))
+{
+    <section class="import-workspace">
+        <div class="import-upload-card">
+            <div class="import-card-header">
+                <h2>Upload Statement</h2>
+            </div>
+
+            <button type="button" class="import-drop-zone" @onclick="PickCsvAsync" disabled="@isBusy">
+                <span class="upload-icon material-symbols-outlined" aria-hidden="true">file_upload</span>
+                <span>
+                    <strong>Drag and drop your file here</strong>
+                    <em>or <span>browse files</span> from your computer</em>
+                </span>
+            </button>
+
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <span class="status-message">@statusMessage</span>
+        }
+    </section>
+}
+
+@if (!string.IsNullOrWhiteSpace(selectedFilePath))
+{
+    <section class="selected-transactions-card">
+        <div class="selected-transactions-header">
+            <div>
+                <h2>Transactions in File</h2>
+                <p>Previewing @PreviewRows.Count transactions from @SelectedFileName</p>
+            </div>
+            <div class="selected-transactions-actions">
+                <button class="secondary-button" @onclick="ClearSelectedFile" disabled="@isBusy">Cancel</button>
+                <button class="primary-button" @onclick="ImportAsync" disabled="@(!CanImport)">
+                    @(isBusy ? CurrentProgressLabel : "Confirm Import")
+                </button>
+            </div>
+        </div>
+
+        <div class="selected-card-row">
+            <div class="field-group">
+                <label for="cardName">Card</label>
+                @if (cardDetected)
+                {
+                    <div class="detected-card compact">
+                        <span>Detected card</span>
+                        <strong>@cardName</strong>
+                    </div>
+                }
+                else
+                {
+                    <div class="@(IsExistingCardSelected ? "card-picker-grid single" : "card-picker-grid")">
+                        <select id="cardName" class="text-input" @bind="selectedExistingCardName" @bind:after="UseSelectedExistingCard" disabled="@isBusy">
+                            <option value="">New card</option>
+                            @foreach (var card in availableCards)
+                            {
+                                <option value="@card.Name">@card.Name</option>
+                            }
+                        </select>
+                        @if (!IsExistingCardSelected)
+                        {
+                            <input class="text-input" placeholder="Card name" @bind="cardName" @bind:event="oninput" disabled="@isBusy" />
+                        }
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(cardSelectionMessage))
+                {
+                    <span class="field-hint">@cardSelectionMessage</span>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <span class="status-message">@statusMessage</span>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="alert error">@errorMessage</div>
+            }
+        </div>
+
+        @if (PreviewRows.Count == 0)
+        {
+            <div class="empty-state compact">No transactions found in the selected file.</div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th class="amount">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in PagedPreviewRows)
+                        {
+                            <tr>
+                                <td>@row.PostedDate.ToString("yyyy-MM-dd")</td>
+                                <td>@row.Description</td>
+                                <td><span class="@GetPreviewCategoryClass(row)">@row.Category</span></td>
+                                <td class="amount">@row.Amount.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (PreviewPageCount > 1)
+            {
+                <div class="pagination-bar selected-transactions-pagination">
+                    <button class="secondary-button pagination-button" aria-label="Previous page" @onclick="PreviousPreviewPage" disabled="@(previewPage == 1 || isBusy)">&lt;</button>
+                    <span>Page @previewPage of @PreviewPageCount</span>
+                    <button class="secondary-button pagination-button" aria-label="Next page" @onclick="NextPreviewPage" disabled="@(previewPage == PreviewPageCount || isBusy)">&gt;</button>
+                </div>
+            }
+        }
+    </section>
+}
+
+<section class="import-history-card">
+    <div class="import-history-header">
+        <div>
+            <h2>Import History</h2>
+            <p>View and manage your recent statement uploads</p>
+        </div>
+        <button type="button" class="icon-button" aria-label="Refresh import history" @onclick="RefreshImportHistoryViewAsync">
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+        </button>
+    </div>
+
+    @if (uploadHistory.Count == 0)
+    {
+        <div class="empty-state compact">No uploads in this session.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="import-history-table">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Transactions</th>
+                        <th>Transaction Range</th>
+                        <th class="status-column">Status</th>
+                        <th class="date-column">Date Imported</th>
+                        <th class="amount">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var upload in PagedUploadHistory)
+                    {
+                        <tr>
+                            <td>
+                                <span class="history-file">
+                                    <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                                    <span>@upload.FileName</span>
+                                </span>
+                                @if (upload.TimeoutCount > 0)
+                                {
+                                    <span class="history-note">@upload.TimeoutCount AI timeouts</span>
+                                }
+                            </td>
+                            <td class="data-cell">@upload.SavedTransactionCount</td>
+                            <td>@upload.TransactionRange</td>
+                            <td class="status-column"><span class="@GetImportStatusClass(upload)">@upload.StatusLabel</span></td>
+                            <td class="date-column">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</td>
+                            <td class="amount">
+                                <button type="button" class="table-icon-button" aria-label="@($"Actions for {upload.FileName}")">
+                                    <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (UploadHistoryPageCount > 1)
+        {
+            <div class="import-history-footer">
+                <span>Showing @PagedUploadHistory.Count of @uploadHistory.Count imports</span>
+                <button class="secondary-button pagination-button" aria-label="Previous page" @onclick="PreviousUploadHistoryPage" disabled="@(uploadHistoryPage == 1)">&lt;</button>
+                <strong>Page @uploadHistoryPage of @UploadHistoryPageCount</strong>
+                <button class="secondary-button pagination-button" aria-label="Next page" @onclick="NextUploadHistoryPage" disabled="@(uploadHistoryPage == UploadHistoryPageCount)">&gt;</button>
+            </div>
+        }
+    }
+</section>
+
+@if (importResult?.Warnings.Count > 0)
+{
+    <section class="panel">
+        <h2>Warnings</h2>
+        <div class="warning-list">
+            @foreach (var warning in importResult.Warnings)
+            {
+                <div>
+                    <span>@(warning.SourceRowNumber is null ? "File" : $"Row {warning.SourceRowNumber}")</span>
+                    <p>@warning.Message</p>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private const int UploadHistoryPageSize = 10;
+    private const int PreviewPageSize = 5;
+
+    private string cardName = "Default Card";
+    private string selectedExistingCardName = string.Empty;
+    private string? selectedFilePath;
+    private string? selectedFileName;
+    private string? cardSelectionMessage;
+    private string? statusMessage;
+    private string? errorMessage;
+    private FileUploadProgress? currentProgress;
+    private StatementParseResult? selectedFilePreview;
+    private bool isBusy;
+    private bool cardDetected;
+    private StatementFileImportResult? importResult;
+    private IReadOnlyList<Transaction> allTransactions = [];
+    private IReadOnlyList<CardAccount> availableCards = [];
+    private IReadOnlyList<UploadHistoryItem> uploadHistory = [];
+    private IReadOnlyDictionary<Guid, string> previewCategoryNamesByTransactionId =
+        new Dictionary<Guid, string>();
+    private Dictionary<Guid, CategorizationHistorySummary> categorizationSummariesByImportId = [];
+    private int uploadHistoryPage = 1;
+    private int previewPage = 1;
+
+    private string SelectedFileName => selectedFileName ?? "No CSV selected";
+
+    private string CurrentProgressLabel =>
+        currentProgress?.Message ?? "Working...";
+
+    private bool CanImport =>
+        !isBusy
+        && !string.IsNullOrWhiteSpace(selectedFilePath)
+        && !string.IsNullOrWhiteSpace(EffectiveCardName);
+
+    private string EffectiveCardName =>
+        string.IsNullOrWhiteSpace(cardName)
+            ? BuildFallbackCardName(selectedFileName)
+            : cardName.Trim();
+
+    private bool IsExistingCardSelected =>
+        !string.IsNullOrWhiteSpace(selectedExistingCardName);
+
+    private bool IsCategorizing =>
+        currentProgress?.Stage == FileUploadProgressStage.CategorizingWithAi;
+
+    private IReadOnlyList<PreviewRow> PreviewRows =>
+        importResult is not null
+            ? importResult.SavedTransactions
+                .Select(transaction => new PreviewRow(
+                    transaction.PostedDate,
+                    transaction.OriginalDescription,
+                    GetPreviewCategory(transaction),
+                    transaction.Amount))
+                .ToArray()
+            : selectedFilePreview?.Rows
+                .Select(row => new PreviewRow(
+                    row.PostedDate,
+                    row.OriginalDescription,
+                    string.IsNullOrWhiteSpace(row.SourceCategory) ? "Will categorize" : row.SourceCategory,
+                    row.Amount))
+                .ToArray() ?? [];
+
+    private IReadOnlyList<UploadHistoryItem> PagedUploadHistory =>
+        uploadHistory
+            .Skip((uploadHistoryPage - 1) * UploadHistoryPageSize)
+            .Take(UploadHistoryPageSize)
+            .ToArray();
+
+    private IReadOnlyList<PreviewRow> PagedPreviewRows =>
+        PreviewRows
+            .Skip((previewPage - 1) * PreviewPageSize)
+            .Take(PreviewPageSize)
+            .ToArray();
+
+    private int PreviewPageCount =>
+        Math.Max(1, (int)Math.Ceiling(PreviewRows.Count / (decimal)PreviewPageSize));
+
+    private int UploadHistoryPageCount =>
+        Math.Max(1, (int)Math.Ceiling(uploadHistory.Count / (decimal)UploadHistoryPageSize));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshTransactionsAsync();
+        await RefreshCardsAsync();
+        await RefreshUploadHistoryAsync();
+    }
+
+    private async Task PickCsvAsync()
+    {
+        errorMessage = null;
+        statusMessage = null;
+
+        var file = await FilePicker.Default.PickAsync(new PickOptions
+        {
+            PickerTitle = "Choose a statement CSV",
+            FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+            {
+                [DevicePlatform.WinUI] = [".csv"]
+            })
+        });
+
+        if (file is null)
+        {
+            return;
+        }
+
+        selectedFileName = file.FileName;
+        selectedFilePath = await EnsureLocalPathAsync(file);
+        importResult = null;
+        previewPage = 1;
+        previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
+        selectedFilePreview = await PreviewSelectedFileAsync(selectedFilePath, CancellationToken.None);
+        var detectedCardName = await DetectCardNameAsync(selectedFilePath, CancellationToken.None);
+        if (!string.IsNullOrWhiteSpace(detectedCardName))
+        {
+            cardName = detectedCardName;
+            cardDetected = true;
+            selectedExistingCardName = string.Empty;
+            cardSelectionMessage = "Card detected from the selected CSV.";
+        }
+        else
+        {
+            selectedExistingCardName = string.Empty;
+            cardName = BuildFallbackCardName(file.FileName);
+            cardDetected = false;
+
+            cardSelectionMessage = availableCards.Count == 0
+                ? "Card was not detected. Review this generated card name before importing."
+                : "Card was not detected. Choose an existing card or review this generated card name.";
+        }
+    }
+
+    private async Task ImportAsync()
+    {
+        if (!CanImport)
+        {
+            return;
+        }
+
+        isBusy = true;
+        errorMessage = null;
+        statusMessage = null;
+        currentProgress = new FileUploadProgress(
+            FileUploadProgressStage.ReadingFile,
+            "Reading file");
+        var progress = new Progress<FileUploadProgress>(ReportProgress);
+
+        try
+        {
+            importResult = await ImportService.ImportAsync(
+                selectedFilePath!,
+                new StatementFileImportOptions
+                {
+                    CardAccountName = EffectiveCardName,
+                    Progress = progress
+                },
+                CancellationToken.None);
+            await RefreshTransactionsAsync();
+            await RefreshCardsAsync();
+            await RefreshUploadHistoryAsync();
+            DataRefreshNotifier.NotifyTransactionsChanged(GetImportFocusDate(importResult));
+
+            await UpdateStatementImportStatusAsync(
+                importResult.StatementImportId,
+                StatementImportStatus.Pending);
+            ReportProgress(new FileUploadProgress(
+                FileUploadProgressStage.CategorizingWithAi,
+                "Categorizing transactions",
+                0,
+                importResult.SavedTransactions.Count));
+            await RefreshUploadHistoryAsync();
+            await InvokeAsync(StateHasChanged);
+
+            var categorizations = await CategorizationService.CategorizeAsync(
+                importResult.SavedTransactions,
+                progress,
+                CancellationToken.None);
+            await CategorizationApplier.ApplyAsync(categorizations, CancellationToken.None);
+            previewCategoryNamesByTransactionId = categorizations.ToDictionary(
+                categorization => categorization.TransactionId,
+                categorization => GetBuiltInCategoryName(categorization.CategoryId));
+
+            categorizationSummariesByImportId[importResult.StatementImportId] =
+                CategorizationHistorySummary.From(categorizations);
+            await UpdateStatementImportStatusAsync(
+                importResult.StatementImportId,
+                StatementImportStatus.Completed);
+            ReportProgress(new FileUploadProgress(
+                FileUploadProgressStage.RefreshingData,
+                "Refreshing data"));
+            await RefreshTransactionsAsync();
+            await RefreshCardsAsync();
+            await RefreshUploadHistoryAsync();
+            DataRefreshNotifier.NotifyTransactionsChanged(GetImportFocusDate(importResult));
+            ClearSelectedFileState(clearMessages: true);
+        }
+        catch (Exception exception)
+        {
+            if (importResult is not null)
+            {
+                await UpdateStatementImportStatusAsync(
+                    importResult.StatementImportId,
+                    StatementImportStatus.Failed,
+                    exception.Message);
+            }
+
+            errorMessage = exception.Message;
+            await RefreshImportHistoryViewAsync();
+        }
+        finally
+        {
+            isBusy = false;
+            currentProgress = null;
+        }
+    }
+
+    private void ReportProgress(FileUploadProgress progress)
+    {
+        currentProgress = progress;
+        statusMessage = FormatProgressMessage(progress);
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private static string FormatProgressMessage(FileUploadProgress progress)
+    {
+        if (progress.Stage == FileUploadProgressStage.CategorizingWithAi)
+        {
+            return progress.Message;
+        }
+
+        if (progress.Current is not null && progress.Total is > 0)
+        {
+            return $"{progress.Message} ({progress.Current}/{progress.Total})";
+        }
+
+        return progress.Message;
+    }
+
+    private static DateOnly? GetImportFocusDate(StatementFileImportResult importResult)
+    {
+        return importResult.SavedTransactions
+            .OrderByDescending(transaction => transaction.PostedDate)
+            .Select(transaction => (DateOnly?)transaction.PostedDate)
+            .FirstOrDefault();
+    }
+
+    private async Task RefreshTransactionsAsync()
+    {
+        allTransactions = await TransactionRepository.ListAsync(CancellationToken.None);
+    }
+
+    private async Task RefreshCardsAsync()
+    {
+        availableCards = await CardAccountRepository.ListAsync(CancellationToken.None);
+    }
+
+    private async Task RefreshUploadHistoryAsync()
+    {
+        var imports = await ImportHistoryRepository.ListAsync(CancellationToken.None);
+        var cardsById = (await CardAccountRepository.ListAsync(CancellationToken.None))
+            .ToDictionary(card => card.Id, card => card.Name);
+        var transactionsByImportId = allTransactions
+            .GroupBy(transaction => transaction.StatementImportId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<Transaction>)group.ToArray());
+        uploadHistory = imports
+            .Select(statementImport => UploadHistoryItem.From(
+                statementImport,
+                cardsById.GetValueOrDefault(statementImport.CardAccountId, "Unknown Card"),
+                categorizationSummariesByImportId.GetValueOrDefault(statementImport.Id),
+                transactionsByImportId.GetValueOrDefault(statementImport.Id, [])))
+            .ToArray();
+        uploadHistoryPage = 1;
+    }
+
+    private void PreviousUploadHistoryPage()
+    {
+        uploadHistoryPage = Math.Max(1, uploadHistoryPage - 1);
+    }
+
+    private void NextUploadHistoryPage()
+    {
+        uploadHistoryPage = Math.Min(UploadHistoryPageCount, uploadHistoryPage + 1);
+    }
+
+    private void PreviousPreviewPage()
+    {
+        previewPage = Math.Max(1, previewPage - 1);
+    }
+
+    private void NextPreviewPage()
+    {
+        previewPage = Math.Min(PreviewPageCount, previewPage + 1);
+    }
+
+    private static async Task<string> EnsureLocalPathAsync(FileResult file)
+    {
+        if (!string.IsNullOrWhiteSpace(file.FullPath) && File.Exists(file.FullPath))
+        {
+            return file.FullPath;
+        }
+
+        var cachePath = Path.Combine(FileSystem.CacheDirectory, file.FileName);
+        await using var source = await file.OpenReadAsync();
+        await using var destination = File.Create(cachePath);
+        await source.CopyToAsync(destination);
+        return cachePath;
+    }
+
+    private async Task<StatementParseResult?> PreviewSelectedFileAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = File.OpenRead(filePath);
+            return await StatementParser.ParseAsync(
+                stream,
+                new StatementParseOptions(),
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            errorMessage = exception.Message;
+            return null;
+        }
+    }
+
+    private static async Task<string?> DetectCardNameAsync(
+        string? filePath,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+        {
+            return null;
+        }
+
+        await using var stream = File.OpenRead(filePath);
+        using var reader = new StreamReader(stream);
+        var headerLine = await reader.ReadLineAsync(cancellationToken);
+        var firstDataLine = await reader.ReadLineAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(headerLine) || string.IsNullOrWhiteSpace(firstDataLine))
+        {
+            return null;
+        }
+
+        var headers = ParseCsvLine(headerLine);
+        var values = ParseCsvLine(firstDataLine);
+        var cardNumberIndex = headers.FindIndex(header =>
+            header.Equals("Card No.", StringComparison.OrdinalIgnoreCase)
+            || header.Equals("Card Number", StringComparison.OrdinalIgnoreCase));
+        if (cardNumberIndex < 0 || cardNumberIndex >= values.Count)
+        {
+            return null;
+        }
+
+        var cardNumber = values[cardNumberIndex].Trim();
+        return string.IsNullOrWhiteSpace(cardNumber)
+            ? null
+            : $"Capital One {cardNumber}";
+    }
+
+    private static List<string> ParseCsvLine(string line)
+    {
+        var values = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+
+        for (var index = 0; index < line.Length; index++)
+        {
+            var character = line[index];
+            if (character == '"')
+            {
+                if (inQuotes && index + 1 < line.Length && line[index + 1] == '"')
+                {
+                    current.Append(character);
+                    index++;
+                    continue;
+                }
+
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (character == ',' && !inQuotes)
+            {
+                values.Add(current.ToString());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(character);
+        }
+
+        values.Add(current.ToString());
+        return values;
+    }
+
+    private static string BuildFallbackCardName(string? fileName)
+    {
+        var stem = Path.GetFileNameWithoutExtension(fileName);
+        if (string.IsNullOrWhiteSpace(stem))
+        {
+            return "Imported Card";
+        }
+
+        var normalized = System.Text.RegularExpressions.Regex
+            .Replace(stem, @"[_\-]+", " ")
+            .Trim();
+        return string.IsNullOrWhiteSpace(normalized)
+            ? "Imported Card"
+            : normalized;
+    }
+
+    private void UseSelectedExistingCard()
+    {
+        if (!string.IsNullOrWhiteSpace(selectedExistingCardName))
+        {
+            cardName = selectedExistingCardName;
+            return;
+        }
+
+        cardName = BuildFallbackCardName(selectedFileName);
+    }
+
+    private void ClearSelectedFile()
+    {
+        ClearSelectedFileState(clearMessages: true);
+    }
+
+    private void ClearSelectedFileState(bool clearMessages)
+    {
+        selectedFileName = null;
+        selectedFilePath = null;
+        selectedExistingCardName = string.Empty;
+        previewPage = 1;
+        importResult = null;
+        selectedFilePreview = null;
+        previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
+        if (clearMessages)
+        {
+            statusMessage = null;
+            errorMessage = null;
+        }
+
+        cardSelectionMessage = null;
+        cardDetected = false;
+        cardName = string.Empty;
+    }
+
+    private async Task RefreshImportHistoryViewAsync()
+    {
+        await RefreshTransactionsAsync();
+        await RefreshCardsAsync();
+        await RefreshUploadHistoryAsync();
+    }
+
+    private async Task UpdateStatementImportStatusAsync(
+        Guid statementImportId,
+        StatementImportStatus status,
+        string? errorMessage = null)
+    {
+        var statementImport = (await ImportHistoryRepository.ListAsync(CancellationToken.None))
+            .FirstOrDefault(import => import.Id == statementImportId);
+        if (statementImport is null)
+        {
+            return;
+        }
+
+        statementImport.Status = status;
+        statementImport.ErrorMessage = errorMessage;
+        if (status is StatementImportStatus.Completed or StatementImportStatus.Failed)
+        {
+            statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        await ImportHistoryRepository.UpdateAsync(statementImport, CancellationToken.None);
+    }
+
+    private static string GetImportStatusClass(UploadHistoryItem upload)
+    {
+        if (upload.Status == StatementImportStatus.Failed)
+        {
+            return "import-status failed";
+        }
+
+        return upload.Status == StatementImportStatus.Pending
+            ? "import-status pending"
+            : "import-status complete";
+    }
+
+    private string GetPreviewCategory(Transaction transaction)
+    {
+        if (IsCategorizing)
+        {
+            return "Pending";
+        }
+
+        return previewCategoryNamesByTransactionId.GetValueOrDefault(transaction.Id, "Needs review");
+    }
+
+    private static string GetPreviewCategoryClass(PreviewRow row)
+    {
+        return row.Category.Equals("Pending", StringComparison.OrdinalIgnoreCase)
+            ? "preview-category-pill pending"
+            : "preview-category-pill";
+    }
+
+    private static string GetBuiltInCategoryName(int categoryId)
+    {
+        return BuiltInCategories.All.FirstOrDefault(category => category.Id == categoryId)?.Name
+            ?? "Other";
+    }
+
+    private sealed record CategorizationHistorySummary(
+        int CategorizedTransactionCount,
+        int NeedsReviewCount,
+        int TimeoutCount)
+    {
+        public static CategorizationHistorySummary From(IReadOnlyList<TransactionCategorization> categorizations)
+        {
+            return new CategorizationHistorySummary(
+                categorizations.Count,
+                categorizations.Count(categorization => categorization.NeedsReview),
+                categorizations.Count(categorization => categorization.Explanation.Contains("timed out", StringComparison.OrdinalIgnoreCase)));
+        }
+    }
+
+    private sealed record UploadHistoryItem(
+        DateTimeOffset ImportedAtLocal,
+        string FileName,
+        string CardAccountName,
+        int ParsedRowCount,
+        int SavedTransactionCount,
+        int SkippedDuplicateTransactionCount,
+        int FailedRowCount,
+        int CategorizedTransactionCount,
+        int NeedsReviewCount,
+        int TimeoutCount,
+        string TransactionRange,
+        StatementImportStatus Status)
+    {
+        public string StatusLabel => Status.ToString();
+
+        public static UploadHistoryItem From(
+            StatementImport statementImport,
+            string cardAccountName,
+            CategorizationHistorySummary? categorizationSummary,
+            IReadOnlyList<Transaction> transactions)
+        {
+            var transactionRange = BuildTransactionRange(transactions);
+
+            return new UploadHistoryItem(
+                (statementImport.CompletedAtUtc ?? statementImport.StartedAtUtc).ToLocalTime(),
+                statementImport.FileName,
+                cardAccountName,
+                statementImport.ParsedRowCount,
+                statementImport.SavedTransactionCount,
+                statementImport.SkippedDuplicateTransactionCount,
+                statementImport.FailedRowCount,
+                categorizationSummary?.CategorizedTransactionCount ?? 0,
+                categorizationSummary?.NeedsReviewCount ?? 0,
+                categorizationSummary?.TimeoutCount ?? 0,
+                transactionRange,
+                statementImport.Status);
+        }
+
+        private static string BuildTransactionRange(IReadOnlyList<Transaction> transactions)
+        {
+            if (transactions.Count == 0)
+            {
+                return "--";
+            }
+
+            var start = transactions.Min(transaction => transaction.PostedDate);
+            var end = transactions.Max(transaction => transaction.PostedDate);
+
+            return start == end
+                ? start.ToString("MMM d, yyyy")
+                : $"{start:MMM d, yyyy} - {end:MMM d, yyyy}";
+        }
+    }
+
+    private sealed record PreviewRow(
+        DateOnly PostedDate,
+        string Description,
+        string Category,
+        decimal Amount);
+}

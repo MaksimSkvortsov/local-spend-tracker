@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Spendnest.App/Spendnest.App.csproj" />
     <Project Path="src/Spendnest.Console/Spendnest.Console.csproj" />
     <Project Path="src/Spendnest.Core.Tests/Spendnest.Core.Tests.csproj" />
     <Project Path="src/Spendnest.Core/Spendnest.Core.csproj" />

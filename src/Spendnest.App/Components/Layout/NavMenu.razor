@@ -1,0 +1,35 @@
+<div class="brand">
+    <a class="brand-mark" href="dashboard" aria-label="PeasantMoney dashboard">
+        <span>
+            <strong>PeasantMoney</strong>
+            <em>Private Local Finance</em>
+        </span>
+    </a>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-item">
+            <NavLink class="nav-link" href="dashboard">
+                <span class="material-symbols-outlined" aria-hidden="true">dashboard</span> Dashboard
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="import">
+                <span class="material-symbols-outlined" aria-hidden="true">upload_file</span> Import
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="transactions">
+                <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span> Transactions
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="settings">
+                <span class="material-symbols-outlined" aria-hidden="true">settings</span> Settings
+            </NavLink>
+        </div>
+    </nav>
+</div>

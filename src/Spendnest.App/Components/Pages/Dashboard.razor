@@ -1,0 +1,947 @@
+@page "/dashboard"
+@using Spendnest.Core.Credentials
+@using Spendnest.Core.Review
+@inject ITransactionRepository TransactionRepository
+@inject ICategorySpendingReportService ReportService
+@inject ITransactionCategoryAssignmentRepository AssignmentRepository
+@inject ITransactionReviewService ReviewService
+@inject ITransactionMerchantCodeResolver MerchantCodeResolver
+@inject ICardAccountRepository CardAccountRepository
+@inject ICategoryRepository CategoryRepository
+@inject ICredentialStore CredentialStore
+@inject AppDataRefreshNotifier DataRefreshNotifier
+@inject DashboardPeriodState PeriodState
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<PageTitle>Dashboard - PeasantMoney</PageTitle>
+
+@if (transactions.Count == 0)
+{
+    <section class="dashboard-empty-card">
+        <div class="dashboard-empty-content">
+            <div class="dashboard-empty-icon">
+                <img src="images/peasantmoney-icon.png" alt="" aria-hidden="true" />
+            </div>
+
+            <h1>Welcome to PeasantMoney</h1>
+            <p>Set up private AI categorization, then import your first credit card statement to unlock local spending reports.</p>
+
+            <div class="dashboard-empty-checklist" aria-label="Getting started checklist">
+                <h2>Getting Started</h2>
+
+                <div class="@GetChecklistItemClass(IsAiConfigured)">
+                    <span class="material-symbols-outlined" aria-hidden="true">@GetChecklistIcon(IsAiConfigured)</span>
+                    <span>Configure AI in Settings</span>
+                </div>
+
+                <div class="@GetChecklistItemClass(false)">
+                    <span class="material-symbols-outlined" aria-hidden="true">check_box_outline_blank</span>
+                    <span>Upload the first statement in Import</span>
+                </div>
+            </div>
+
+            <button type="button" class="primary-button dashboard-empty-action" @onclick="GoToNextSetupStep">
+                <span class="material-symbols-outlined" aria-hidden="true">@NextSetupActionIcon</span>
+                @NextSetupActionLabel
+            </button>
+        </div>
+    </section>
+}
+else
+{
+    <section class="dashboard-metric-panel">
+        <div class="period-controls" aria-label="Report period controls">
+            <div class="period-toggle" role="group" aria-label="Report mode">
+                <button type="button" class="@GetReportModeClass(ReportMode.All)" @onclick="() => SetReportModeAsync(ReportMode.All)">All</button>
+                <button type="button" class="@GetReportModeClass(ReportMode.Year)" @onclick="() => SetReportModeAsync(ReportMode.Year)">Year</button>
+                <button type="button" class="@GetReportModeClass(ReportMode.Month)" @onclick="() => SetReportModeAsync(ReportMode.Month)">Month</button>
+            </div>
+
+            @if (reportMode != ReportMode.All)
+            {
+                <select class="dashboard-select" aria-label="Year" @bind="selectedYear" @bind:after="YearChangedAsync">
+                    @foreach (var year in AvailableYears)
+                    {
+                        <option value="@year">@year</option>
+                    }
+                </select>
+
+                @if (reportMode == ReportMode.Month)
+                {
+                    <select class="dashboard-select" aria-label="Month" @bind="selectedMonth" @bind:after="MonthChangedAsync">
+                        @foreach (var month in AvailableMonths)
+                        {
+                            <option value="@month.Value">@month.Label</option>
+                        }
+                    </select>
+                }
+            }
+        </div>
+
+        <div class="dashboard-metrics">
+            <div class="metric-divider" aria-hidden="true"></div>
+            <div>
+                <span>Window</span>
+                <strong>@WindowRangeLabel</strong>
+            </div>
+            <div class="metric-divider" aria-hidden="true"></div>
+            <div>
+                <span>Total Spend</span>
+                <strong class="metric-primary">@totalSpending.ToString("C")</strong>
+            </div>
+            <div class="metric-divider" aria-hidden="true"></div>
+            <div>
+                <span>Transactions</span>
+                <strong>@filteredTransactions.Count</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard-workspace-grid">
+        <div class="dashboard-card spending-card">
+            <div class="dashboard-card-header">
+                <h2>Spending by Category</h2>
+            </div>
+
+            @if (ChartCategoryLines.Count == 0)
+            {
+                <div class="empty-state compact">No category spending in this window.</div>
+            }
+            else
+            {
+                <div class="category-chart">
+                    <div class="donut-chart" aria-label="Spending by category chart">
+                        <svg viewBox="0 0 100 100" role="img">
+                            @foreach (var segment in DonutSegments)
+                            {
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="@DonutRadius"
+                                    fill="transparent"
+                                    stroke="@segment.Color"
+                                    stroke-dasharray="@($"{segment.Length:0.###} {DonutCircumference - segment.Length:0.###}")"
+                                    stroke-dashoffset="@($"{segment.Offset:0.###}")"
+                                    stroke-width="12">
+                                </circle>
+                            }
+                        </svg>
+                        <div>
+                            <span>Total</span>
+                            <strong>@ChartTotalSpending.ToString("C")</strong>
+                        </div>
+                    </div>
+
+                    <div class="category-legend">
+                        @foreach (var line in ChartCategoryLines)
+                        {
+                            <div class="legend-row">
+                                <div>
+                                    <span class="legend-dot" style="background: @GetCategoryColor(line.CategoryId)"></span>
+                                    <span>@line.CategoryName</span>
+                                </div>
+                                <strong>@line.Amount.ToString("C")</strong>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="dashboard-side-stack">
+            <div class="dashboard-card">
+                <h3>Top Merchants</h3>
+
+                <div class="category-bars">
+                    @if (TopMerchantLines.Count == 0)
+                    {
+                        <div class="empty-state compact">No merchant spending in this window.</div>
+                    }
+                    else
+                    {
+                        @foreach (var line in TopMerchantLines)
+                        {
+                            var width = GetMerchantWidth(line.Amount);
+                            <div class="category-row">
+                                <div class="category-row-label">
+                                    <strong>@line.DisplayName</strong>
+                                    <span>@line.Amount.ToString("C")</span>
+                                </div>
+                                <div class="bar-track" aria-hidden="true">
+                                    <div class="bar-fill" style="width: @width%; --category-color: #00652f"></div>
+                                </div>
+                                <span class="merchant-count">@FormatTransactionCount(line.TransactionCount)</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="@AttentionCardClass">
+                <h3>Needs Attention</h3>
+                <div class="attention-body">
+                    <span class="material-symbols-outlined" aria-hidden="true">@AttentionIcon</span>
+                    <strong>@AttentionSummary</strong>
+                </div>
+                <p>@AttentionDescription</p>
+                @if (reviewCount > 0)
+                {
+                    <a href="transactions">Review now</a>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard-card dashboard-table-card">
+        <div class="dashboard-table-header">
+            <h2>Biggest Transactions</h2>
+            <span>Top 5 @ReportWindowShortLabel</span>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Merchant</th>
+                        <th>Category</th>
+                        <th class="amount">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var transaction in BiggestTransactions)
+                    {
+                        <tr>
+                            <td>@transaction.OriginalDescription</td>
+                            <td>
+                                <span class="table-category-pill" style="@GetTransactionCategoryStyle(transaction)">
+                                    @GetTransactionCategoryName(transaction)
+                                </span>
+                            </td>
+                            <td class="amount">@transaction.Amount.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="dashboard-card frequency-card">
+        <div class="frequency-header">
+            <div>
+                <h2>Transaction Frequency</h2>
+                <span>@ReportWindowShortLabel</span>
+            </div>
+        </div>
+
+        <div class="frequency-list">
+            @foreach (var row in FrequencyRows)
+            {
+                <div class="frequency-row">
+                    <p>@row.Label</p>
+                    <div class="@row.GridClass" style="@row.GridStyle" aria-label="@($"{row.Label} transaction frequency")">
+                        @foreach (var cell in row.Cells)
+                        {
+                            <span class="@GetFrequencyCellClass(cell.Count)"
+                                  title="@GetFrequencyCellTitle(cell)">
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="frequency-legend" aria-hidden="true">
+            <span>Less</span>
+            <div>
+                <i class="frequency-cell empty"></i>
+                <i class="frequency-cell medium"></i>
+                <i class="frequency-cell high"></i>
+            </div>
+            <span>More</span>
+        </div>
+    </section>
+
+    <section class="dashboard-card daily-spend-card">
+        <div class="frequency-header">
+            <div>
+                <h2>Amount Spent per Day</h2>
+                <span>All cards &middot; @ReportWindowShortLabel</span>
+            </div>
+        </div>
+
+        @if (DailySpendCells.Count == 0 || DailySpendCells.All(cell => cell.Amount <= 0))
+        {
+            <div class="empty-state compact">No daily spending in this window.</div>
+        }
+        else
+        {
+            <div class="@DailySpendGridClass" style="@DailySpendGridStyle" aria-label="Amount spent per day across all cards">
+                @foreach (var cell in DailySpendCells)
+                {
+                    <span class="@GetDailySpendCellClass(cell.Amount)"
+                          title="@GetDailySpendCellTitle(cell)">
+                    </span>
+                }
+            </div>
+
+            <div class="daily-spend-legend" aria-hidden="true">
+                <span>Less</span>
+                <div>
+                    <i class="daily-spend-cell empty"></i>
+                    <i class="daily-spend-cell low"></i>
+                    <i class="daily-spend-cell medium"></i>
+                    <i class="daily-spend-cell high"></i>
+                </div>
+                <span>More</span>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private IReadOnlyList<Transaction> transactions = [];
+    private IReadOnlyList<Transaction> filteredTransactions = [];
+    private CategorySpendingReport report = new([], 0m);
+    private decimal totalSpending;
+    private decimal averageTransaction;
+    private decimal largestCharge;
+    private decimal creditTotal;
+    private int reviewCount;
+    private ReportMode reportMode = ReportMode.Year;
+    private int selectedYear;
+    private int selectedMonth;
+    private IReadOnlyList<CardAccount> cards = [];
+    private IReadOnlyList<BuiltInCategory> categories = [];
+    private IReadOnlyDictionary<Guid, TransactionCategoryAssignment> assignmentsByTransactionId =
+        new Dictionary<Guid, TransactionCategoryAssignment>();
+    private IReadOnlyDictionary<int, string> categoryNamesById =
+        new Dictionary<int, string>();
+    private IReadOnlyDictionary<int, string> categoryColorsById =
+        new Dictionary<int, string>();
+    private IReadOnlyDictionary<Guid, string> cardNamesById =
+        new Dictionary<Guid, string>();
+    private bool isAiConfigured;
+
+    private bool IsAiConfigured => isAiConfigured;
+
+    private string NextSetupActionLabel =>
+        IsAiConfigured ? "Import Transactions" : "Configure AI";
+
+    private string NextSetupActionIcon =>
+        IsAiConfigured ? "upload_file" : "settings";
+
+    private IReadOnlyList<TopMerchantLine> TopMerchantLines =>
+        filteredTransactions
+            .Where(transaction => transaction.Amount > 0)
+            .GroupBy(transaction => MerchantCodeResolver.Resolve(transaction), StringComparer.Ordinal)
+            .Select(group => new TopMerchantLine(
+                FormatMerchantName(group.Key),
+                group.Count(),
+                group.Sum(transaction => transaction.Amount)))
+            .OrderByDescending(line => line.Amount)
+            .ThenBy(line => line.DisplayName, StringComparer.Ordinal)
+            .Take(5)
+            .ToArray();
+
+    private IReadOnlyList<CategorySpendingReportLine> ChartCategoryLines =>
+        report.Lines
+            .Where(line => line.Amount > 0)
+            .Take(6)
+            .ToArray();
+
+    private decimal ChartTotalSpending =>
+        ChartCategoryLines.Sum(line => line.Amount);
+
+    private const decimal DonutRadius = 40m;
+
+    private const decimal DonutCircumference = 251.327m;
+
+    private IReadOnlyList<DonutSegment> DonutSegments
+    {
+        get
+        {
+            var offset = 0m;
+            var segments = new List<DonutSegment>();
+            foreach (var line in ChartCategoryLines)
+            {
+                var length = ChartTotalSpending == 0
+                    ? 0
+                    : Math.Round(line.Amount / ChartTotalSpending * DonutCircumference, 3);
+                segments.Add(new DonutSegment(
+                    GetCategoryColor(line.CategoryId),
+                    length,
+                    -offset));
+                offset += length;
+            }
+
+            return segments;
+        }
+    }
+
+    private IReadOnlyList<Transaction> BiggestTransactions =>
+        filteredTransactions
+            .Where(transaction => transaction.Amount > 0)
+            .OrderByDescending(transaction => transaction.Amount)
+            .ThenByDescending(transaction => transaction.ImportedAtUtc)
+            .Take(5)
+            .ToArray();
+
+    private IReadOnlyList<FrequencyRow> FrequencyRows
+    {
+        get
+        {
+            var frequencyWindow = BuildFrequencyWindow();
+            if (frequencyWindow is null)
+            {
+                return [];
+            }
+
+            var (startDate, endDate) = frequencyWindow.Value;
+            var dates = BuildFrequencyDates(startDate, endDate).ToArray();
+            var columnCount = reportMode == ReportMode.Month
+                ? Math.Max(1, dates.Count(date => date is not null))
+                : Math.Max(1, dates.Length / 7);
+            var rowCount = reportMode == ReportMode.Month
+                ? 1
+                : 7;
+            var transactionsByCard = filteredTransactions
+                .GroupBy(transaction => transaction.CardAccountId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group
+                        .GroupBy(transaction => transaction.PostedDate)
+                        .ToDictionary(dateGroup => dateGroup.Key, dateGroup => dateGroup.Count()));
+
+            var cardIds = cards
+                .Select(card => card.Id)
+                .Where(cardId => transactionsByCard.ContainsKey(cardId))
+                .Concat(transactionsByCard.Keys.Where(cardId => !cardNamesById.ContainsKey(cardId)))
+                .Distinct()
+                .ToArray();
+
+            return cardIds
+                .Select(cardId =>
+                {
+                    transactionsByCard.TryGetValue(cardId, out var countsByDate);
+                    countsByDate ??= new Dictionary<DateOnly, int>();
+
+                    return new FrequencyRow(
+                        cardNamesById.GetValueOrDefault(cardId, "Unknown Card"),
+                        reportMode == ReportMode.Month
+                            ? "frequency-cells month"
+                            : "frequency-cells year",
+                        $"--frequency-columns: {columnCount}; --frequency-rows: {rowCount}",
+                        dates
+                            .Select(date => date is null
+                                ? new FrequencyCell(null, 0)
+                                : new FrequencyCell(date, countsByDate.GetValueOrDefault(date.Value)))
+                            .ToArray());
+                })
+                .ToArray();
+        }
+    }
+
+    private IReadOnlyList<DailySpendCell> DailySpendCells
+    {
+        get
+        {
+            var frequencyWindow = BuildFrequencyWindow();
+            if (frequencyWindow is null)
+            {
+                return [];
+            }
+
+            var (startDate, endDate) = frequencyWindow.Value;
+            var spendingByDate = filteredTransactions
+                .Where(transaction => transaction.Amount > 0)
+                .GroupBy(transaction => transaction.PostedDate)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Sum(transaction => transaction.Amount));
+
+            return BuildFrequencyDates(startDate, endDate)
+                .Select(date => date is null
+                    ? new DailySpendCell(null, 0m)
+                    : new DailySpendCell(date, spendingByDate.GetValueOrDefault(date.Value)))
+                .ToArray();
+        }
+    }
+
+    private string DailySpendGridClass =>
+        reportMode == ReportMode.Month
+            ? "daily-spend-grid month"
+            : "daily-spend-grid year";
+
+    private string DailySpendGridStyle
+    {
+        get
+        {
+            var columnCount = reportMode == ReportMode.Month
+                ? Math.Max(1, DailySpendCells.Count(cell => cell.Date is not null))
+                : Math.Max(1, DailySpendCells.Count / 7);
+            var rowCount = reportMode == ReportMode.Month
+                ? 1
+                : 7;
+
+            return $"--daily-spend-columns: {columnCount}; --daily-spend-rows: {rowCount}";
+        }
+    }
+
+    private decimal MaxDailySpend =>
+        DailySpendCells
+            .Select(cell => cell.Amount)
+            .DefaultIfEmpty(0m)
+            .Max();
+
+    private IReadOnlyList<int> AvailableYears =>
+        transactions
+            .Select(transaction => transaction.PostedDate.Year)
+            .Distinct()
+            .OrderByDescending(year => year)
+            .ToArray();
+
+    private IReadOnlyList<MonthOption> AvailableMonths =>
+        Enumerable.Range(1, 12)
+            .Select(month => new MonthOption(month, new DateOnly(2000, month, 1).ToString("MMMM")))
+            .ToArray();
+
+    private string ReportWindowLabel =>
+        reportMode == ReportMode.All
+            ? "All time"
+            : reportMode == ReportMode.Year
+            ? selectedYear.ToString()
+            : new DateOnly(selectedYear, selectedMonth, 1).ToString("MMMM yyyy");
+
+    private string ReportWindowShortLabel =>
+        reportMode == ReportMode.All
+            ? "All time"
+            : reportMode == ReportMode.Year
+            ? selectedYear.ToString()
+            : new DateOnly(selectedYear, selectedMonth, 1).ToString("yyyy-MM");
+
+    private string WindowRangeLabel
+    {
+        get
+        {
+            var query = BuildQuery();
+            if (query.StartDate is null || query.EndDate is null)
+            {
+                var firstTransactionDate = transactions
+                    .Select(transaction => (DateOnly?)transaction.PostedDate)
+                    .Min();
+                var lastTransactionDate = transactions
+                    .Select(transaction => (DateOnly?)transaction.PostedDate)
+                    .Max();
+
+                return firstTransactionDate is null || lastTransactionDate is null
+                    ? string.Empty
+                    : $"{firstTransactionDate:MMM d, yyyy} - {lastTransactionDate:MMM d, yyyy}";
+            }
+
+            return $"{query.StartDate:MMM d} - {query.EndDate:MMM d, yyyy}";
+        }
+    }
+
+    private string AttentionCardClass =>
+        reviewCount > 0
+            ? "dashboard-card attention-card attention-warning"
+            : "dashboard-card attention-card attention-clear";
+
+    private string AttentionIcon =>
+        reviewCount > 0 ? "warning" : "check_circle";
+
+    private string AttentionSummary =>
+        reviewCount == 0
+            ? "All transactions look good"
+            : FormatTransactionCount(reviewCount) + " require attention";
+
+    private string AttentionDescription =>
+        reviewCount == 0
+            ? "No low-confidence categorizations found."
+            : "Low classification confidence detected for recent activity.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        DataRefreshNotifier.TransactionsChanged += HandleTransactionsChanged;
+        await LoadSetupStateAsync();
+        await LoadDashboardDataAsync(preserveSelectedWindow: false, focusDate: null);
+    }
+
+    private async Task LoadDashboardDataAsync(bool preserveSelectedWindow, DateOnly? focusDate)
+    {
+        var previousYear = selectedYear;
+        var previousMonth = selectedMonth;
+        var previousReportMode = reportMode;
+        transactions = await TransactionRepository.ListAsync(CancellationToken.None);
+        var fallbackDate = transactions
+            .OrderByDescending(transaction => transaction.PostedDate)
+            .Select(transaction => (DateOnly?)transaction.PostedDate)
+            .FirstOrDefault();
+        var selectedDate = focusDate ?? fallbackDate;
+        if (selectedDate is null)
+        {
+            filteredTransactions = [];
+            report = new CategorySpendingReport([], 0m);
+            totalSpending = 0m;
+            averageTransaction = 0m;
+            largestCharge = 0m;
+            creditTotal = 0m;
+            return;
+        }
+
+        var availableYears = AvailableYears;
+        reportMode = preserveSelectedWindow
+            ? previousReportMode
+            : ParseReportMode(PeriodState.Mode);
+        selectedYear = GetSelectedYear(
+            availableYears,
+            preserveSelectedWindow ? previousYear : PeriodState.Year,
+            selectedDate.Value.Year);
+        selectedMonth = GetSelectedMonth(
+            preserveSelectedWindow ? previousMonth : PeriodState.Month,
+            selectedDate.Value.Month);
+        cards = await CardAccountRepository.ListAsync(CancellationToken.None);
+        categories = await CategoryRepository.ListAsync(CancellationToken.None);
+        cardNamesById = cards.ToDictionary(card => card.Id, card => card.Name);
+        categoryNamesById = categories.ToDictionary(category => category.Id, category => category.Name);
+        categoryColorsById = categories.ToDictionary(category => category.Id, category => category.ColorHex);
+        await ReloadAssignmentsAsync();
+        await ReloadReportAsync();
+    }
+
+    private async Task LoadSetupStateAsync()
+    {
+        var apiKey = await CredentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, CancellationToken.None);
+        isAiConfigured = !string.IsNullOrWhiteSpace(apiKey);
+    }
+
+    private void HandleTransactionsChanged(DateOnly? focusDate)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadDashboardDataAsync(preserveSelectedWindow: true, focusDate);
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        DataRefreshNotifier.TransactionsChanged -= HandleTransactionsChanged;
+    }
+
+    private async Task ReloadReportAsync()
+    {
+        if (reportMode != ReportMode.All && selectedYear == 0)
+        {
+            return;
+        }
+
+        var query = BuildQuery();
+        filteredTransactions = await TransactionRepository.ListAsync(query, CancellationToken.None);
+        report = await ReportService.BuildAsync(query, CancellationToken.None);
+
+        totalSpending = filteredTransactions.Sum(transaction => transaction.Amount);
+        averageTransaction = filteredTransactions.Count == 0 ? 0 : totalSpending / filteredTransactions.Count;
+        largestCharge = filteredTransactions.Where(transaction => transaction.Amount > 0).DefaultIfEmpty().Max(transaction => transaction?.Amount ?? 0);
+        creditTotal = filteredTransactions.Where(transaction => transaction.Amount < 0).Sum(transaction => transaction.Amount);
+    }
+
+    private async Task ReloadAssignmentsAsync()
+    {
+        assignmentsByTransactionId = (await AssignmentRepository.ListAsync(CancellationToken.None))
+            .ToDictionary(assignment => assignment.TransactionId);
+        reviewCount = await ReviewService.CountNeedsReviewAsync(CancellationToken.None);
+    }
+
+    private async Task SetReportModeAsync(ReportMode mode)
+    {
+        if (reportMode == mode)
+        {
+            return;
+        }
+
+        reportMode = mode;
+        SavePeriodState();
+        await ReloadReportAsync();
+    }
+
+    private async Task YearChangedAsync()
+    {
+        SavePeriodState();
+        await ReloadReportAsync();
+    }
+
+    private async Task MonthChangedAsync()
+    {
+        SavePeriodState();
+        await ReloadReportAsync();
+    }
+
+    private void SavePeriodState()
+    {
+        PeriodState.Mode = reportMode.ToString();
+        PeriodState.Year = selectedYear == 0 ? null : selectedYear;
+        PeriodState.Month = selectedMonth == 0 ? null : selectedMonth;
+    }
+
+    private TransactionQuery BuildQuery()
+    {
+        if (reportMode == ReportMode.All)
+        {
+            return new TransactionQuery();
+        }
+
+        if (reportMode == ReportMode.Year)
+        {
+            return new TransactionQuery
+            {
+                StartDate = new DateOnly(selectedYear, 1, 1),
+                EndDate = new DateOnly(selectedYear, 12, 31)
+            };
+        }
+
+        var monthStart = new DateOnly(selectedYear, selectedMonth, 1);
+        return new TransactionQuery
+        {
+            StartDate = monthStart,
+            EndDate = monthStart.AddMonths(1).AddDays(-1)
+        };
+    }
+
+    private (DateOnly StartDate, DateOnly EndDate)? BuildFrequencyWindow()
+    {
+        if (reportMode == ReportMode.All)
+        {
+            var dates = filteredTransactions
+                .Select(transaction => transaction.PostedDate)
+                .ToArray();
+
+            return dates.Length == 0
+                ? null
+                : (dates.Min(), dates.Max());
+        }
+
+        var query = BuildQuery();
+        return query.StartDate is null || query.EndDate is null
+            ? null
+            : (query.StartDate.Value, query.EndDate.Value);
+    }
+
+    private decimal GetMerchantWidth(decimal amount)
+    {
+        var largestAmount = TopMerchantLines.Select(line => line.Amount).DefaultIfEmpty(0m).Max();
+        if (largestAmount == 0)
+        {
+            return 0;
+        }
+
+        return Math.Max(8m, Math.Round(amount / largestAmount * 100m, 1));
+    }
+
+    private static string FormatMerchantName(string merchantCode)
+    {
+        if (string.IsNullOrWhiteSpace(merchantCode))
+        {
+            return "Unknown Merchant";
+        }
+
+        return merchantCode;
+    }
+
+    private static string FormatTransactionCount(int transactionCount)
+    {
+        return transactionCount == 1
+            ? "1 transaction"
+            : $"{transactionCount} transactions";
+    }
+
+    private string GetReportModeClass(ReportMode mode)
+    {
+        return reportMode == mode
+            ? "active"
+            : string.Empty;
+    }
+
+    private string GetTransactionCategoryName(Transaction transaction)
+    {
+        var categoryId = assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
+            ? assignment.CategoryId
+            : BuiltInCategoryIds.Other;
+
+        return categoryNamesById.GetValueOrDefault(categoryId, "Other");
+    }
+
+    private string GetTransactionCategoryStyle(Transaction transaction)
+    {
+        var categoryId = assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
+            ? assignment.CategoryId
+            : BuiltInCategoryIds.Other;
+
+        return $"--category-color: {GetCategoryColor(categoryId)}";
+    }
+
+    private IEnumerable<DateOnly?> BuildFrequencyDates(DateOnly startDate, DateOnly endDate)
+    {
+        if (reportMode == ReportMode.Month)
+        {
+            return EachDate(startDate, endDate).Select(date => (DateOnly?)date);
+        }
+
+        var dates = new List<DateOnly?>();
+        var leadingBlanks = GetWeekRowIndex(startDate);
+        dates.AddRange(Enumerable.Repeat<DateOnly?>(null, leadingBlanks));
+        dates.AddRange(EachDate(startDate, endDate).Select(date => (DateOnly?)date));
+
+        var trailingBlanks = (7 - (dates.Count % 7)) % 7;
+        dates.AddRange(Enumerable.Repeat<DateOnly?>(null, trailingBlanks));
+
+        return dates;
+    }
+
+    private static IEnumerable<DateOnly> EachDate(DateOnly startDate, DateOnly endDate)
+    {
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            yield return date;
+        }
+    }
+
+    private static int GetWeekRowIndex(DateOnly date)
+    {
+        return date.DayOfWeek == DayOfWeek.Sunday
+            ? 6
+            : (int)date.DayOfWeek - 1;
+    }
+
+    private static string GetFrequencyCellClass(int transactionCount)
+    {
+        return transactionCount switch
+        {
+            <= 0 => "frequency-cell empty",
+            1 => "frequency-cell medium",
+            _ => "frequency-cell high"
+        };
+    }
+
+    private static string GetFrequencyCellTitle(FrequencyCell cell)
+    {
+        return cell.Date is null
+            ? "Outside report window"
+            : $"{cell.Date.Value:MMM d, yyyy}: {cell.Count} transactions";
+    }
+
+    private string GetDailySpendCellClass(decimal amount)
+    {
+        if (amount <= 0)
+        {
+            return "daily-spend-cell empty";
+        }
+
+        var ratio = MaxDailySpend == 0
+            ? 0
+            : amount / MaxDailySpend;
+
+        return ratio switch
+        {
+            < 0.34m => "daily-spend-cell low",
+            < 0.67m => "daily-spend-cell medium",
+            _ => "daily-spend-cell high"
+        };
+    }
+
+    private static string GetDailySpendCellTitle(DailySpendCell cell)
+    {
+        return cell.Date is null
+            ? "Outside report window"
+            : $"{cell.Date.Value:MMM d, yyyy}: {cell.Amount:C} spent";
+    }
+
+    private string GetCategoryColor(int categoryId)
+    {
+        return categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
+    }
+
+    private void GoToNextSetupStep()
+    {
+        NavigationManager.NavigateTo(IsAiConfigured ? "import" : "settings");
+    }
+
+    private static string GetChecklistIcon(bool isComplete)
+    {
+        return isComplete ? "check_box" : "check_box_outline_blank";
+    }
+
+    private static string GetChecklistItemClass(bool isComplete)
+    {
+        return isComplete
+            ? "dashboard-empty-check complete"
+            : "dashboard-empty-check";
+    }
+
+    private static ReportMode ParseReportMode(string? value)
+    {
+        return Enum.TryParse<ReportMode>(value, ignoreCase: true, out var mode)
+            ? mode
+            : ReportMode.Year;
+    }
+
+    private static int GetSelectedYear(
+        IReadOnlyList<int> availableYears,
+        int? preferredYear,
+        int fallbackYear)
+    {
+        if (preferredYear is not null && availableYears.Contains(preferredYear.Value))
+        {
+            return preferredYear.Value;
+        }
+
+        return availableYears.Contains(fallbackYear)
+            ? fallbackYear
+            : availableYears.FirstOrDefault();
+    }
+
+    private static int GetSelectedMonth(
+        int? preferredMonth,
+        int fallbackMonth)
+    {
+        return preferredMonth is >= 1 and <= 12
+            ? preferredMonth.Value
+            : fallbackMonth;
+    }
+
+    private enum ReportMode
+    {
+        All,
+        Year,
+        Month
+    }
+
+    private sealed record MonthOption(
+        int Value,
+        string Label);
+
+    private sealed record DonutSegment(
+        string Color,
+        decimal Length,
+        decimal Offset);
+
+    private sealed record FrequencyRow(
+        string Label,
+        string GridClass,
+        string GridStyle,
+        IReadOnlyList<FrequencyCell> Cells);
+
+    private sealed record FrequencyCell(
+        DateOnly? Date,
+        int Count);
+
+    private sealed record DailySpendCell(
+        DateOnly? Date,
+        decimal Amount);
+
+    private sealed record TopMerchantLine(
+        string DisplayName,
+        int TransactionCount,
+        decimal Amount);
+}

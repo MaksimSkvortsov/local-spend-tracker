@@ -1,0 +1,507 @@
+@page "/settings"
+@using System.Diagnostics
+@using Spendnest.Core.Ai
+@using Spendnest.Core.Credentials
+@using Spendnest.Infrastructure.Categorization
+@using Spendnest.Infrastructure.Persistence
+@inject IAiConnectionTestService AiConnectionTestService
+@inject ICredentialStore CredentialStore
+@inject SpendnestDatabaseInitializer DatabaseInitializer
+@inject NavigationManager NavigationManager
+@inject OpenAiCategorizerOptions OpenAiOptions
+
+<PageTitle>Settings - PeasantMoney</PageTitle>
+
+<section class="settings-header">
+    <div>
+        <h1>Settings</h1>
+        <p>Manage PeasantMoney workspace preferences and integrations.</p>
+    </div>
+</section>
+
+<section class="settings-layout">
+    <aside class="settings-subnav" aria-label="Settings sections">
+        <button type="button" class="@GetSettingsTabClass(SettingsTab.Ai)" @onclick="() => SelectTab(SettingsTab.Ai)">
+            <span>
+                <span class="material-symbols-outlined" aria-hidden="true">psychology</span>
+                AI Configuration
+            </span>
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        </button>
+        <button type="button" class="@GetSettingsTabClass(SettingsTab.Data)" @onclick="() => SelectTab(SettingsTab.Data)">
+            <span>
+                <span class="material-symbols-outlined" aria-hidden="true">database</span>
+                Data & Privacy
+            </span>
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        </button>
+        <button type="button" class="@GetSettingsTabClass(SettingsTab.DevTesting)" @onclick="() => SelectTab(SettingsTab.DevTesting)">
+            <span>
+                <span class="material-symbols-outlined" aria-hidden="true">bug_report</span>
+                Developer Testing
+            </span>
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        </button>
+    </aside>
+
+    <div class="settings-content">
+        @if (activeTab == SettingsTab.Ai)
+        {
+        <section class="settings-card">
+            <div class="settings-card-header">
+                <div>
+                    <h2>AI Configuration</h2>
+                    <p>Configure your language model provider for smart transaction categorization.</p>
+                </div>
+                <div class="@ConnectionStatusClass">
+                    <span aria-hidden="true"></span>
+                    @ConnectionStatusText
+                </div>
+            </div>
+
+            <div class="settings-form">
+                <div class="settings-field">
+                    <label>Provider</label>
+                    <div class="provider-display" aria-label="AI provider">
+                        <span class="material-symbols-outlined" aria-hidden="true">smart_toy</span>
+                        ChatGPT
+                    </div>
+                    <p>Only OpenAI is supported for now.</p>
+                </div>
+
+                <div class="settings-key-section">
+                    <div class="settings-field">
+                        <label for="api-key">OpenAI API Key <span>*</span></label>
+                        <div class="settings-key-row">
+                            <div class="settings-input-wrap">
+                                <span class="material-symbols-outlined" aria-hidden="true">key</span>
+                                <input id="api-key"
+                                       class="settings-input mono"
+                                       type="@ApiKeyInputType"
+                                       placeholder="@ApiKeyPlaceholder"
+                                       @bind="apiKey" />
+                                <button type="button" class="settings-field-button" aria-label="@ApiKeyVisibilityLabel" @onclick="ToggleApiKeyVisibility">
+                                    <span class="material-symbols-outlined" aria-hidden="true">@ApiKeyVisibilityIcon</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="settings-note">
+                            <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                            <p>@ApiKeyHelpText Usage is billed directly by OpenAI.</p>
+                        </div>
+                    </div>
+
+                    <div class="settings-help">
+                        <h3>How to get an API key</h3>
+                        <ol>
+                            <li>Open <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI API keys</a> and sign in.</li>
+                            <li>Create a new secret key for this app.</li>
+                            <li>Copy it immediately. OpenAI only shows the full key once.</li>
+                            <li>Paste it here, save, then test the connection.</li>
+                        </ol>
+                        <p>Keep the key private. If it is lost or exposed, delete it in OpenAI and create a new one.</p>
+                    </div>
+                </div>
+
+                <div class="settings-options-grid">
+                    <div class="settings-field">
+                        <label for="ai-model">Model</label>
+                        <div class="settings-input-wrap">
+                            <span class="material-symbols-outlined" aria-hidden="true">memory</span>
+                            <select id="ai-model" class="settings-input mono select" @bind="model">
+                                <option value="gpt-5.6-luna">gpt-5.6-luna</option>
+                                <option value="gpt-4o">gpt-4o</option>
+                                <option value="gpt-4-turbo">gpt-4-turbo</option>
+                                <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                            </select>
+                            <span class="material-symbols-outlined settings-select-icon" aria-hidden="true">expand_more</span>
+                        </div>
+                        <p>Model used for transaction categorization.</p>
+                    </div>
+
+                    <div class="settings-field">
+                        <label for="request-timeout">Request Timeout</label>
+                        <div class="settings-input-wrap">
+                            <span class="material-symbols-outlined" aria-hidden="true">timer</span>
+                            <input id="request-timeout"
+                                   class="settings-input mono"
+                                   type="number"
+                                   min="5"
+                                   max="180"
+                                   step="1"
+                                   @bind="requestTimeoutSeconds" />
+                        </div>
+                        <p>Seconds before categorization falls back to review.</p>
+                    </div>
+                </div>
+
+                <div class="settings-test-section">
+                    <div>
+                        <h3>Test Connection</h3>
+                        <p>Verify your API credentials and latency.</p>
+                    </div>
+                    <div class="settings-action-buttons">
+                        <button type="button" class="primary-button" @onclick="SaveAsync" disabled="@isBusy">
+                            Save
+                        </button>
+                        <button type="button" class="secondary-button" @onclick="TestConnectionAsync" disabled="@isBusy">
+                            Test Connection
+                        </button>
+                        <button type="button" class="danger-button" @onclick="DeleteConfigurationAsync" disabled="@(isBusy || !CanDeleteConfiguration)">
+                            Delete Configuration
+                        </button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(statusMessage))
+                {
+                    <div class="@StatusClass">@statusMessage</div>
+                }
+            </div>
+        </section>
+        }
+        else if (activeTab == SettingsTab.Data)
+        {
+        <section class="settings-card">
+            <div class="settings-card-header">
+                <div>
+                    <h2>Data & Privacy</h2>
+                    <p>Manage your local database, backups, and privacy controls.</p>
+                </div>
+            </div>
+
+            <div class="settings-form">
+                <div class="settings-data-section">
+                    <h3>Local Storage</h3>
+                    <div class="settings-storage-panel">
+                        <div class="settings-storage-main">
+                            <span class="material-symbols-outlined" aria-hidden="true">database</span>
+                            <div>
+                                <span>Storage Location</span>
+                                <strong>@StorageLocation</strong>
+                            </div>
+                        </div>
+                        <span class="settings-readonly-chip">Readonly</span>
+                    </div>
+                </div>
+
+                <div class="settings-privacy-section">
+                    <div>
+                        <h3>Privacy and Safety</h3>
+                        <p>Your financial data stays on this device. AI requests only use your configured provider when categorization is required.</p>
+                    </div>
+                </div>
+
+                <div class="settings-test-section">
+                    <div>
+                        <h3>Local Data</h3>
+                        <p>Remove imported cards, statements, transactions, assignments, and learned rules from this device.</p>
+                    </div>
+                    <div class="settings-action-buttons">
+                        <button type="button" class="danger-button" @onclick="DeleteLocalDataAsync" disabled="@isBusy">
+                            Delete Local Data
+                        </button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(statusMessage))
+                {
+                    <div class="@StatusClass">@statusMessage</div>
+                }
+            </div>
+        </section>
+        }
+        else if (activeTab == SettingsTab.DevTesting)
+        {
+        <section class="settings-card">
+            <div class="settings-card-header">
+                <div>
+                    <h2>Developer Testing</h2>
+                    <p>Locate diagnostic files used while testing packaged and local builds.</p>
+                </div>
+            </div>
+
+            <div class="settings-form">
+                <div class="settings-data-section">
+                    <h3>Application Logs</h3>
+                    <div class="settings-storage-panel">
+                        <div class="settings-storage-main">
+                            <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+                            <div>
+                                <span>Logs Folder</span>
+                                <strong>@LogsFolderLocation</strong>
+                            </div>
+                        </div>
+                        <button type="button" class="secondary-button" @onclick="OpenLogsFolder" disabled="@isBusy">
+                            Open Logs Folder
+                        </button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(statusMessage))
+                {
+                    <div class="@StatusClass">@statusMessage</div>
+                }
+            </div>
+        </section>
+        }
+    </div>
+</section>
+
+@code {
+    private SettingsTab activeTab = SettingsTab.Ai;
+    private string apiKey = string.Empty;
+    private string model = string.Empty;
+    private int requestTimeoutSeconds;
+    private bool hasConfiguredApiKey;
+    private bool showApiKey;
+    private bool isBusy;
+    private string? statusMessage;
+    private StatusKind statusKind;
+
+    private const string DefaultModel = "gpt-5.6-luna";
+
+    private const int DefaultRequestTimeoutSeconds = 25;
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? RequestedTab { get; set; }
+
+    private string StorageLocation => SpendnestDataPaths.GetDefaultDatabasePath();
+
+    private string LogsFolderLocation =>
+        Path.GetDirectoryName(SpendnestDataPaths.GetDefaultLogPath())
+        ?? SpendnestDataPaths.GetDefaultLogPath();
+
+    private bool CanDeleteConfiguration =>
+        hasConfiguredApiKey || !string.IsNullOrWhiteSpace(apiKey);
+
+    private string ApiKeyInputType => showApiKey ? "text" : "password";
+
+    private string ApiKeyVisibilityIcon => showApiKey ? "visibility_off" : "visibility";
+
+    private string ApiKeyVisibilityLabel => showApiKey ? "Hide API key" : "Show API key";
+
+    private string ApiKeyPlaceholder => hasConfiguredApiKey ? "Saved key is configured" : "sk-...";
+
+    private string ApiKeyHelpText => hasConfiguredApiKey
+        ? "Leave blank to keep the saved key, or enter a new one to replace it."
+        : "The key is stored in platform secure storage on this device.";
+
+    private string StatusClass => statusKind == StatusKind.Error
+        ? "settings-status error"
+        : "settings-status success";
+
+    private string ConnectionStatusClass => hasConfiguredApiKey
+        ? "connection-chip connected"
+        : "connection-chip";
+
+    private string ConnectionStatusText => hasConfiguredApiKey
+        ? "Connected"
+        : "Not configured";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var storedApiKey = await CredentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, CancellationToken.None);
+        hasConfiguredApiKey = !string.IsNullOrWhiteSpace(storedApiKey);
+        model = OpenAiOptions.Model;
+        requestTimeoutSeconds = Math.Max(1, (int)Math.Round(OpenAiOptions.RequestTimeout.TotalSeconds));
+    }
+
+    protected override void OnParametersSet()
+    {
+        activeTab = RequestedTab?.ToLowerInvariant() switch
+        {
+            "data" => SettingsTab.Data,
+            "dev-testing" => SettingsTab.DevTesting,
+            _ => SettingsTab.Ai
+        };
+    }
+
+    private void SelectTab(SettingsTab tab)
+    {
+        activeTab = tab;
+        statusMessage = null;
+        NavigationManager.NavigateTo(tab switch
+        {
+            SettingsTab.Data => "settings?tab=data",
+            SettingsTab.DevTesting => "settings?tab=dev-testing",
+            _ => "settings"
+        });
+    }
+
+    private void ToggleApiKeyVisibility()
+    {
+        showApiKey = !showApiKey;
+    }
+
+    private async Task TestConnectionAsync()
+    {
+        isBusy = true;
+        statusMessage = null;
+        try
+        {
+            var hasKey = !string.IsNullOrWhiteSpace(apiKey) || hasConfiguredApiKey;
+            if (!hasKey)
+            {
+                SetStatus("Enter an API key before testing.", StatusKind.Error);
+                return;
+            }
+
+            if (!IsValidModel(model))
+            {
+                SetStatus("Choose a ChatGPT model.", StatusKind.Error);
+                return;
+            }
+
+            var result = await AiConnectionTestService.TestOpenAiAsync(
+                new AiConnectionTestRequest(
+                    apiKey,
+                    model,
+                    TimeSpan.FromSeconds(requestTimeoutSeconds)),
+                CancellationToken.None);
+            SetStatus(result.Message, result.Succeeded ? StatusKind.Success : StatusKind.Error);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        isBusy = true;
+        statusMessage = null;
+        try
+        {
+            if (!IsValidModel(model))
+            {
+                SetStatus("Choose a ChatGPT model.", StatusKind.Error);
+                return;
+            }
+
+            if (requestTimeoutSeconds is < 5 or > 180)
+            {
+                SetStatus("Timeout must be between 5 and 180 seconds.", StatusKind.Error);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                await CredentialStore.SaveStringAsync(CredentialKeys.OpenAiApiKey, apiKey, CancellationToken.None);
+                apiKey = string.Empty;
+                hasConfiguredApiKey = true;
+            }
+            else if (!hasConfiguredApiKey)
+            {
+                SetStatus("API key is required.", StatusKind.Error);
+                return;
+            }
+
+            OpenAiOptions.Model = model;
+            OpenAiOptions.RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSeconds);
+            SetStatus("AI configuration saved.", StatusKind.Success);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Could not save configuration: {ex.Message}", StatusKind.Error);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task DeleteConfigurationAsync()
+    {
+        isBusy = true;
+        statusMessage = null;
+        try
+        {
+            await CredentialStore.ClearAsync(CredentialKeys.OpenAiApiKey, CancellationToken.None);
+            apiKey = string.Empty;
+            hasConfiguredApiKey = false;
+            showApiKey = false;
+            model = DefaultModel;
+            requestTimeoutSeconds = DefaultRequestTimeoutSeconds;
+            OpenAiOptions.Model = model;
+            OpenAiOptions.RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSeconds);
+            SetStatus("AI connection details deleted.", StatusKind.Success);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Could not delete AI connection details: {ex.Message}", StatusKind.Error);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task DeleteLocalDataAsync()
+    {
+        isBusy = true;
+        statusMessage = null;
+        try
+        {
+            await DatabaseInitializer.DeleteUserDataAsync(CancellationToken.None);
+            SetStatus("Local data deleted.", StatusKind.Success);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Could not delete local data: {ex.Message}", StatusKind.Error);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void OpenLogsFolder()
+    {
+        statusMessage = null;
+        try
+        {
+            Directory.CreateDirectory(LogsFolderLocation);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = LogsFolderLocation,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Could not open logs folder: {ex.Message}", StatusKind.Error);
+        }
+    }
+
+    private void SetStatus(string message, StatusKind kind)
+    {
+        statusMessage = message;
+        statusKind = kind;
+    }
+
+    private static bool IsValidModel(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.StartsWith("gpt-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetSettingsTabClass(SettingsTab tab)
+    {
+        return activeTab == tab ? "active" : string.Empty;
+    }
+
+    private enum SettingsTab
+    {
+        Ai,
+        Data,
+        DevTesting
+    }
+
+    private enum StatusKind
+    {
+        Success,
+        Error
+    }
+}

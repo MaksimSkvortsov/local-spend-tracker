@@ -1,0 +1,347 @@
+@page "/transactions"
+@using Spendnest.Core.Review
+@inject ITransactionRepository TransactionRepository
+@inject ITransactionCategoryAssignmentRepository AssignmentRepository
+@inject ICardAccountRepository CardAccountRepository
+@inject ICategoryRepository CategoryRepository
+@inject ITransactionReviewService ReviewService
+@inject AppDataRefreshNotifier DataRefreshNotifier
+
+<PageTitle>Transactions - PeasantMoney</PageTitle>
+
+<section class="transactions-page-header">
+    <div>
+        <h1>Transactions</h1>
+        <p>Review and manage your financial activity.</p>
+    </div>
+</section>
+
+<section class="transactions-surface">
+    <div class="transaction-table-card">
+        <div class="transactions-toolbar">
+            <div class="review-toggle" role="group" aria-label="Review filter">
+                <button type="button" class="@GetReviewModeClass(ReviewFilterMode.All)" @onclick="() => SetReviewFilter(ReviewFilterMode.All)">All</button>
+                <button type="button" class="@GetReviewModeClass(ReviewFilterMode.NeedsReview)" @onclick="() => SetReviewFilter(ReviewFilterMode.NeedsReview)">
+                    Require Review
+                    @if (reviewCount > 0)
+                    {
+                        <span>@reviewCount</span>
+                    }
+                </button>
+            </div>
+
+            <div class="transaction-count-chip">
+                <span>@FilteredTransactions.Count Transactions</span>
+            </div>
+
+            <div class="filter-select-wrap">
+                <select id="categoryFilter" class="transaction-filter-select" aria-label="Category" @bind="selectedCategoryId" @bind:after="ResetPagination">
+                    <option value="">All Categories</option>
+                    @foreach (var category in categories)
+                    {
+                        <option value="@category.Id">@category.Name</option>
+                    }
+                </select>
+                <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+            </div>
+
+            <div class="filter-select-wrap">
+                <select id="cardFilter" class="transaction-filter-select" aria-label="Card" @bind="selectedCardId" @bind:after="ResetPagination">
+                    <option value="">All cards</option>
+                    @foreach (var card in cards)
+                    {
+                        <option value="@card.Id.ToString()">@card.Name</option>
+                    }
+                </select>
+                <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(categorySaveError))
+        {
+            <div class="transactions-alert-wrap">
+                <div class="alert error">@categorySaveError</div>
+            </div>
+        }
+
+        @if (transactions.Count == 0)
+        {
+            <div class="empty-state">No transactions imported yet.</div>
+        }
+        else if (FilteredTransactions.Count == 0)
+        {
+            <div class="empty-state">No transactions match these filters.</div>
+        }
+        else
+        {
+            <div class="table-wrap transaction-table-wrap">
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th class="transaction-date">Date</th>
+                            <th>Description</th>
+                            <th class="transaction-category">Category</th>
+                            <th class="transaction-card">Card</th>
+                            <th class="amount transaction-amount">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var transaction in PagedTransactions)
+                        {
+                            <tr>
+                                <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
+                                <td class="transaction-description">@transaction.OriginalDescription</td>
+                                <td class="transaction-category">
+                                    <div class="category-editor-wrap">
+                                        <select class="@GetCategoryEditorClass(transaction)"
+                                                style="@GetCategoryStyle(transaction)"
+                                                value="@GetCategoryId(transaction)"
+                                                @onchange="args => ChangeCategoryAsync(transaction, args)"
+                                                disabled="@(savingCategoryTransactionId == transaction.Id)"
+                                                aria-label="@($"Category for {transaction.OriginalDescription}")">
+                                            @foreach (var category in categories)
+                                            {
+                                                <option value="@category.Id">@category.Name</option>
+                                            }
+                                        </select>
+                                        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+                                    </div>
+                                    @if (NeedsReview(transaction))
+                                    {
+                                        <span class="review-warning">
+                                            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                                            <span>Low Confidence</span>
+                                        </span>
+                                    }
+                                </td>
+                                <td class="transaction-card">@GetCardName(transaction)</td>
+                                <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="transaction-table-footer">
+                <span>Showing @PagedTransactions.Count of @FilteredTransactions.Count transactions</span>
+                <div>
+                    <button type="button" class="table-icon-button" aria-label="Previous page" @onclick="PreviousPage" disabled="@(currentPage == 1)">
+                        &lt;
+                    </button>
+                    <button type="button" class="table-icon-button" aria-label="Next page" @onclick="NextPage" disabled="@(currentPage == PageCount)">
+                        &gt;
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="transaction-bottom-spacer" aria-hidden="true"></div>
+</section>
+
+@code {
+    private const int PageSize = 10;
+
+    private IReadOnlyList<Transaction> transactions = [];
+    private IReadOnlyList<CardAccount> cards = [];
+    private IReadOnlyList<BuiltInCategory> categories = [];
+    private string selectedCardId = string.Empty;
+    private string selectedCategoryId = string.Empty;
+    private ReviewFilterMode reviewFilterMode = ReviewFilterMode.All;
+    private int reviewCount;
+    private int currentPage = 1;
+    private Guid? savingCategoryTransactionId;
+    private string? categorySaveError;
+    private IReadOnlyDictionary<Guid, TransactionCategoryAssignment> assignmentsByTransactionId =
+        new Dictionary<Guid, TransactionCategoryAssignment>();
+    private IReadOnlyDictionary<int, string> categoryNamesById =
+        new Dictionary<int, string>();
+    private IReadOnlyDictionary<int, string> categoryColorsById =
+        new Dictionary<int, string>();
+    private IReadOnlyDictionary<Guid, string> cardNamesById =
+        new Dictionary<Guid, string>();
+
+    private IReadOnlyList<Transaction> FilteredTransactions =>
+        transactions
+            .Where(MatchesSelectedCard)
+            .Where(MatchesSelectedCategory)
+            .Where(MatchesReviewFilter)
+            .ToArray();
+
+    private IReadOnlyList<Transaction> PagedTransactions =>
+        FilteredTransactions
+            .Skip((currentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToArray();
+
+    private int PageCount =>
+        Math.Max(1, (int)Math.Ceiling(FilteredTransactions.Count / (decimal)PageSize));
+
+    protected override async Task OnInitializedAsync()
+    {
+        transactions = await TransactionRepository.ListAsync(CancellationToken.None);
+        cards = await CardAccountRepository.ListAsync(CancellationToken.None);
+        categories = await CategoryRepository.ListAsync(CancellationToken.None);
+        categoryNamesById = categories.ToDictionary(category => category.Id, category => category.Name);
+        categoryColorsById = categories.ToDictionary(category => category.Id, category => category.ColorHex);
+        cardNamesById = cards.ToDictionary(card => card.Id, card => card.Name);
+        assignmentsByTransactionId = (await AssignmentRepository.ListAsync(CancellationToken.None))
+            .ToDictionary(assignment => assignment.TransactionId);
+        reviewCount = await ReviewService.CountNeedsReviewAsync(CancellationToken.None);
+    }
+
+    private string GetCategoryName(Transaction transaction)
+    {
+        var categoryId = GetCategoryId(transaction);
+
+        return categoryNamesById.GetValueOrDefault(categoryId, categoryId.ToString());
+    }
+
+    private int GetCategoryId(Transaction transaction)
+    {
+        return assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
+            ? assignment.CategoryId
+            : BuiltInCategoryIds.Other;
+    }
+
+    private string GetCategoryEditorClass(Transaction transaction)
+    {
+        return NeedsReview(transaction)
+            ? "category-editor review"
+            : "category-editor";
+    }
+
+    private string GetCategoryStyle(Transaction transaction)
+    {
+        var categoryId = GetCategoryId(transaction);
+        var color = categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
+
+        return $"--category-color: {color}";
+    }
+
+    private string GetCardName(Transaction transaction)
+    {
+        return cardNamesById.GetValueOrDefault(transaction.CardAccountId, "Unknown Card");
+    }
+
+    private static string FormatTransactionAmount(decimal amount)
+    {
+        return amount < 0
+            ? $"+ {Math.Abs(amount):C}"
+            : Math.Abs(amount).ToString("C");
+    }
+
+    private string GetAmountClass(Transaction transaction)
+    {
+        return transaction.Amount < 0
+            ? "amount transaction-amount credit"
+            : "amount transaction-amount";
+    }
+
+    private bool MatchesSelectedCard(Transaction transaction)
+    {
+        if (string.IsNullOrWhiteSpace(selectedCardId))
+        {
+            return true;
+        }
+
+        return Guid.TryParse(selectedCardId, out var cardId) && transaction.CardAccountId == cardId;
+    }
+
+    private bool MatchesSelectedCategory(Transaction transaction)
+    {
+        if (string.IsNullOrWhiteSpace(selectedCategoryId))
+        {
+            return true;
+        }
+
+        return int.TryParse(selectedCategoryId, out var categoryId) && GetCategoryId(transaction) == categoryId;
+    }
+
+    private bool MatchesReviewFilter(Transaction transaction)
+    {
+        return reviewFilterMode == ReviewFilterMode.All || NeedsReview(transaction);
+    }
+
+    private bool NeedsReview(Transaction transaction)
+    {
+        return assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment) && assignment.NeedsReview;
+    }
+
+    private string GetReviewModeClass(ReviewFilterMode mode)
+    {
+        return reviewFilterMode == mode
+            ? "active"
+            : string.Empty;
+    }
+
+    private void SetReviewFilter(ReviewFilterMode mode)
+    {
+        reviewFilterMode = mode;
+        ResetPagination();
+    }
+
+    private async Task ChangeCategoryAsync(Transaction transaction, ChangeEventArgs args)
+    {
+        categorySaveError = null;
+        var nextValue = args.Value?.ToString();
+        if (!int.TryParse(nextValue, out var categoryId) || categoryId == GetCategoryId(transaction))
+        {
+            return;
+        }
+
+        savingCategoryTransactionId = transaction.Id;
+        try
+        {
+            await ReviewService.SetCategoryAsync(
+                transaction.Id,
+                categoryId,
+                rememberRule: false,
+                CancellationToken.None);
+            await ReloadAssignmentsAsync();
+            DataRefreshNotifier.NotifyTransactionsChanged();
+            ResetPaginationAfterCategoryChange();
+        }
+        catch (Exception ex)
+        {
+            categorySaveError = $"Could not update category: {ex.Message}";
+        }
+        finally
+        {
+            savingCategoryTransactionId = null;
+        }
+    }
+
+    private async Task ReloadAssignmentsAsync()
+    {
+        assignmentsByTransactionId = (await AssignmentRepository.ListAsync(CancellationToken.None))
+            .ToDictionary(assignment => assignment.TransactionId);
+        reviewCount = await ReviewService.CountNeedsReviewAsync(CancellationToken.None);
+    }
+
+    private void ResetPaginationAfterCategoryChange()
+    {
+        currentPage = Math.Min(currentPage, PageCount);
+    }
+
+    private void ResetPagination()
+    {
+        currentPage = 1;
+    }
+
+    private void PreviousPage()
+    {
+        currentPage = Math.Max(1, currentPage - 1);
+    }
+
+    private void NextPage()
+    {
+        currentPage = Math.Min(PageCount, currentPage + 1);
+    }
+
+    private enum ReviewFilterMode
+    {
+        All,
+        NeedsReview
+    }
+}

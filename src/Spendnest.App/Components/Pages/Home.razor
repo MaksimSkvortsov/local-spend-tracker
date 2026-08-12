@@ -370,9 +370,7 @@
         isBusy = true;
         errorMessage = null;
         statusMessage = null;
-        currentProgress = new FileUploadProgress(
-            FileUploadProgressStage.ReadingFile,
-            "Reading file");
+        currentProgress = FileUploadProgress.ReadingFile;
         var progress = new Progress<FileUploadProgress>(ReportProgress);
 
         try
@@ -393,9 +391,7 @@
             await UpdateStatementImportStatusAsync(
                 importResult.StatementImportId,
                 StatementImportStatus.Pending);
-            ReportProgress(new FileUploadProgress(
-                FileUploadProgressStage.CategorizingWithAi,
-                "Categorizing transactions",
+            ReportProgress(FileUploadProgress.CategorizingTransactions(
                 0,
                 importResult.SavedTransactions.Count));
             await RefreshUploadHistoryAsync();
@@ -415,9 +411,7 @@
             await UpdateStatementImportStatusAsync(
                 importResult.StatementImportId,
                 StatementImportStatus.Completed);
-            ReportProgress(new FileUploadProgress(
-                FileUploadProgressStage.RefreshingData,
-                "Refreshing data"));
+            ReportProgress(FileUploadProgress.RefreshingData);
             await RefreshTransactionsAsync();
             await RefreshCardsAsync();
             await RefreshUploadHistoryAsync();

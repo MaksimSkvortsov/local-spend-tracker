@@ -36,16 +36,54 @@ public sealed class StatementFileImportService : IStatementFileImportService
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            throw new ArgumentException("File path is required.", nameof(filePath));
-        }
-
-        options.Progress?.Report(new FileUploadProgress(
-            FileUploadProgressStage.ReadingFile,
-            "Reading file"));
+        options.Progress?.Report(FileUploadProgress.ReadingFile);
         await using var statementFile = await fileReader.OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
+        await EnsureStatementWasNotAlreadyImportedAsync(statementFile, cancellationToken).ConfigureAwait(false);
+
+        var cardAccount = await GetOrCreateCardAccountAsync(options.CardAccountName, cancellationToken).ConfigureAwait(false);
+        var importedAtUtc = DateTimeOffset.UtcNow;
+        var statementImport = CreateStatementImport(statementFile, cardAccount.Id, importedAtUtc);
+        await statementImportRepository.AddAsync(statementImport, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var parseResult = await ParseStatementAsync(statementFile, options.Progress, cancellationToken).ConfigureAwait(false);
+            var preparedTransactions = await PrepareTransactionsAsync(
+                parseResult.Rows,
+                cardAccount.Id,
+                statementImport.Id,
+                importedAtUtc,
+                cancellationToken).ConfigureAwait(false);
+
+            options.Progress?.Report(FileUploadProgress.SavingTransactions(
+                preparedTransactions.Transactions.Count,
+                parseResult.Rows.Count));
+            await transactionRepository.AddRangeAsync(preparedTransactions.Transactions, cancellationToken).ConfigureAwait(false);
+
+            CompleteStatementImport(statementImport, parseResult, preparedTransactions);
+            await statementImportRepository.UpdateAsync(statementImport, cancellationToken).ConfigureAwait(false);
+
+            return CreateImportResult(
+                statementImport,
+                statementFile,
+                cardAccount,
+                parseResult,
+                preparedTransactions);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            FailStatementImport(statementImport, exception);
+            await statementImportRepository.UpdateAsync(statementImport, CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private async Task EnsureStatementWasNotAlreadyImportedAsync(
+        StatementFileReadResult statementFile,
+        CancellationToken cancellationToken)
+    {
         var existingStatementImport = await statementImportRepository
             .GetByFileHashAsync(statementFile.FileHash, cancellationToken)
             .ConfigureAwait(false);
@@ -53,97 +91,136 @@ public sealed class StatementFileImportService : IStatementFileImportService
         {
             throw new DuplicateStatementImportException(statementFile.FileName);
         }
+    }
 
-        var cardAccountName = NormalizeCardAccountName(options.CardAccountName);
-        var cardAccount = await cardAccountRepository
-            .GetByNameAsync(cardAccountName, cancellationToken)
+    private async Task<CardAccount> GetOrCreateCardAccountAsync(
+        string cardAccountName,
+        CancellationToken cancellationToken)
+    {
+        var normalizedCardAccountName = NormalizeCardAccountName(cardAccountName);
+
+        return await cardAccountRepository
+            .GetByNameAsync(normalizedCardAccountName, cancellationToken)
             .ConfigureAwait(false)
-            ?? await cardAccountRepository.CreateAsync(cardAccountName, cancellationToken).ConfigureAwait(false);
+            ?? await cardAccountRepository.CreateAsync(normalizedCardAccountName, cancellationToken).ConfigureAwait(false);
+    }
 
-        var importedAtUtc = DateTimeOffset.UtcNow;
-        var statementImport = new StatementImport
+    private static StatementImport CreateStatementImport(
+        StatementFileReadResult statementFile,
+        Guid cardAccountId,
+        DateTimeOffset startedAtUtc)
+    {
+        return new StatementImport
         {
-            CardAccountId = cardAccount.Id,
+            CardAccountId = cardAccountId,
             FilePath = statementFile.FilePath,
             FileName = statementFile.FileName,
             FileHash = statementFile.FileHash,
-            StartedAtUtc = importedAtUtc
+            StartedAtUtc = startedAtUtc
         };
-        await statementImportRepository.AddAsync(statementImport, cancellationToken).ConfigureAwait(false);
+    }
 
-        try
+    private async Task<StatementParseResult> ParseStatementAsync(
+        StatementFileReadResult statementFile,
+        IProgress<FileUploadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        progress?.Report(FileUploadProgress.ParsingTransactions);
+
+        return await parser
+            .ParseAsync(statementFile.Content, new StatementParseOptions(), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<PreparedTransactions> PrepareTransactionsAsync(
+        IReadOnlyList<ParsedStatementRow> rows,
+        Guid cardAccountId,
+        Guid statementImportId,
+        DateTimeOffset importedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var existingTransactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var seenFingerprints = existingTransactions
+            .Select(TransactionFingerprint.Create)
+            .ToHashSet(StringComparer.Ordinal);
+        var skippedDuplicateCount = 0;
+        var transactions = new List<Transaction>(rows.Count);
+
+        foreach (var row in rows)
         {
-            options.Progress?.Report(new FileUploadProgress(
-                FileUploadProgressStage.ParsingTransactions,
-                "Parsing transactions"));
-            var parseResult = await parser.ParseAsync(statementFile.Content, new StatementParseOptions(), cancellationToken).ConfigureAwait(false);
+            var transaction = CreateTransaction(row, cardAccountId, statementImportId, importedAtUtc);
+            var fingerprint = TransactionFingerprint.Create(transaction);
+            if (!seenFingerprints.Add(fingerprint))
+            {
+                skippedDuplicateCount++;
+                continue;
+            }
 
-            var existingTransactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
-            var seenFingerprints = existingTransactions
-                .Select(TransactionFingerprint.Create)
-                .ToHashSet(StringComparer.Ordinal);
-            var skippedDuplicateCount = 0;
-            var transactions = parseResult.Rows
-                .Select(row =>
-                    new Transaction
-                    {
-                        Id = Guid.NewGuid(),
-                        CardAccountId = cardAccount.Id,
-                        StatementImportId = statementImport.Id,
-                        PostedDate = row.PostedDate,
-                        OriginalDescription = row.OriginalDescription,
-                        Amount = row.Amount,
-                        SourceRowNumber = row.SourceRowNumber,
-                        ImportedAtUtc = importedAtUtc
-                    })
-                .Where(transaction =>
-                {
-                    var fingerprint = TransactionFingerprint.Create(transaction);
-                    if (!seenFingerprints.Add(fingerprint))
-                    {
-                        skippedDuplicateCount++;
-                        return false;
-                    }
-
-                    return true;
-                })
-                .ToArray();
-
-            options.Progress?.Report(new FileUploadProgress(
-                FileUploadProgressStage.SavingTransactions,
-                "Saving transactions",
-                transactions.Length,
-                parseResult.Rows.Count));
-            await transactionRepository.AddRangeAsync(transactions, cancellationToken).ConfigureAwait(false);
-
-            statementImport.Status = StatementImportStatus.Completed;
-            statementImport.ParsedRowCount = parseResult.Rows.Count;
-            statementImport.SavedTransactionCount = transactions.Length;
-            statementImport.SkippedDuplicateTransactionCount = skippedDuplicateCount;
-            statementImport.FailedRowCount = parseResult.FailedRowCount;
-            statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
-            await statementImportRepository.UpdateAsync(statementImport, cancellationToken).ConfigureAwait(false);
-
-            return new StatementFileImportResult(
-                statementImport.Id,
-                statementFile.FilePath,
-                cardAccount.Id,
-                cardAccount.Name,
-                parseResult.Rows.Count,
-                transactions.Length,
-                skippedDuplicateCount,
-                parseResult.FailedRowCount,
-                transactions,
-                parseResult.Warnings);
+            transactions.Add(transaction);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+
+        return new PreparedTransactions(transactions.ToArray(), skippedDuplicateCount);
+    }
+
+    private static Transaction CreateTransaction(
+        ParsedStatementRow row,
+        Guid cardAccountId,
+        Guid statementImportId,
+        DateTimeOffset importedAtUtc)
+    {
+        return new Transaction
         {
-            statementImport.Status = StatementImportStatus.Failed;
-            statementImport.ErrorMessage = exception.Message;
-            statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
-            await statementImportRepository.UpdateAsync(statementImport, CancellationToken.None).ConfigureAwait(false);
-            throw;
-        }
+            Id = Guid.NewGuid(),
+            CardAccountId = cardAccountId,
+            StatementImportId = statementImportId,
+            PostedDate = row.PostedDate,
+            OriginalDescription = row.OriginalDescription,
+            Amount = row.Amount,
+            SourceRowNumber = row.SourceRowNumber,
+            ImportedAtUtc = importedAtUtc
+        };
+    }
+
+    private static void CompleteStatementImport(
+        StatementImport statementImport,
+        StatementParseResult parseResult,
+        PreparedTransactions preparedTransactions)
+    {
+        statementImport.Status = StatementImportStatus.Completed;
+        statementImport.ParsedRowCount = parseResult.Rows.Count;
+        statementImport.SavedTransactionCount = preparedTransactions.Transactions.Count;
+        statementImport.SkippedDuplicateTransactionCount = preparedTransactions.SkippedDuplicateCount;
+        statementImport.FailedRowCount = parseResult.FailedRowCount;
+        statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    private static void FailStatementImport(
+        StatementImport statementImport,
+        Exception exception)
+    {
+        statementImport.Status = StatementImportStatus.Failed;
+        statementImport.ErrorMessage = exception.Message;
+        statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
+    }
+
+    private static StatementFileImportResult CreateImportResult(
+        StatementImport statementImport,
+        StatementFileReadResult statementFile,
+        CardAccount cardAccount,
+        StatementParseResult parseResult,
+        PreparedTransactions preparedTransactions)
+    {
+        return new StatementFileImportResult(
+            statementImport.Id,
+            statementFile.FilePath,
+            cardAccount.Id,
+            cardAccount.Name,
+            parseResult.Rows.Count,
+            preparedTransactions.Transactions.Count,
+            preparedTransactions.SkippedDuplicateCount,
+            parseResult.FailedRowCount,
+            preparedTransactions.Transactions,
+            parseResult.Warnings);
     }
 
     private static string NormalizeCardAccountName(string cardAccountName)
@@ -153,4 +230,7 @@ public sealed class StatementFileImportService : IStatementFileImportService
             : cardAccountName.Trim();
     }
 
+    private sealed record PreparedTransactions(
+        IReadOnlyList<Transaction> Transactions,
+        int SkippedDuplicateCount);
 }

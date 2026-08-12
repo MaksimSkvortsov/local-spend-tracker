@@ -103,9 +103,7 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
                 "Sending {RepresentativeCount} representative transactions to AI for {UnresolvedCount} unresolved transactions.",
                 representativeTransactions.Length,
                 unresolvedTransactions.Length);
-            progress?.Report(new FileUploadProgress(
-                FileUploadProgressStage.CategorizingWithAi,
-                "Categorizing with AI",
+            progress?.Report(FileUploadProgress.CategorizingWithAi(
                 0,
                 representativeTransactions.Length));
             var representativeAiResults = await aiCategorizer.CategorizeAsync(representativeTransactions, cancellationToken).ConfigureAwait(false);

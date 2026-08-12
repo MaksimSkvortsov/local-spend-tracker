@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IStatementFileImportService, StatementFileImportService>();
         services.AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>();
+        services.AddSingleton<ITransactionCategorizationApplier, TransactionCategorizationApplier>();
         services.AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>();
         services.AddSingleton<ITransactionReviewService, TransactionReviewService>();
 

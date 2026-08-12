@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Spendnest.Application.Categorization;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;

@@ -53,7 +53,6 @@ public static class MauiProgram
             Model = configuration["OpenAI:Model"] ?? "gpt-5.6-luna"
         });
         builder.Services.AddSingleton<ITransactionCategorizer, StoredOpenAiTransactionCategorizer>();
-        builder.Services.AddSingleton<ITransactionCategorizationApplier, TransactionCategorizationApplier>();
         builder.Services.AddSpendnestApplicationServices();
         builder.Services.AddSingleton<IAiConnectionTestService, OpenAiConnectionTestService>();
 

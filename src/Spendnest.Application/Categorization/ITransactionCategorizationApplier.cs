@@ -1,4 +1,6 @@
-namespace Spendnest.Core.Categorization;
+using Spendnest.Core.Categorization;
+
+namespace Spendnest.Application.Categorization;
 
 /// <summary>
 /// Saves category results as transaction category assignments.

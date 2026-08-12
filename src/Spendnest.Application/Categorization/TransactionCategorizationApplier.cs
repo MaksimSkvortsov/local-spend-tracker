@@ -1,6 +1,6 @@
 using Spendnest.Core.Categorization;
 
-namespace Spendnest.Infrastructure.Categorization;
+namespace Spendnest.Application.Categorization;
 
 /// <summary>
 /// Saves category results as transaction category assignments.

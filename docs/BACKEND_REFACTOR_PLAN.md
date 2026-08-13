@@ -25,7 +25,7 @@ Cross-cutting note: `FileUploadProgress` reporting is currently spread across `S
 | TransactionCategorizationService | Not started | 2026-08-12 | Moved to `src/Spendnest.Application/Categorization/TransactionCategorizationService.cs`; still needs a `$refactor-backend` slice. |
 | TransactionCategorizationApplier | Not started | 2026-08-12 | Moved to `src/Spendnest.Application/Categorization/TransactionCategorizationApplier.cs`; interface moved to Application; still needs a `$refactor-backend` slice. |
 | StatementFileImportService | Complete | 2026-08-12 | Refactored `src/Spendnest.Application/Importing/StatementFileImportService.cs`; focused tests passed: `dotnet test src\Spendnest.Application.Tests\Spendnest.Application.Tests.csproj --filter FullyQualifiedName~StatementFileImportServiceTests`; reviewer passed with no code findings. |
-| CategorySpendingReportService | Not started | 2026-08-12 | Moved to `src/Spendnest.Application/Reporting/CategorySpendingReportService.cs`; still needs a `$refactor-backend` slice. |
+| CategorySpendingReportService | Complete | 2026-08-12 | Extracted pure report construction into `CategorySpendingReportBuilder`; tests passed: `dotnet test Spendnest.slnx`; reviewer passed with no code findings. |
 | TransactionReviewService | Not started | 2026-08-12 | Moved to `src/Spendnest.Application/Review/TransactionReviewService.cs`; still needs a `$refactor-backend` slice. |
 
 ## Categorization Infrastructure

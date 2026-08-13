@@ -5,6 +5,7 @@ using Spendnest.Application.Reporting;
 using Spendnest.Application.Tests.TestDoubles;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
+using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
 
 public class CategorySpendingReportServiceTests
@@ -17,7 +18,8 @@ public class CategorySpendingReportServiceTests
         var reportService = new CategorySpendingReportService(
             repository,
             assignmentRepository,
-            new FakeCategoryRepository());
+            new FakeCategoryRepository(),
+            new CategorySpendingReportBuilder());
         var groceries = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var restaurant = Transaction("CAFE RIO VERDE", 30.40m);
         var unassigned = Transaction("UNKNOWN MERCHANT", 24.13m);
@@ -55,7 +57,8 @@ public class CategorySpendingReportServiceTests
         var reportService = new CategorySpendingReportService(
             repository,
             assignmentRepository,
-            new FakeCategoryRepository());
+            new FakeCategoryRepository(),
+            new CategorySpendingReportBuilder());
         var purchase = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var refund = Transaction("BULK MART REFUND RIVERTON VA", -14.25m);
         await repository.AddRangeAsync(
@@ -93,7 +96,8 @@ public class CategorySpendingReportServiceTests
         var reportService = new CategorySpendingReportService(
             repository,
             assignmentRepository,
-            new FakeCategoryRepository());
+            new FakeCategoryRepository(),
+            new CategorySpendingReportBuilder());
         var groceries = Transaction("BULK MART #0218 RIVERTON VA", 141.83m);
         var travel = Transaction("UNITED AIRLINES", 750m);
         var payment = Transaction("CAPITAL ONE MOBILE PYMT", -700m);
@@ -118,6 +122,44 @@ public class CategorySpendingReportServiceTests
 
         report.Lines.Should().NotContain(line => line.CategoryId == BuiltInCategoryIds.CreditCardPayment);
         report.TotalSpending.Should().Be(891.83m);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ShouldOrderLinesByAbsoluteAmountThenCategoryNameAndFallbackMissingCategoryNames()
+    {
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        var reportService = new CategorySpendingReportService(
+            repository,
+            assignmentRepository,
+            new FakeCategoryRepository(),
+            new CategorySpendingReportBuilder());
+        var unknownCategory = Transaction("UNKNOWN CATEGORY MERCHANT", -50m);
+        var groceries = Transaction("BULK MART #0218 RIVERTON VA", 20m);
+        var restaurant = Transaction("CAFE RIO VERDE", 20m);
+        await repository.AddRangeAsync(
+            [
+                restaurant,
+                groceries,
+                unknownCategory
+            ],
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(unknownCategory.Id, 9999),
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(groceries.Id, BuiltInCategoryIds.Groceries),
+            CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            Assignment(restaurant.Id, BuiltInCategoryIds.RestaurantsAndCoffee),
+            CancellationToken.None);
+
+        var report = await reportService.BuildAsync(CancellationToken.None);
+
+        report.Lines.Should().Equal(
+            new CategorySpendingReportLine(9999, "9999", 1, -50m),
+            new CategorySpendingReportLine(BuiltInCategoryIds.Groceries, "Groceries", 1, 20m),
+            new CategorySpendingReportLine(BuiltInCategoryIds.RestaurantsAndCoffee, "Restaurants & Coffee", 1, 20m));
     }
 
     private static Transaction Transaction(

@@ -13,15 +13,18 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
     private readonly ITransactionRepository transactionRepository;
     private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
     private readonly ICategoryRepository categoryRepository;
+    private readonly CategorySpendingReportBuilder reportBuilder;
 
     public CategorySpendingReportService(
         ITransactionRepository transactionRepository,
         ITransactionCategoryAssignmentRepository assignmentRepository,
-        ICategoryRepository categoryRepository)
+        ICategoryRepository categoryRepository,
+        CategorySpendingReportBuilder reportBuilder)
     {
         this.transactionRepository = transactionRepository;
         this.assignmentRepository = assignmentRepository;
         this.categoryRepository = categoryRepository;
+        this.reportBuilder = reportBuilder;
     }
 
     public async Task<CategorySpendingReport> BuildAsync(CancellationToken cancellationToken)
@@ -34,34 +37,12 @@ public sealed class CategorySpendingReportService : ICategorySpendingReportServi
         CancellationToken cancellationToken)
     {
         var transactions = await transactionRepository.ListAsync(query, cancellationToken).ConfigureAwait(false);
-        var assignmentsByTransactionId = (await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false))
-            .ToDictionary(assignment => assignment.TransactionId);
-        var categoryNamesById = (await categoryRepository.ListAsync(cancellationToken).ConfigureAwait(false))
-            .ToDictionary(category => category.Id, category => category.Name);
+        var assignments = await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var categories = await categoryRepository.ListAsync(cancellationToken).ConfigureAwait(false);
 
-        var categorizedTransactions = transactions
-            .Select(transaction => new
-            {
-                Transaction = transaction,
-                CategoryId = assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId
-                    ?? BuiltInCategoryIds.Other
-            })
-            .Where(item => item.CategoryId != BuiltInCategoryIds.CreditCardPayment)
-            .ToArray();
-
-        var lines = categorizedTransactions
-            .GroupBy(item => item.CategoryId)
-            .Select(group => new CategorySpendingReportLine(
-                group.Key,
-                categoryNamesById.GetValueOrDefault(group.Key, group.Key.ToString()),
-                group.Count(),
-                group.Sum(item => item.Transaction.Amount)))
-            .OrderByDescending(line => Math.Abs(line.Amount))
-            .ThenBy(line => line.CategoryName)
-            .ToArray();
-
-        return new CategorySpendingReport(
-            lines,
-            lines.Sum(line => line.Amount));
+        return reportBuilder.Build(
+            transactions,
+            assignments,
+            categories);
     }
 }

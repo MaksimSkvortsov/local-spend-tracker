@@ -38,6 +38,17 @@ public class TransactionCategorizationApplierTests
         assignment.Explanation.Should().Be("Needs human review.");
     }
 
+    [Fact]
+    public async Task ApplyAsync_ShouldRejectNullCategorizations()
+    {
+        var applier = new TransactionCategorizationApplier(new FakeTransactionCategoryAssignmentRepository());
+
+        var act = () => applier.ApplyAsync(null!, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentNullException>()
+            .WithParameterName("categorizations");
+    }
+
     private static Transaction Transaction(string description)
     {
         return new Transaction

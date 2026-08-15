@@ -13,6 +13,11 @@ public class TransactionMerchantCodeResolverTests
     [InlineData("UBER   *TRIP", "UBER")]
     [InlineData("COSTCO WHSE #0218", "COSTCO WHSE")]
     [InlineData("TINY CINEMA #7781", "TINY CINEMA")]
+    [InlineData("STARBUCKS 1234 CREDIT", "STARBUCKS")]
+    [InlineData("LYFT RIDE A", "LYFT RIDE")]
+    [InlineData("*AMAZON MKTPLACE", "AMAZON MKTPLACE")]
+    [InlineData("12345", "12345")]
+    [InlineData("   ", "")]
     public void Resolve_ShouldNormalizeStatementDescriptionToMerchantCode(
         string description,
         string expectedCode)

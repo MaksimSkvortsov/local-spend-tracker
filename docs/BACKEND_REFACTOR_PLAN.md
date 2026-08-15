@@ -36,7 +36,7 @@ Cross-cutting note: `FileUploadProgress` reporting is currently spread across `S
 | OpenAiConnectionTestService | Complete | 2026-08-14 | Clarified request settings, HTTP request creation, timeout handling, and failure formatting; focused tests passed: `dotnet test src\Spendnest.Infrastructure.Tests\Spendnest.Infrastructure.Tests.csproj --filter FullyQualifiedName~OpenAiConnectionTestServiceTests --no-restore`; reviewer passed after timeout coverage fix. |
 | OpenAiTransactionCategorizer | Complete | 2026-08-15 | Split OpenAI transport, request building, response parsing, and prompt category guidance into focused helpers; focused tests passed; reviewer passed after staging fix. |
 | BatchedOpenAiTransactionCategorizer | Complete | 2026-08-15 | Clarified saved-key setup, inner OpenAI categorizer creation, and per-batch timeout handling; focused tests passed: `dotnet test src\Spendnest.Infrastructure.Tests\Spendnest.Infrastructure.Tests.csproj --filter FullyQualifiedName~BatchedOpenAiTransactionCategorizerTests --no-restore`; reviewer passed with no findings. |
-| TransactionMerchantCodeResolver | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/TransactionMerchantCodeResolver.cs` |
+| TransactionMerchantCodeResolver | Complete | 2026-08-15 | Clarified merchant-code normalization pipeline and covered trailing-token fallback behavior; focused tests passed: `dotnet test src\Spendnest.Infrastructure.Tests\Spendnest.Infrastructure.Tests.csproj --filter FullyQualifiedName~TransactionMerchantCodeResolverTests --no-restore`; reviewer passed with no findings. |
 
 ## Repositories
 

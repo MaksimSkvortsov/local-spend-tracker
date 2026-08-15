@@ -20,28 +20,21 @@ public sealed partial class TransactionMerchantCodeResolver : ITransactionMercha
     {
         ArgumentNullException.ThrowIfNull(transaction);
 
-        var description = transaction.OriginalDescription.Trim().ToUpperInvariant();
-        var preferredSegment = PreferredSegment(description);
-        var normalized = NonAlphaNumericRegex().Replace(preferredSegment, " ");
-        var tokens = WhitespaceRegex()
-            .Split(normalized.Trim())
-            .Where(token => token.Length > 0)
-            .ToList();
+        var description = NormalizeDescription(transaction.OriginalDescription);
+        var segment = SelectPreferredSegment(description);
+        var normalizedSegment = NormalizeSegment(segment);
+        var tokens = Tokenize(normalizedSegment);
+        RemoveTrailingNoise(tokens);
 
-        while (tokens.Count > 0
-            && (tokens[^1].All(char.IsDigit)
-                || tokens[^1].Length == 1
-                || IgnoredTrailingTokens.Contains(tokens[^1])))
-        {
-            tokens.RemoveAt(tokens.Count - 1);
-        }
-
-        return tokens.Count == 0
-            ? normalized.Trim()
-            : string.Join(" ", tokens);
+        return BuildMerchantCode(tokens, normalizedSegment);
     }
 
-    private static string PreferredSegment(string description)
+    private static string NormalizeDescription(string description)
+    {
+        return description.Trim().ToUpperInvariant();
+    }
+
+    private static string SelectPreferredSegment(string description)
     {
         var starIndex = description.IndexOf('*', StringComparison.Ordinal);
         if (starIndex > 0)
@@ -56,6 +49,43 @@ public sealed partial class TransactionMerchantCodeResolver : ITransactionMercha
         }
 
         return description;
+    }
+
+    private static string NormalizeSegment(string segment)
+    {
+        return NonAlphaNumericRegex().Replace(segment, " ");
+    }
+
+    private static List<string> Tokenize(string normalizedSegment)
+    {
+        return WhitespaceRegex()
+            .Split(normalizedSegment.Trim())
+            .Where(token => token.Length > 0)
+            .ToList();
+    }
+
+    private static void RemoveTrailingNoise(List<string> tokens)
+    {
+        while (tokens.Count > 0 && IsTrailingNoise(tokens[^1]))
+        {
+            tokens.RemoveAt(tokens.Count - 1);
+        }
+    }
+
+    private static bool IsTrailingNoise(string token)
+    {
+        return token.All(char.IsDigit)
+            || token.Length == 1
+            || IgnoredTrailingTokens.Contains(token);
+    }
+
+    private static string BuildMerchantCode(
+        IReadOnlyList<string> tokens,
+        string normalizedSegment)
+    {
+        return tokens.Count == 0
+            ? normalizedSegment.Trim()
+            : string.Join(" ", tokens);
     }
 
     [GeneratedRegex("[^A-Z0-9]+")]

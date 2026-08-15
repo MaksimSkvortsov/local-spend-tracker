@@ -314,7 +314,8 @@ public class TransactionCategorizationServiceTests
             aiCategorizer,
             assignmentRepository ?? new FakeTransactionCategoryAssignmentRepository(),
             rules,
-            merchantCodeResolver);
+            merchantCodeResolver,
+            new AiCategorizationResultMapper(merchantCodeResolver));
     }
 
     private sealed class RecordingTransactionCategorizer : ITransactionCategorizer

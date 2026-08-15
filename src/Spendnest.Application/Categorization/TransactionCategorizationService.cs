@@ -17,6 +17,7 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
     private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
     private readonly ICategoryRuleRepository categoryRuleRepository;
     private readonly ITransactionMerchantCodeResolver merchantCodeResolver;
+    private readonly AiCategorizationResultMapper aiResultMapper;
     private readonly ILogger<TransactionCategorizationService> logger;
 
     public TransactionCategorizationService(
@@ -25,6 +26,7 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         ITransactionCategoryAssignmentRepository assignmentRepository,
         ICategoryRuleRepository categoryRuleRepository,
         ITransactionMerchantCodeResolver merchantCodeResolver,
+        AiCategorizationResultMapper aiResultMapper,
         ILogger<TransactionCategorizationService>? logger = null)
     {
         this.localCategorizer = localCategorizer;
@@ -32,6 +34,7 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         this.assignmentRepository = assignmentRepository;
         this.categoryRuleRepository = categoryRuleRepository;
         this.merchantCodeResolver = merchantCodeResolver;
+        this.aiResultMapper = aiResultMapper;
         this.logger = logger ?? NullLogger<TransactionCategorizationService>.Instance;
     }
 
@@ -107,7 +110,7 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
                 0,
                 representativeTransactions.Length));
             var representativeAiResults = await aiCategorizer.CategorizeAsync(representativeTransactions, cancellationToken).ConfigureAwait(false);
-            aiResults = CreateAiResultsForUnresolvedTransactions(
+            aiResults = aiResultMapper.MapToUnresolvedTransactions(
                 representativeAiResults,
                 representativeTransactions,
                 unresolvedTransactions);
@@ -140,28 +143,14 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
                 .ToArray();
         }
 
-        var validCategoryIds = BuiltInCategories.All.Select(category => category.Id).ToHashSet();
-        var validTransactionIds = unresolvedTransactions.Select(transaction => transaction.Id).ToHashSet();
-        var acceptedAiResults = aiResults
-            .Where(result => validTransactionIds.Contains(result.TransactionId))
-            .Select(result => validCategoryIds.Contains(result.CategoryId)
-                ? result
-                : CreateInvalidResult(result))
-            .ToArray();
         await RememberAcceptedAiRulesAsync(
-            acceptedAiResults,
+            aiResults,
             unresolvedTransactions,
             cancellationToken).ConfigureAwait(false);
-        var aiResultIds = acceptedAiResults.Select(result => result.TransactionId).ToHashSet();
-        var stillUnresolved = unresolvedTransactions
-            .Where(transaction => !aiResultIds.Contains(transaction.Id))
-            .Select(transaction => CreateUnresolvedResult(transaction, "No category result was returned."))
-            .ToArray();
 
         return existingAssignments
             .Concat(localResults)
-            .Concat(acceptedAiResults)
-            .Concat(stillUnresolved)
+            .Concat(aiResults)
             .ToArray();
     }
 
@@ -208,86 +197,11 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         }
     }
 
-    private IReadOnlyList<TransactionCategorization> CreateAiResultsForUnresolvedTransactions(
-        IReadOnlyList<TransactionCategorization> representativeAiResults,
-        IReadOnlyList<Transaction> representativeTransactions,
-        IReadOnlyList<Transaction> unresolvedTransactions)
-    {
-        var representativeTransactionsById = representativeTransactions.ToDictionary(transaction => transaction.Id);
-        var representativeResultsByMerchantCode = representativeAiResults
-            .Where(result => representativeTransactionsById.ContainsKey(result.TransactionId))
-            .ToDictionary(
-                result => merchantCodeResolver.Resolve(representativeTransactionsById[result.TransactionId]),
-                result => result,
-                StringComparer.Ordinal);
-        var learnedPrefixResults = representativeAiResults
-            .Where(result => representativeTransactionsById.ContainsKey(result.TransactionId)
-                && !result.NeedsReview
-                && result.Source is not CategorizationSource.Unresolved
-                && result.CategoryId != BuiltInCategoryIds.Other
-                && !string.IsNullOrWhiteSpace(result.LearnedRulePrefix))
-            .Select(result => new
-            {
-                Result = result,
-                Prefix = NormalizeRulePrefix(result.LearnedRulePrefix),
-                MerchantCode = NormalizeRulePrefix(merchantCodeResolver.Resolve(representativeTransactionsById[result.TransactionId]))
-            })
-            .Where(item => item.Prefix.Length > 0
-                && item.MerchantCode.StartsWith(item.Prefix, StringComparison.Ordinal))
-            .OrderByDescending(item => item.Prefix.Length)
-            .ToArray();
-        var results = new List<TransactionCategorization>();
-
-        foreach (var transaction in unresolvedTransactions)
-        {
-            var merchantCode = NormalizeRulePrefix(merchantCodeResolver.Resolve(transaction));
-            var learnedMatch = learnedPrefixResults
-                .FirstOrDefault(item => merchantCode.StartsWith(item.Prefix, StringComparison.Ordinal));
-
-            if (learnedMatch is not null)
-            {
-                results.Add(CopyResultForTransaction(learnedMatch.Result, transaction.Id, learnedMatch.Prefix));
-                continue;
-            }
-
-            if (representativeResultsByMerchantCode.TryGetValue(merchantCode, out var representativeResult))
-            {
-                results.Add(CopyResultForTransaction(representativeResult, transaction.Id, representativeResult.LearnedRulePrefix));
-            }
-        }
-
-        return results;
-    }
-
-    private static TransactionCategorization CopyResultForTransaction(
-        TransactionCategorization result,
-        Guid transactionId,
-        string? learnedRulePrefix)
-    {
-        return result with
-        {
-            TransactionId = transactionId,
-            LearnedRulePrefix = learnedRulePrefix
-        };
-    }
-
     private static string NormalizeRulePrefix(string? value)
     {
         return string.IsNullOrWhiteSpace(value)
             ? string.Empty
             : value.Trim().ToUpperInvariant();
-    }
-
-    private static TransactionCategorization CreateInvalidResult(TransactionCategorization result)
-    {
-        return result with
-        {
-            CategoryId = BuiltInCategoryIds.Other,
-            Confidence = 0m,
-            NeedsReview = true,
-            Source = CategorizationSource.Unresolved,
-            Explanation = $"Rejected unsupported category id '{result.CategoryId}'."
-        };
     }
 
     private static TransactionCategorization CreateUnresolvedResult(

@@ -29,37 +29,18 @@ public sealed class TransactionReviewService : ITransactionReviewService
 
     public async Task<IReadOnlyList<TransactionReviewItem>> ListNeedsReviewAsync(CancellationToken cancellationToken)
     {
-        var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
-        var transactionsById = transactions.ToDictionary(transaction => transaction.Id);
-        var assignments = await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var reviewEntries = await ListReviewEntriesAsync(cancellationToken).ConfigureAwait(false);
 
-        return assignments
-            .Where(assignment => assignment.NeedsReview && transactionsById.ContainsKey(assignment.TransactionId))
-            .Select(assignment =>
-            {
-                var transaction = transactionsById[assignment.TransactionId];
-
-                return new TransactionReviewItem(
-                    assignment.TransactionId,
-                    transaction.PostedDate,
-                    transaction.OriginalDescription,
-                    transaction.Amount,
-                    assignment.CategoryId,
-                    assignment.Source,
-                    assignment.Confidence,
-                    assignment.Explanation);
-            })
+        return reviewEntries
+            .Select(ToReviewItem)
             .ToArray();
     }
 
     public async Task<int> CountNeedsReviewAsync(CancellationToken cancellationToken)
     {
-        var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
-        var transactionIds = transactions.Select(transaction => transaction.Id).ToHashSet();
-        var assignments = await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var reviewEntries = await ListReviewEntriesAsync(cancellationToken).ConfigureAwait(false);
 
-        return assignments.Count(assignment =>
-            assignment.NeedsReview && transactionIds.Contains(assignment.TransactionId));
+        return reviewEntries.Count;
     }
 
     public async Task ConfirmAsync(
@@ -74,11 +55,7 @@ public sealed class TransactionReviewService : ITransactionReviewService
             throw new InvalidOperationException("Transaction does not have a category to confirm.");
         }
 
-        assignment.NeedsReview = false;
-        assignment.Source = CategorizationSource.LocalRules;
-        assignment.Confidence = 1m;
-        assignment.Explanation = "Confirmed during review.";
-        assignment.UpdatedAtUtc = DateTimeOffset.UtcNow;
+        CompleteReview(assignment, assignment.CategoryId, "Confirmed during review.");
 
         await assignmentRepository.SaveAsync(assignment, cancellationToken).ConfigureAwait(false);
 
@@ -97,18 +74,13 @@ public sealed class TransactionReviewService : ITransactionReviewService
         ValidateCategoryId(categoryId);
 
         var transaction = await GetTransactionAsync(transactionId, cancellationToken).ConfigureAwait(false);
-        await assignmentRepository.SaveAsync(
-            new TransactionCategoryAssignment
-            {
-                TransactionId = transactionId,
-                CategoryId = categoryId,
-                NeedsReview = false,
-                Source = CategorizationSource.LocalRules,
-                Confidence = 1m,
-                Explanation = "Set during review.",
-                UpdatedAtUtc = DateTimeOffset.UtcNow
-            },
-            cancellationToken).ConfigureAwait(false);
+        var assignment = new TransactionCategoryAssignment
+        {
+            TransactionId = transactionId
+        };
+        CompleteReview(assignment, categoryId, "Set during review.");
+
+        await assignmentRepository.SaveAsync(assignment, cancellationToken).ConfigureAwait(false);
 
         if (rememberRule)
         {
@@ -134,6 +106,33 @@ public sealed class TransactionReviewService : ITransactionReviewService
         return assignment ?? throw new InvalidOperationException($"Transaction '{transactionId}' does not have a category assignment.");
     }
 
+    private async Task<IReadOnlyList<(Transaction Transaction, TransactionCategoryAssignment Assignment)>> ListReviewEntriesAsync(
+        CancellationToken cancellationToken)
+    {
+        var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+        var transactionsById = transactions.ToDictionary(transaction => transaction.Id);
+        var assignments = await assignmentRepository.ListAsync(cancellationToken).ConfigureAwait(false);
+
+        return assignments
+            .Where(assignment => assignment.NeedsReview && transactionsById.ContainsKey(assignment.TransactionId))
+            .Select(assignment => (transactionsById[assignment.TransactionId], assignment))
+            .ToArray();
+    }
+
+    private static TransactionReviewItem ToReviewItem(
+        (Transaction Transaction, TransactionCategoryAssignment Assignment) entry)
+    {
+        return new TransactionReviewItem(
+            entry.Assignment.TransactionId,
+            entry.Transaction.PostedDate,
+            entry.Transaction.OriginalDescription,
+            entry.Transaction.Amount,
+            entry.Assignment.CategoryId,
+            entry.Assignment.Source,
+            entry.Assignment.Confidence,
+            entry.Assignment.Explanation);
+    }
+
     private async Task RememberExactRuleAsync(
         Transaction transaction,
         int categoryId,
@@ -147,6 +146,19 @@ public sealed class TransactionReviewService : ITransactionReviewService
                 MatchType = CategoryRuleMatchType.Exact
             },
             cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void CompleteReview(
+        TransactionCategoryAssignment assignment,
+        int categoryId,
+        string explanation)
+    {
+        assignment.CategoryId = categoryId;
+        assignment.NeedsReview = false;
+        assignment.Source = CategorizationSource.LocalRules;
+        assignment.Confidence = 1m;
+        assignment.Explanation = explanation;
+        assignment.UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
 
     private static void ValidateCategoryId(int categoryId)

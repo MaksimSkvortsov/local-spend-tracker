@@ -189,6 +189,134 @@ public class TransactionReviewServiceTests
     }
 
     [Fact]
+    public async Task ConfirmAsync_ShouldNotRememberRuleWhenDisabled()
+    {
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = transaction.Id,
+                CategoryId = BuiltInCategoryIds.Entertainment,
+                Source = CategorizationSource.Ai,
+                Confidence = 0.6m,
+                NeedsReview = true,
+                Explanation = "Needs review."
+            },
+            CancellationToken.None);
+        var service = new TransactionReviewService(
+            repository,
+            assignmentRepository,
+            ruleRepository,
+            new TransactionMerchantCodeResolver());
+
+        await service.ConfirmAsync(
+            transaction.Id,
+            rememberRule: false,
+            CancellationToken.None);
+
+        var assignment = await assignmentRepository.GetByTransactionIdAsync(transaction.Id, CancellationToken.None);
+        var rules = await ruleRepository.ListAsync(CancellationToken.None);
+
+        assignment.Should().NotBeNull();
+        assignment!.CategoryId.Should().Be(BuiltInCategoryIds.Entertainment);
+        assignment.NeedsReview.Should().BeFalse();
+        assignment.Source.Should().Be(CategorizationSource.LocalRules);
+        assignment.Confidence.Should().Be(1m);
+        assignment.Explanation.Should().Be("Confirmed during review.");
+        rules.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_ShouldRejectTransactionsWithoutAssignments()
+    {
+        var repository = new FakeTransactionRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        var service = new TransactionReviewService(
+            repository,
+            new FakeTransactionCategoryAssignmentRepository(),
+            new FakeCategoryRuleRepository(),
+            new TransactionMerchantCodeResolver());
+
+        var act = () => service.ConfirmAsync(
+            transaction.Id,
+            rememberRule: false,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage($"Transaction '{transaction.Id}' does not have a category assignment.");
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_ShouldRejectAssignmentsWithoutCategory()
+    {
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        await assignmentRepository.SaveAsync(
+            new TransactionCategoryAssignment
+            {
+                TransactionId = transaction.Id,
+                CategoryId = 0,
+                Source = CategorizationSource.Unresolved,
+                Confidence = 0m,
+                NeedsReview = true,
+                Explanation = "Needs category."
+            },
+            CancellationToken.None);
+        var service = new TransactionReviewService(
+            repository,
+            assignmentRepository,
+            new FakeCategoryRuleRepository(),
+            new TransactionMerchantCodeResolver());
+
+        var act = () => service.ConfirmAsync(
+            transaction.Id,
+            rememberRule: false,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Transaction does not have a category to confirm.");
+    }
+
+    [Fact]
+    public async Task SetCategoryAsync_ShouldNotRememberRuleWhenDisabled()
+    {
+        var repository = new FakeTransactionRepository();
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        var ruleRepository = new FakeCategoryRuleRepository();
+        var transaction = Transaction("MYSTERY PLACE");
+        await repository.AddRangeAsync([transaction], CancellationToken.None);
+        var service = new TransactionReviewService(
+            repository,
+            assignmentRepository,
+            ruleRepository,
+            new TransactionMerchantCodeResolver());
+
+        await service.SetCategoryAsync(
+            transaction.Id,
+            BuiltInCategoryIds.Entertainment,
+            rememberRule: false,
+            CancellationToken.None);
+
+        var assignment = await assignmentRepository.GetByTransactionIdAsync(transaction.Id, CancellationToken.None);
+        var rules = await ruleRepository.ListAsync(CancellationToken.None);
+
+        assignment.Should().NotBeNull();
+        assignment!.CategoryId.Should().Be(BuiltInCategoryIds.Entertainment);
+        assignment.NeedsReview.Should().BeFalse();
+        assignment.Source.Should().Be(CategorizationSource.LocalRules);
+        assignment.Confidence.Should().Be(1m);
+        assignment.Explanation.Should().Be("Set during review.");
+        rules.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task SetCategoryAsync_ShouldRejectUnknownCategoryIds()
     {
         var repository = new FakeTransactionRepository();

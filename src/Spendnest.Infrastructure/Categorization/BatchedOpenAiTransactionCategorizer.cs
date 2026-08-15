@@ -36,29 +36,10 @@ public sealed class BatchedOpenAiTransactionCategorizer : ITransactionCategorize
         IReadOnlyList<Transaction> transactions,
         CancellationToken cancellationToken)
     {
-        var apiKey = await credentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            logger.LogWarning("Batched OpenAI categorization skipped because no API key is configured.");
-            throw new InvalidOperationException("OpenAI API key is required for OpenAI categorization.");
-        }
-
-        var batchSize = Math.Max(1, options.MaxTransactionsPerRequest);
+        var apiKey = await GetRequiredApiKeyAsync(cancellationToken).ConfigureAwait(false);
+        var batchSize = GetBatchSize();
+        var categorizer = CreateCategorizer(apiKey);
         var results = new List<TransactionCategorization>();
-        var categorizerOptions = new OpenAiCategorizerOptions
-        {
-            ApiKey = apiKey,
-            Endpoint = options.Endpoint,
-            Model = options.Model,
-            ReviewConfidenceThreshold = options.ReviewConfidenceThreshold,
-            RequestTimeout = options.RequestTimeout,
-            MaxTransactionsPerRequest = options.MaxTransactionsPerRequest
-        };
-        var categorizer = new OpenAiTransactionCategorizer(
-            httpClient,
-            categorizerOptions,
-            loggerFactory.CreateLogger<OpenAiTransactionCategorizer>(),
-            loggerFactory.CreateLogger<OpenAiClient>());
 
         logger.LogInformation(
             "Starting batched OpenAI categorization for {TransactionCount} transactions in batches of {BatchSize}.",
@@ -68,38 +49,12 @@ public sealed class BatchedOpenAiTransactionCategorizer : ITransactionCategorize
         foreach (var batch in transactions.Chunk(batchSize))
         {
             batchNumber++;
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(options.RequestTimeout);
-
-            try
-            {
-                logger.LogInformation(
-                    "Sending OpenAI categorization batch {BatchNumber} with {TransactionCount} transactions.",
-                    batchNumber,
-                    batch.Length);
-                var batchResults = await categorizer.CategorizeAsync(batch, timeout.Token).ConfigureAwait(false);
-                results.AddRange(batchResults);
-                logger.LogInformation(
-                    "Completed OpenAI categorization batch {BatchNumber}; received {ResultCount} results.",
-                    batchNumber,
-                    batchResults.Count);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
-            {
-                logger.LogWarning(
-                    "OpenAI categorization batch {BatchNumber} timed out after {TimeoutSeconds} seconds.",
-                    batchNumber,
-                    options.RequestTimeout.TotalSeconds);
-                results.AddRange(CreateUnresolvedResults(batch, "AI categorization timed out."));
-            }
-            catch (TimeoutException)
-            {
-                logger.LogWarning(
-                    "OpenAI categorization batch {BatchNumber} timed out after {TimeoutSeconds} seconds.",
-                    batchNumber,
-                    options.RequestTimeout.TotalSeconds);
-                results.AddRange(CreateUnresolvedResults(batch, "AI categorization timed out."));
-            }
+            var batchResults = await CategorizeBatchAsync(
+                categorizer,
+                batch,
+                batchNumber,
+                cancellationToken).ConfigureAwait(false);
+            results.AddRange(batchResults);
         }
 
         logger.LogInformation(
@@ -107,6 +62,90 @@ public sealed class BatchedOpenAiTransactionCategorizer : ITransactionCategorize
             results.Count);
 
         return results;
+    }
+
+    private async Task<string> GetRequiredApiKeyAsync(CancellationToken cancellationToken)
+    {
+        var apiKey = await credentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            return apiKey;
+        }
+
+        logger.LogWarning("Batched OpenAI categorization skipped because no API key is configured.");
+        throw new InvalidOperationException("OpenAI API key is required for OpenAI categorization.");
+    }
+
+    private int GetBatchSize()
+    {
+        return Math.Max(1, options.MaxTransactionsPerRequest);
+    }
+
+    private OpenAiTransactionCategorizer CreateCategorizer(string apiKey)
+    {
+        return new OpenAiTransactionCategorizer(
+            httpClient,
+            CreateCategorizerOptions(apiKey),
+            loggerFactory.CreateLogger<OpenAiTransactionCategorizer>(),
+            loggerFactory.CreateLogger<OpenAiClient>());
+    }
+
+    private OpenAiCategorizerOptions CreateCategorizerOptions(string apiKey)
+    {
+        return new OpenAiCategorizerOptions
+        {
+            ApiKey = apiKey,
+            Endpoint = options.Endpoint,
+            Model = options.Model,
+            ReviewConfidenceThreshold = options.ReviewConfidenceThreshold,
+            RequestTimeout = options.RequestTimeout,
+            MaxTransactionsPerRequest = options.MaxTransactionsPerRequest
+        };
+    }
+
+    private async Task<IReadOnlyList<TransactionCategorization>> CategorizeBatchAsync(
+        ITransactionCategorizer categorizer,
+        Transaction[] batch,
+        int batchNumber,
+        CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(options.RequestTimeout);
+
+        try
+        {
+            logger.LogInformation(
+                "Sending OpenAI categorization batch {BatchNumber} with {TransactionCount} transactions.",
+                batchNumber,
+                batch.Length);
+            var batchResults = await categorizer.CategorizeAsync(batch, timeout.Token).ConfigureAwait(false);
+            logger.LogInformation(
+                "Completed OpenAI categorization batch {BatchNumber}; received {ResultCount} results.",
+                batchNumber,
+                batchResults.Count);
+
+            return batchResults;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
+        {
+            return CreateTimedOutBatchResults(batch, batchNumber);
+        }
+        catch (TimeoutException)
+        {
+            return CreateTimedOutBatchResults(batch, batchNumber);
+        }
+    }
+
+    private IReadOnlyList<TransactionCategorization> CreateTimedOutBatchResults(
+        IReadOnlyList<Transaction> batch,
+        int batchNumber)
+    {
+        logger.LogWarning(
+            "OpenAI categorization batch {BatchNumber} timed out after {TimeoutSeconds} seconds.",
+            batchNumber,
+            options.RequestTimeout.TotalSeconds);
+
+        return CreateUnresolvedResults(batch, "AI categorization timed out.");
     }
 
     private static IReadOnlyList<TransactionCategorization> CreateUnresolvedResults(

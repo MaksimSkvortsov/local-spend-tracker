@@ -79,15 +79,7 @@ public class BatchedOpenAiTransactionCategorizerTests
             }),
             new HttpClient(new StubHttpMessageHandler(request =>
             {
-                var requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-                using var requestJson = JsonDocument.Parse(requestBody);
-                var userContent = requestJson.RootElement.GetProperty("input")[1].GetProperty("content").GetString();
-                using var userContentJson = JsonDocument.Parse(userContent!);
-                var batchTransactionIds = userContentJson.RootElement
-                    .GetProperty("transactions")
-                    .EnumerateArray()
-                    .Select(transaction => transaction.GetProperty("id").GetString())
-                    .ToArray();
+                var batchTransactionIds = ReadTransactionIdsFromRequest(request);
                 requestTransactionCounts.Add(batchTransactionIds.Length);
                 var responseItems = batchTransactionIds.Select(transactionId => new
                 {
@@ -120,6 +112,54 @@ public class BatchedOpenAiTransactionCategorizerTests
     }
 
     [Fact]
+    public async Task CategorizeAsync_ShouldClampInvalidBatchSizeToOne()
+    {
+        var transactions = new[]
+        {
+            Transaction("FIRST PLACE"),
+            Transaction("SECOND PLACE")
+        };
+        var requestTransactionCounts = new List<int>();
+        var categorizer = new BatchedOpenAiTransactionCategorizer(
+            new InMemoryCredentialStore(new Dictionary<string, string?>
+            {
+                [CredentialKeys.OpenAiApiKey] = "test-key"
+            }),
+            new HttpClient(new StubHttpMessageHandler(request =>
+            {
+                var batchTransactionIds = ReadTransactionIdsFromRequest(request);
+                requestTransactionCounts.Add(batchTransactionIds.Length);
+                var responseItems = batchTransactionIds.Select(transactionId => new
+                {
+                    transactionId,
+                    categoryId = BuiltInCategoryIds.Other,
+                    rulePrefix = "TEST PLACE",
+                    confidence = 0.82m,
+                    explanation = "Test batch result."
+                });
+                var output = JsonSerializer.Serialize(new { items = responseItems });
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { output_text = output }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            })),
+            new OpenAiCategorizerOptions
+            {
+                MaxTransactionsPerRequest = 0
+            });
+
+        var result = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+
+        requestTransactionCounts.Should().Equal(1, 1);
+        result.Select(categorization => categorization.TransactionId)
+            .Should().BeEquivalentTo(transactions.Select(transaction => transaction.Id));
+    }
+
+    [Fact]
     public async Task CategorizeAsync_ShouldKeepSuccessfulBatchesWhenLaterBatchTimesOut()
     {
         var transactions = new[]
@@ -142,15 +182,7 @@ public class BatchedOpenAiTransactionCategorizerTests
                     throw new TimeoutException("Batch timeout.");
                 }
 
-                var requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
-                using var requestJson = JsonDocument.Parse(requestBody);
-                var userContent = requestJson.RootElement.GetProperty("input")[1].GetProperty("content").GetString();
-                using var userContentJson = JsonDocument.Parse(userContent!);
-                var batchTransactionIds = userContentJson.RootElement
-                    .GetProperty("transactions")
-                    .EnumerateArray()
-                    .Select(transaction => transaction.GetProperty("id").GetString())
-                    .ToArray();
+                var batchTransactionIds = ReadTransactionIdsFromRequest(request);
                 var responseItems = batchTransactionIds.Select(transactionId => new
                 {
                     transactionId,
@@ -183,6 +215,39 @@ public class BatchedOpenAiTransactionCategorizerTests
             categorization.TransactionId == transactions[2].Id
             && categorization.Source == CategorizationSource.Unresolved
             && categorization.Explanation == "AI categorization timed out.");
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldPropagateCallerCancellation()
+    {
+        var transaction = Transaction("FIRST PLACE");
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+        var categorizer = new BatchedOpenAiTransactionCategorizer(
+            new InMemoryCredentialStore(new Dictionary<string, string?>
+            {
+                [CredentialKeys.OpenAiApiKey] = "test-key"
+            }),
+            new HttpClient(new ThrowingHttpMessageHandler()),
+            new OpenAiCategorizerOptions());
+
+        var act = () => categorizer.CategorizeAsync([transaction], cancellation.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    private static string[] ReadTransactionIdsFromRequest(HttpRequestMessage request)
+    {
+        var requestBody = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+        using var requestJson = JsonDocument.Parse(requestBody);
+        var userContent = requestJson.RootElement.GetProperty("input")[1].GetProperty("content").GetString();
+        using var userContentJson = JsonDocument.Parse(userContent!);
+
+        return userContentJson.RootElement
+            .GetProperty("transactions")
+            .EnumerateArray()
+            .Select(transaction => transaction.GetProperty("id").GetString()!)
+            .ToArray();
     }
 
     private static Transaction Transaction(string description)

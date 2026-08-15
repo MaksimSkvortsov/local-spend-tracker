@@ -11,12 +11,12 @@ using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Credentials;
 
-public class StoredOpenAiTransactionCategorizerTests
+public class BatchedOpenAiTransactionCategorizerTests
 {
     [Fact]
     public async Task CategorizeAsync_ShouldRequireApiKey()
     {
-        var categorizer = new StoredOpenAiTransactionCategorizer(
+        var categorizer = new BatchedOpenAiTransactionCategorizer(
             new InMemoryCredentialStore(),
             new HttpClient(new ThrowingHttpMessageHandler()),
             new OpenAiCategorizerOptions());
@@ -32,7 +32,7 @@ public class StoredOpenAiTransactionCategorizerTests
     public async Task CategorizeAsync_ShouldUseOpenAiWhenApiKeyIsSaved()
     {
         var transaction = Transaction("MYSTERY PLACE");
-        var categorizer = new StoredOpenAiTransactionCategorizer(
+        var categorizer = new BatchedOpenAiTransactionCategorizer(
             new InMemoryCredentialStore(new Dictionary<string, string?>
             {
                 [CredentialKeys.OpenAiApiKey] = "test-key"
@@ -72,7 +72,7 @@ public class StoredOpenAiTransactionCategorizerTests
             Transaction("THIRD PLACE")
         };
         var requestTransactionCounts = new List<int>();
-        var categorizer = new StoredOpenAiTransactionCategorizer(
+        var categorizer = new BatchedOpenAiTransactionCategorizer(
             new InMemoryCredentialStore(new Dictionary<string, string?>
             {
                 [CredentialKeys.OpenAiApiKey] = "test-key"
@@ -129,7 +129,7 @@ public class StoredOpenAiTransactionCategorizerTests
             Transaction("THIRD PLACE")
         };
         var requestCount = 0;
-        var categorizer = new StoredOpenAiTransactionCategorizer(
+        var categorizer = new BatchedOpenAiTransactionCategorizer(
             new InMemoryCredentialStore(new Dictionary<string, string?>
             {
                 [CredentialKeys.OpenAiApiKey] = "test-key"

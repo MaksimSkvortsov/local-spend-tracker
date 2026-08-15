@@ -8,27 +8,27 @@ using Spendnest.Core.Transactions;
 namespace Spendnest.Infrastructure.Categorization;
 
 /// <summary>
-/// Uses the saved OpenAI key to run OpenAI transaction categorization.
+/// Uses the saved OpenAI key to run OpenAI transaction categorization in batches.
 /// </summary>
-public sealed class StoredOpenAiTransactionCategorizer : ITransactionCategorizer
+public sealed class BatchedOpenAiTransactionCategorizer : ITransactionCategorizer
 {
     private readonly ICredentialStore credentialStore;
     private readonly HttpClient httpClient;
     private readonly OpenAiCategorizerOptions options;
-    private readonly ILogger<StoredOpenAiTransactionCategorizer> logger;
+    private readonly ILogger<BatchedOpenAiTransactionCategorizer> logger;
     private readonly ILoggerFactory loggerFactory;
 
-    public StoredOpenAiTransactionCategorizer(
+    public BatchedOpenAiTransactionCategorizer(
         ICredentialStore credentialStore,
         HttpClient httpClient,
         OpenAiCategorizerOptions options,
-        ILogger<StoredOpenAiTransactionCategorizer>? logger = null,
+        ILogger<BatchedOpenAiTransactionCategorizer>? logger = null,
         ILoggerFactory? loggerFactory = null)
     {
         this.credentialStore = credentialStore;
         this.httpClient = httpClient;
         this.options = options;
-        this.logger = logger ?? NullLogger<StoredOpenAiTransactionCategorizer>.Instance;
+        this.logger = logger ?? NullLogger<BatchedOpenAiTransactionCategorizer>.Instance;
         this.loggerFactory = loggerFactory ?? NullLoggerFactory.Instance;
     }
 
@@ -39,7 +39,7 @@ public sealed class StoredOpenAiTransactionCategorizer : ITransactionCategorizer
         var apiKey = await credentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            logger.LogWarning("Stored OpenAI categorization skipped because no API key is configured.");
+            logger.LogWarning("Batched OpenAI categorization skipped because no API key is configured.");
             throw new InvalidOperationException("OpenAI API key is required for OpenAI categorization.");
         }
 
@@ -57,10 +57,11 @@ public sealed class StoredOpenAiTransactionCategorizer : ITransactionCategorizer
         var categorizer = new OpenAiTransactionCategorizer(
             httpClient,
             categorizerOptions,
-            loggerFactory.CreateLogger<OpenAiTransactionCategorizer>());
+            loggerFactory.CreateLogger<OpenAiTransactionCategorizer>(),
+            loggerFactory.CreateLogger<OpenAiClient>());
 
         logger.LogInformation(
-            "Starting stored OpenAI categorization for {TransactionCount} transactions in batches of {BatchSize}.",
+            "Starting batched OpenAI categorization for {TransactionCount} transactions in batches of {BatchSize}.",
             transactions.Count,
             batchSize);
         var batchNumber = 0;
@@ -102,7 +103,7 @@ public sealed class StoredOpenAiTransactionCategorizer : ITransactionCategorizer
         }
 
         logger.LogInformation(
-            "Finished stored OpenAI categorization with {ResultCount} total results.",
+            "Finished batched OpenAI categorization with {ResultCount} total results.",
             results.Count);
 
         return results;

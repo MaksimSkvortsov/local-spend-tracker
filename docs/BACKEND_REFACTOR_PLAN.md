@@ -34,8 +34,8 @@ Cross-cutting note: `FileUploadProgress` reporting is currently spread across `S
 | --- | --- | --- | --- |
 | LocalTransactionCategorizer | Complete | 2026-08-14 | Extracted local rule matching into `LocalCategoryRuleMatcher`; focused tests passed: `dotnet test src\Spendnest.Infrastructure.Tests\Spendnest.Infrastructure.Tests.csproj --filter FullyQualifiedName~LocalCategoryRuleMatcherTests --no-restore` and full infrastructure tests passed; reviewer passed after coverage fixes. |
 | OpenAiConnectionTestService | Complete | 2026-08-14 | Clarified request settings, HTTP request creation, timeout handling, and failure formatting; focused tests passed: `dotnet test src\Spendnest.Infrastructure.Tests\Spendnest.Infrastructure.Tests.csproj --filter FullyQualifiedName~OpenAiConnectionTestServiceTests --no-restore`; reviewer passed after timeout coverage fix. |
-| OpenAiTransactionCategorizer | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/OpenAiTransactionCategorizer.cs` |
-| StoredOpenAiTransactionCategorizer | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/StoredOpenAiTransactionCategorizer.cs` |
+| OpenAiTransactionCategorizer | Complete | 2026-08-15 | Split OpenAI transport, request building, response parsing, and prompt category guidance into focused helpers; focused tests passed; reviewer passed after staging fix. |
+| BatchedOpenAiTransactionCategorizer | Not started | 2026-08-15 | Renamed from `StoredOpenAiTransactionCategorizer`; `src/Spendnest.Infrastructure/Categorization/BatchedOpenAiTransactionCategorizer.cs` still needs a `$refactor-backend` slice. |
 | TransactionMerchantCodeResolver | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/TransactionMerchantCodeResolver.cs` |
 
 ## Repositories

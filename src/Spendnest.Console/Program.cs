@@ -48,7 +48,7 @@ using var serviceProvider = new ServiceCollection()
     {
         Model = configuration["OpenAI:Model"] ?? "gpt-5.6-luna"
     })
-    .AddSingleton<ITransactionCategorizer, StoredOpenAiTransactionCategorizer>()
+    .AddSingleton<ITransactionCategorizer, BatchedOpenAiTransactionCategorizer>()
     .AddSpendnestApplicationServices()
     .AddSingleton<SpendnestCommandDispatcher>()
     .AddSingleton<SpendnestConsoleApp>()

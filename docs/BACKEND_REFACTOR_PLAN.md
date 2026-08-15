@@ -32,7 +32,7 @@ Cross-cutting note: `FileUploadProgress` reporting is currently spread across `S
 
 | Class name | Refactoring status | Date | Notes |
 | --- | --- | --- | --- |
-| LocalTransactionCategorizer | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/LocalTransactionCategorizer.cs` |
+| LocalTransactionCategorizer | Complete | 2026-08-14 | Extracted local rule matching into `LocalCategoryRuleMatcher`; focused tests passed: `dotnet test src\Spendnest.Infrastructure.Tests\Spendnest.Infrastructure.Tests.csproj --filter FullyQualifiedName~LocalCategoryRuleMatcherTests --no-restore` and full infrastructure tests passed; reviewer passed after coverage fixes. |
 | OpenAiConnectionTestService | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/OpenAiConnectionTestService.cs` |
 | OpenAiTransactionCategorizer | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/OpenAiTransactionCategorizer.cs` |
 | StoredOpenAiTransactionCategorizer | Not started | 2026-08-11 | `src/Spendnest.Infrastructure/Categorization/StoredOpenAiTransactionCategorizer.cs` |

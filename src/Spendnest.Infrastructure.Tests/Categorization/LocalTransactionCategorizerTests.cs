@@ -21,7 +21,7 @@ public class LocalTransactionCategorizerTests
         }, CancellationToken.None);
         var categorizer = new LocalTransactionCategorizer(
             ruleRepository,
-            new TransactionMerchantCodeResolver());
+            CreateRuleMatcher());
         var transaction = new Transaction
         {
             Id = Guid.NewGuid(),
@@ -45,7 +45,7 @@ public class LocalTransactionCategorizerTests
     {
         var categorizer = new LocalTransactionCategorizer(
             new FakeCategoryRuleRepository(),
-            new TransactionMerchantCodeResolver());
+            CreateRuleMatcher());
         var transaction = new Transaction
         {
             Id = Guid.NewGuid(),
@@ -76,7 +76,7 @@ public class LocalTransactionCategorizerTests
         }, CancellationToken.None);
         var categorizer = new LocalTransactionCategorizer(
             ruleRepository,
-            new TransactionMerchantCodeResolver());
+            CreateRuleMatcher());
         var transaction = new Transaction
         {
             Id = Guid.NewGuid(),
@@ -89,5 +89,10 @@ public class LocalTransactionCategorizerTests
         result.Should().ContainSingle(categorization =>
             categorization.TransactionId == transaction.Id
             && categorization.CategoryId == BuiltInCategoryIds.Subscriptions);
+    }
+
+    private static LocalCategoryRuleMatcher CreateRuleMatcher()
+    {
+        return new LocalCategoryRuleMatcher(new TransactionMerchantCodeResolver());
     }
 }

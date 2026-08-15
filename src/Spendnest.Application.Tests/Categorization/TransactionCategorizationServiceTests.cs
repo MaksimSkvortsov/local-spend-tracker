@@ -310,7 +310,7 @@ public class TransactionCategorizationServiceTests
         return new TransactionCategorizationService(
             new LocalTransactionCategorizer(
                 rules,
-                merchantCodeResolver),
+                new LocalCategoryRuleMatcher(merchantCodeResolver)),
             aiCategorizer,
             assignmentRepository ?? new FakeTransactionCategoryAssignmentRepository(),
             rules,

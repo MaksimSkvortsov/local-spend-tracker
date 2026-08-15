@@ -46,6 +46,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICredentialStore, SecureStorageCredentialStore>();
         builder.Services.AddSpendnestSqlitePersistence();
         builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();
+        builder.Services.AddSingleton<LocalCategoryRuleMatcher>();
         builder.Services.AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>();
         builder.Services.AddSingleton<HttpClient>();
         builder.Services.AddSingleton(new OpenAiCategorizerOptions

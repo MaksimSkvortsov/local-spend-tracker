@@ -41,6 +41,7 @@ using var serviceProvider = new ServiceCollection()
     }))
     .AddSpendnestSqlitePersistence()
     .AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>()
+    .AddSingleton<LocalCategoryRuleMatcher>()
     .AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>()
     .AddSingleton<HttpClient>()
     .AddSingleton(new OpenAiCategorizerOptions

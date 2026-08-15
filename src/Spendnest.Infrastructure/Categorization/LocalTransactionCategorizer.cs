@@ -1,4 +1,3 @@
-using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 
@@ -10,14 +9,14 @@ namespace Spendnest.Infrastructure.Categorization;
 public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
 {
     private readonly ICategoryRuleRepository ruleRepository;
-    private readonly ITransactionMerchantCodeResolver merchantCodeResolver;
+    private readonly LocalCategoryRuleMatcher ruleMatcher;
 
     public LocalTransactionCategorizer(
         ICategoryRuleRepository ruleRepository,
-        ITransactionMerchantCodeResolver merchantCodeResolver)
+        LocalCategoryRuleMatcher ruleMatcher)
     {
         this.ruleRepository = ruleRepository;
-        this.merchantCodeResolver = merchantCodeResolver;
+        this.ruleMatcher = ruleMatcher;
     }
 
     public async Task<IReadOnlyList<TransactionCategorization>> CategorizeKnownAsync(
@@ -32,16 +31,16 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
 
         foreach (var transaction in transactions)
         {
-            var categoryId = FindRuleCategoryId(transaction, rules);
+            var rule = ruleMatcher.FindMatch(transaction, rules);
 
-            if (categoryId is null)
+            if (rule is null)
             {
                 continue;
             }
 
             results.Add(new TransactionCategorization(
                 transaction.Id,
-                categoryId.Value,
+                rule.CategoryId,
                 1m,
                 false,
                 CategorizationSource.LocalRules,
@@ -49,39 +48,5 @@ public sealed class LocalTransactionCategorizer : ILocalTransactionCategorizer
         }
 
         return results;
-    }
-
-    private int? FindRuleCategoryId(
-        Transaction transaction,
-        IReadOnlyList<CategoryRule> rules)
-    {
-        var description = Normalize(transaction.OriginalDescription);
-        var merchantCode = merchantCodeResolver.Resolve(transaction);
-
-        foreach (var rule in rules
-            .OrderBy(rule => rule.MatchType)
-            .ThenByDescending(rule => Normalize(rule.Pattern).Length))
-        {
-            var pattern = Normalize(rule.Pattern);
-            var isMatch = rule.MatchType switch
-            {
-                CategoryRuleMatchType.Exact => merchantCode == pattern,
-                CategoryRuleMatchType.Prefix => merchantCode.StartsWith(pattern, StringComparison.Ordinal),
-                CategoryRuleMatchType.Contains => description.Contains(pattern),
-                _ => false
-            };
-
-            if (isMatch)
-            {
-                return rule.CategoryId;
-            }
-        }
-
-        return null;
-    }
-
-    private static string Normalize(string value)
-    {
-        return value.Trim().ToUpperInvariant();
     }
 }

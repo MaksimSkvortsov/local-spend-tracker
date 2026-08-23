@@ -7,6 +7,7 @@
 @inject IStatementParser StatementParser
 @inject ICardAccountRepository CardAccountRepository
 @inject AppDataRefreshNotifier DataRefreshNotifier
+@inject IStatementFilePicker StatementFilePicker
 
 <PageTitle>Import - PeasantMoney</PageTitle>
 
@@ -320,14 +321,7 @@
         errorMessage = null;
         statusMessage = null;
 
-        var file = await FilePicker.Default.PickAsync(new PickOptions
-        {
-            PickerTitle = "Choose a statement CSV",
-            FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-            {
-                [DevicePlatform.WinUI] = [".csv"]
-            })
-        });
+        var file = await StatementFilePicker.PickCsvAsync(CancellationToken.None);
 
         if (file is null)
         {
@@ -335,7 +329,7 @@
         }
 
         selectedFileName = file.FileName;
-        selectedFilePath = await EnsureLocalPathAsync(file);
+        selectedFilePath = file.LocalPath;
         importResult = null;
         previewPage = 1;
         previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
@@ -514,20 +508,6 @@
     private void NextPreviewPage()
     {
         previewPage = Math.Min(PreviewPageCount, previewPage + 1);
-    }
-
-    private static async Task<string> EnsureLocalPathAsync(FileResult file)
-    {
-        if (!string.IsNullOrWhiteSpace(file.FullPath) && File.Exists(file.FullPath))
-        {
-            return file.FullPath;
-        }
-
-        var cachePath = Path.Combine(FileSystem.CacheDirectory, file.FileName);
-        await using var source = await file.OpenReadAsync();
-        await using var destination = File.Create(cachePath);
-        await source.CopyToAsync(destination);
-        return cachePath;
     }
 
     private async Task<StatementParseResult?> PreviewSelectedFileAsync(

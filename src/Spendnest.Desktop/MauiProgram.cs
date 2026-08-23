@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Spendnest.Desktop.Infrastructure;
 using Spendnest.Desktop.Infrastructure.Credentials;
 using Spendnest.Application;
 using Spendnest.Application.Importing;
@@ -9,6 +10,7 @@ using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Review;
+using Spendnest.Desktop.Services;
 using Spendnest.Desktop.State;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Importing;
@@ -41,6 +43,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IConfiguration>(configuration);
         builder.Services.AddSingleton<AppDataRefreshNotifier>();
         builder.Services.AddSingleton<DashboardPeriodState>();
+        builder.Services.AddSingleton<IStatementFilePicker, MauiStatementFilePicker>();
         builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
         builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();
         builder.Services.AddSingleton<ICredentialStore, SecureStorageCredentialStore>();

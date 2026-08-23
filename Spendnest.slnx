@@ -8,5 +8,6 @@
     <Project Path="src/Spendnest.Core/Spendnest.Core.csproj" />
     <Project Path="src/Spendnest.Infrastructure.Tests/Spendnest.Infrastructure.Tests.csproj" />
     <Project Path="src/Spendnest.Infrastructure/Spendnest.Infrastructure.csproj" />
+    <Project Path="src/Spendnest.UiHarness/Spendnest.UiHarness.csproj" />
   </Folder>
 </Solution>

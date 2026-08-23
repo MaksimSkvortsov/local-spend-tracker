@@ -13,6 +13,7 @@ artifacts/
 .codex
 *.user
 *.suo
+.agents
 
 # Test output
 TestResults/

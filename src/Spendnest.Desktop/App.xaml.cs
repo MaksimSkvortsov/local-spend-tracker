@@ -1,4 +1,4 @@
-﻿namespace Spendnest.App;
+namespace Spendnest.Desktop;
 
 public partial class App : Microsoft.Maui.Controls.Application
 {

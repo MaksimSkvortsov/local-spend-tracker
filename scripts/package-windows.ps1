@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$projectPath = Join-Path $repoRoot "src/Spendnest.App/Spendnest.App.csproj"
+$projectPath = Join-Path $repoRoot "src/Spendnest.Desktop/Spendnest.Desktop.csproj"
 $targetFramework = "net10.0-windows10.0.19041.0"
 $distDir = Join-Path $repoRoot "dist"
 $modeSuffix = if ($DeploymentMode -eq "FrameworkDependent") { "framework-dependent" } else { "self-contained" }

@@ -1,4 +1,4 @@
-namespace Spendnest.App.State;
+namespace Spendnest.Desktop.State;
 
 public sealed class DashboardPeriodState
 {

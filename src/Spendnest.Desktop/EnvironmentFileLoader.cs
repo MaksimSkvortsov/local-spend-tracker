@@ -1,4 +1,4 @@
-namespace Spendnest.App;
+namespace Spendnest.Desktop;
 
 /// <summary>
 /// Loads local development settings before the host configuration is built.

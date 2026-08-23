@@ -1,4 +1,4 @@
-namespace Spendnest.App.State;
+namespace Spendnest.Desktop.State;
 
 /// <summary>
 /// Notifies active pages when imported transaction data changes.

@@ -1,6 +1,6 @@
 using Spendnest.Core.Credentials;
 
-namespace Spendnest.App.Infrastructure.Credentials;
+namespace Spendnest.Desktop.Infrastructure.Credentials;
 
 public sealed class SecureStorageCredentialStore : ICredentialStore
 {

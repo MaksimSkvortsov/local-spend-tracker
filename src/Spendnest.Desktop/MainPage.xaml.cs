@@ -1,4 +1,4 @@
-﻿namespace Spendnest.App;
+namespace Spendnest.Desktop;
 
 public partial class MainPage : ContentPage
 {

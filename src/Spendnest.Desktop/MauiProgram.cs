@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Spendnest.App.Infrastructure.Credentials;
+using Spendnest.Desktop.Infrastructure.Credentials;
 using Spendnest.Application;
 using Spendnest.Application.Importing;
 using Spendnest.Core.Ai;
@@ -9,13 +9,13 @@ using Spendnest.Core.Credentials;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Review;
-using Spendnest.App.State;
+using Spendnest.Desktop.State;
 using Spendnest.Infrastructure.Categorization;
 using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Logging;
 using Spendnest.Infrastructure.Persistence;
 
-namespace Spendnest.App;
+namespace Spendnest.Desktop;
 
 public static class MauiProgram
 {

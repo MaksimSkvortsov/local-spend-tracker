@@ -18,7 +18,7 @@ src/
   Spendnest.Core
   Spendnest.Infrastructure
   Spendnest.Console
-  Spendnest.App
+  Spendnest.Desktop
   Spendnest.Core.Tests
   Spendnest.Infrastructure.Tests
 ```
@@ -82,7 +82,7 @@ dotnet test Spendnest.slnx
 Run the Windows app:
 
 ```powershell
-dotnet run --project src/Spendnest.App
+dotnet run --project src/Spendnest.Desktop
 ```
 
 Run the console:

@@ -15,3 +15,7 @@ For multi-class backend cleanup, create and maintain `docs/BACKEND_REFACTOR_PLAN
 After implementation, run the narrowest relevant `dotnet test` command, spawn the reviewer subagent for an independent diff review, fix meaningful findings, update the plan row, re-run relevant tests when production code changes, and stage only the completed slice.
 
 Do not automatically continue to another class.
+
+For product-owner feature shaping, use the `po-feature-proposal` skill. Turn rough ideas into short parent epics with small implementable user stories, collect feedback from the configured AI user personas, revise once, and save the final Markdown file under `docs/features`.
+
+For UI mockups from approved requirements, use the `ui-mockup-from-requirements` skill. This workflow must use Stitch with Google AI through the Stitch MCP tool surface for design generation, mock one user story or UI state transition at a time, prefer Stitch component edits for localized feedback when available, validate visually at desktop app size, fix issues, run the UI mockup reviewer, and only then mark the mockup ready for review.

@@ -130,14 +130,12 @@
                 </table>
             </div>
 
-            @if (PreviewPageCount > 1)
-            {
-                <div class="pagination-bar selected-transactions-pagination">
-                    <button class="secondary-button pagination-button" aria-label="Previous page" @onclick="PreviousPreviewPage" disabled="@(previewPage == 1 || isBusy)">&lt;</button>
-                    <span>Page @previewPage of @PreviewPageCount</span>
-                    <button class="secondary-button pagination-button" aria-label="Next page" @onclick="NextPreviewPage" disabled="@(previewPage == PreviewPageCount || isBusy)">&gt;</button>
-                </div>
-            }
+            <PaginationBar ContainerClass="pagination-bar selected-transactions-pagination"
+                           CurrentPage="@previewPage"
+                           PageCount="@PreviewPageCount"
+                           Disabled="@isBusy"
+                           OnPrevious="PreviousPreviewPage"
+                           OnNext="NextPreviewPage" />
         }
     </section>
 }
@@ -200,15 +198,16 @@
             </table>
         </div>
 
-        @if (UploadHistoryPageCount > 1)
-        {
-            <div class="import-history-footer">
-                <span>Showing @PagedUploadHistory.Count of @uploadHistory.Count imports</span>
-                <button class="secondary-button pagination-button" aria-label="Previous page" @onclick="PreviousUploadHistoryPage" disabled="@(uploadHistoryPage == 1)">&lt;</button>
-                <strong>Page @uploadHistoryPage of @UploadHistoryPageCount</strong>
-                <button class="secondary-button pagination-button" aria-label="Next page" @onclick="NextUploadHistoryPage" disabled="@(uploadHistoryPage == UploadHistoryPageCount)">&gt;</button>
-            </div>
-        }
+        <PaginationBar ContainerClass="import-history-footer"
+                       CurrentPage="@uploadHistoryPage"
+                       PageCount="@UploadHistoryPageCount"
+                       ShowingCount="@PagedUploadHistory.Count"
+                       TotalCount="@uploadHistory.Count"
+                       ItemLabel="imports"
+                       ShowSummary="true"
+                       StrongPageLabel="true"
+                       OnPrevious="PreviousUploadHistoryPage"
+                       OnNext="NextUploadHistoryPage" />
     }
 </section>
 
@@ -291,23 +290,19 @@
                     row.Amount))
                 .ToArray() ?? [];
 
-    private IReadOnlyList<UploadHistoryItem> PagedUploadHistory =>
-        uploadHistory
-            .Skip((uploadHistoryPage - 1) * UploadHistoryPageSize)
-            .Take(UploadHistoryPageSize)
-            .ToArray();
+    private PagedList<UploadHistoryItem> UploadHistoryPage =>
+        PagedList<UploadHistoryItem>.Create(uploadHistory, uploadHistoryPage, UploadHistoryPageSize);
 
-    private IReadOnlyList<PreviewRow> PagedPreviewRows =>
-        PreviewRows
-            .Skip((previewPage - 1) * PreviewPageSize)
-            .Take(PreviewPageSize)
-            .ToArray();
+    private PagedList<PreviewRow> PreviewPage =>
+        PagedList<PreviewRow>.Create(PreviewRows, previewPage, PreviewPageSize);
 
-    private int PreviewPageCount =>
-        Math.Max(1, (int)Math.Ceiling(PreviewRows.Count / (decimal)PreviewPageSize));
+    private IReadOnlyList<UploadHistoryItem> PagedUploadHistory => UploadHistoryPage.Items;
 
-    private int UploadHistoryPageCount =>
-        Math.Max(1, (int)Math.Ceiling(uploadHistory.Count / (decimal)UploadHistoryPageSize));
+    private IReadOnlyList<PreviewRow> PagedPreviewRows => PreviewPage.Items;
+
+    private int PreviewPageCount => PreviewPage.PageCount;
+
+    private int UploadHistoryPageCount => UploadHistoryPage.PageCount;
 
     protected override async Task OnInitializedAsync()
     {

@@ -1,0 +1,103 @@
+@if (!HideWhenSinglePage || PageCount > 1)
+{
+    <div class="@ContainerClass">
+        @if (ShowSummary)
+        {
+            <span>@SummaryText</span>
+        }
+
+        @if (string.IsNullOrWhiteSpace(ButtonGroupClass))
+        {
+            @PaginationControls
+        }
+        else
+        {
+            <div class="@ButtonGroupClass">
+                @PaginationControls
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int CurrentPage { get; set; } = 1;
+
+    [Parameter]
+    public int PageCount { get; set; } = 1;
+
+    [Parameter]
+    public int ShowingCount { get; set; }
+
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    [Parameter]
+    public string ItemLabel { get; set; } = "items";
+
+    [Parameter]
+    public string ContainerClass { get; set; } = "pagination-bar";
+
+    [Parameter]
+    public string? ButtonGroupClass { get; set; }
+
+    [Parameter]
+    public string ButtonClass { get; set; } = "secondary-button pagination-button";
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool HideWhenSinglePage { get; set; } = true;
+
+    [Parameter]
+    public bool ShowSummary { get; set; }
+
+    [Parameter]
+    public bool ShowPageLabel { get; set; } = true;
+
+    [Parameter]
+    public bool StrongPageLabel { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    private bool PreviousDisabled => Disabled || CurrentPage <= 1;
+
+    private bool NextDisabled => Disabled || CurrentPage >= PageCount;
+
+    private string SummaryText => $"Showing {ShowingCount} of {TotalCount} {ItemLabel}";
+
+    private RenderFragment PaginationControls => builder =>
+    {
+        var sequence = 0;
+
+        builder.OpenElement(sequence++, "button");
+        builder.AddAttribute(sequence++, "type", "button");
+        builder.AddAttribute(sequence++, "class", ButtonClass);
+        builder.AddAttribute(sequence++, "aria-label", "Previous page");
+        builder.AddAttribute(sequence++, "onclick", EventCallback.Factory.Create(this, OnPrevious));
+        builder.AddAttribute(sequence++, "disabled", PreviousDisabled);
+        builder.AddContent(sequence++, "<");
+        builder.CloseElement();
+
+        if (ShowPageLabel)
+        {
+            builder.OpenElement(sequence++, StrongPageLabel ? "strong" : "span");
+            builder.AddContent(sequence++, $"Page {CurrentPage} of {PageCount}");
+            builder.CloseElement();
+        }
+
+        builder.OpenElement(sequence++, "button");
+        builder.AddAttribute(sequence++, "type", "button");
+        builder.AddAttribute(sequence++, "class", ButtonClass);
+        builder.AddAttribute(sequence++, "aria-label", "Next page");
+        builder.AddAttribute(sequence++, "onclick", EventCallback.Factory.Create(this, OnNext));
+        builder.AddAttribute(sequence++, "disabled", NextDisabled);
+        builder.AddContent(sequence++, ">");
+        builder.CloseElement();
+    };
+}

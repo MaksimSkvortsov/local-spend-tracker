@@ -1,3 +1,7 @@
+.nav-menu {
+    height: 100%;
+}
+
 .brand {
     padding: 24px 8px 40px;
 }
@@ -30,10 +34,6 @@
     opacity: 0.7;
 }
 
-.navbar-toggler {
-    display: none;
-}
-
 .nav-scrollable {
     padding: 0;
 }
@@ -57,7 +57,11 @@
     font-weight: 500;
 }
 
-.nav-item ::deep .nav-link span {
+.nav-label {
+    white-space: nowrap;
+}
+
+.nav-item ::deep .nav-link .nav-icon {
     width: 24px;
     height: 24px;
     background: transparent;
@@ -86,46 +90,31 @@
     box-shadow: none;
 }
 
-.nav-item ::deep .nav-link.active span {
+.nav-item ::deep .nav-link.active .nav-icon {
     color: #236d00;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
     .brand {
-        padding: 16px 20px;
-    }
-
-    .navbar-toggler {
-        appearance: none;
-        display: block;
-        position: absolute;
-        top: 12px;
-        right: 16px;
-        width: 40px;
-        height: 36px;
-        border: 1px solid #c9ccc7;
-        border-radius: 8px;
-        background: #ecefec;
-        cursor: pointer;
-    }
-
-    .navbar-toggler::before {
-        content: "";
-        position: absolute;
-        left: 10px;
-        right: 10px;
-        top: 11px;
-        height: 2px;
-        background: #2f3033;
-        box-shadow: 0 6px 0 #2f3033, 0 12px 0 #2f3033;
+        display: none;
     }
 
     .nav-scrollable {
-        display: none;
-        padding-top: 8px;
+        padding-top: 24px;
     }
 
-    .navbar-toggler:checked ~ .nav-scrollable {
-        display: block;
+    .nav-item ::deep .nav-link {
+        justify-content: center;
+        gap: 0;
+        padding: 8px;
+    }
+
+    .nav-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
     }
 }

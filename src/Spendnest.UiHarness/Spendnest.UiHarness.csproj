@@ -20,6 +20,7 @@
     <Compile Include="..\Spendnest.Desktop\Services\**\*.cs" Link="Services\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Spendnest.Desktop\State\**\*.cs" Link="State\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\Spendnest.Desktop\Presentation\**\*.cs" Link="Presentation\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\Spendnest.Desktop\Components\Layout\**\*.cs" Link="Components\Layout\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,11 @@
+<div class="nav-item">
+    <NavLink class="nav-link" href="@Item.Href" title="@Item.Label">
+        <span class="material-symbols-outlined nav-icon" aria-hidden="true">@Item.Icon</span>
+        <span class="nav-label">@Item.Label</span>
+    </NavLink>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public MenuItemModel Item { get; set; } = default!;
+}

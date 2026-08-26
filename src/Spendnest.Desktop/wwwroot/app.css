@@ -120,6 +120,11 @@ main {
     border-right: 1px solid #dedfda;
     background: #ffffff;
     padding: 0 16px 24px;
+    overflow: hidden;
+}
+
+.nav-menu {
+    height: 100%;
 }
 
 .brand {
@@ -154,10 +159,6 @@ main {
     opacity: 0.7;
 }
 
-.navbar-toggler {
-    display: none;
-}
-
 .nav-scrollable {
     padding: 0;
 }
@@ -181,7 +182,11 @@ main {
     font-weight: 500;
 }
 
-.nav-item .nav-link span {
+.nav-label {
+    white-space: nowrap;
+}
+
+.nav-item .nav-link .nav-icon {
     width: 24px;
     height: 24px;
     background: transparent;
@@ -210,7 +215,7 @@ main {
     box-shadow: none;
 }
 
-.nav-item .nav-link.active span {
+.nav-item .nav-link.active .nav-icon {
     color: #236d00;
 }
 
@@ -2436,53 +2441,36 @@ tbody tr:last-child td {
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
     .page {
-        grid-template-columns: 1fr;
+        grid-template-columns: 80px minmax(0, 1fr);
     }
 
     .sidebar {
-        position: relative;
-        height: auto;
-        padding: 0 16px 16px;
+        padding: 0 16px 24px;
     }
 
     .brand {
-        padding: 16px 20px;
-    }
-
-    .navbar-toggler {
-        appearance: none;
-        display: block;
-        position: absolute;
-        top: 12px;
-        right: 16px;
-        width: 40px;
-        height: 36px;
-        border: 1px solid #c9ccc7;
-        border-radius: 8px;
-        background: #ecefec;
-        cursor: pointer;
-    }
-
-    .navbar-toggler::before {
-        content: "";
-        position: absolute;
-        left: 10px;
-        right: 10px;
-        top: 11px;
-        height: 2px;
-        background: #2f3033;
-        box-shadow: 0 6px 0 #2f3033, 0 12px 0 #2f3033;
+        display: none;
     }
 
     .nav-scrollable {
-        display: none;
-        padding-top: 8px;
+        padding-top: 24px;
     }
 
-    .navbar-toggler:checked ~ .nav-scrollable {
-        display: block;
+    .nav-item .nav-link {
+        justify-content: center;
+        gap: 0;
+        padding: 8px;
+    }
+
+    .nav-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
     }
 }
 

@@ -1,0 +1,18 @@
+<div class="nav-scrollable">
+    <nav class="nav flex-column">
+        @foreach (var item in NavigationItems)
+        {
+            <MenuItem Item="@item" />
+        }
+    </nav>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<MenuItemModel> NavigationItems =
+    [
+        new("dashboard", "dashboard", "Dashboard"),
+        new("import", "upload_file", "Import"),
+        new("transactions", "receipt_long", "Transactions"),
+        new("settings", "settings", "Settings")
+    ];
+}

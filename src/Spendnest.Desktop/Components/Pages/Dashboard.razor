@@ -199,31 +199,29 @@ else
             <span>Top 5 @ReportWindowShortLabel</span>
         </div>
 
-        <div class="table-wrap">
-            <table>
-                <thead>
+        <DataTable>
+            <HeaderContent>
+                <tr>
+                    <th>Merchant</th>
+                    <th>Category</th>
+                    <th class="amount">Amount</th>
+                </tr>
+            </HeaderContent>
+            <ChildContent>
+                @foreach (var transaction in BiggestTransactions)
+                {
                     <tr>
-                        <th>Merchant</th>
-                        <th>Category</th>
-                        <th class="amount">Amount</th>
+                        <td>@transaction.OriginalDescription</td>
+                        <td>
+                            <span class="table-category-pill" style="@GetTransactionCategoryStyle(transaction)">
+                                @GetTransactionCategoryName(transaction)
+                            </span>
+                        </td>
+                        <td class="amount">@transaction.Amount.ToString("C")</td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var transaction in BiggestTransactions)
-                    {
-                        <tr>
-                            <td>@transaction.OriginalDescription</td>
-                            <td>
-                                <span class="table-category-pill" style="@GetTransactionCategoryStyle(transaction)">
-                                    @GetTransactionCategoryName(transaction)
-                                </span>
-                            </td>
-                            <td class="amount">@transaction.Amount.ToString("C")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </ChildContent>
+        </DataTable>
     </section>
 
     <section class="dashboard-card frequency-card">

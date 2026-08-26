@@ -1,0 +1,45 @@
+@if (!HasItems)
+{
+    <div class="@EmptyStateClass">@EmptyMessage</div>
+}
+else
+{
+    <div class="@WrapperClass">
+        <table class="@TableClass">
+            <thead>
+                @HeaderContent
+            </thead>
+            <tbody>
+                @ChildContent
+            </tbody>
+        </table>
+    </div>
+
+    @FooterContent
+}
+
+@code {
+    [Parameter]
+    public bool HasItems { get; set; } = true;
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No records found.";
+
+    [Parameter]
+    public string EmptyStateClass { get; set; } = "empty-state";
+
+    [Parameter]
+    public string WrapperClass { get; set; } = "table-wrap";
+
+    [Parameter]
+    public string TableClass { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public RenderFragment HeaderContent { get; set; } = default!;
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? FooterContent { get; set; }
+}

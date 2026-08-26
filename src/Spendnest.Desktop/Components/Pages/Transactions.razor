@@ -74,67 +74,67 @@
         }
         else
         {
-            <div class="table-wrap transaction-table-wrap">
-                <table class="transaction-table">
-                    <thead>
+            <DataTable WrapperClass="table-wrap transaction-table-wrap"
+                       TableClass="transaction-table">
+                <HeaderContent>
+                    <tr>
+                        <th class="transaction-date">Date</th>
+                        <th>Description</th>
+                        <th class="transaction-category">Category</th>
+                        <th class="transaction-card">Card</th>
+                        <th class="amount transaction-amount">Amount</th>
+                    </tr>
+                </HeaderContent>
+                <ChildContent>
+                    @foreach (var transaction in PagedTransactions)
+                    {
                         <tr>
-                            <th class="transaction-date">Date</th>
-                            <th>Description</th>
-                            <th class="transaction-category">Category</th>
-                            <th class="transaction-card">Card</th>
-                            <th class="amount transaction-amount">Amount</th>
+                            <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
+                            <td class="transaction-description">@transaction.OriginalDescription</td>
+                            <td class="transaction-category">
+                                <div class="category-editor-wrap">
+                                    <select class="@GetCategoryEditorClass(transaction)"
+                                            style="@GetCategoryStyle(transaction)"
+                                            value="@GetCategoryId(transaction)"
+                                            @onchange="args => ChangeCategoryAsync(transaction, args)"
+                                            disabled="@(savingCategoryTransactionId == transaction.Id)"
+                                            aria-label="@($"Category for {transaction.OriginalDescription}")">
+                                        @foreach (var category in categories)
+                                        {
+                                            <option value="@category.Id">@category.Name</option>
+                                        }
+                                    </select>
+                                    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+                                </div>
+                                @if (NeedsReview(transaction))
+                                {
+                                    <span class="review-warning">
+                                        <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                                        <span>Low Confidence</span>
+                                    </span>
+                                }
+                            </td>
+                            <td class="transaction-card">@GetCardName(transaction)</td>
+                            <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var transaction in PagedTransactions)
-                        {
-                            <tr>
-                                <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
-                                <td class="transaction-description">@transaction.OriginalDescription</td>
-                                <td class="transaction-category">
-                                    <div class="category-editor-wrap">
-                                        <select class="@GetCategoryEditorClass(transaction)"
-                                                style="@GetCategoryStyle(transaction)"
-                                                value="@GetCategoryId(transaction)"
-                                                @onchange="args => ChangeCategoryAsync(transaction, args)"
-                                                disabled="@(savingCategoryTransactionId == transaction.Id)"
-                                                aria-label="@($"Category for {transaction.OriginalDescription}")">
-                                            @foreach (var category in categories)
-                                            {
-                                                <option value="@category.Id">@category.Name</option>
-                                            }
-                                        </select>
-                                        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
-                                    </div>
-                                    @if (NeedsReview(transaction))
-                                    {
-                                        <span class="review-warning">
-                                            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
-                                            <span>Low Confidence</span>
-                                        </span>
-                                    }
-                                </td>
-                                <td class="transaction-card">@GetCardName(transaction)</td>
-                                <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <PaginationBar ContainerClass="transaction-table-footer"
-                           ButtonGroupClass="transaction-table-footer-actions"
-                           ButtonClass="table-icon-button"
-                           CurrentPage="@currentPage"
-                           PageCount="@PageCount"
-                           ShowingCount="@PagedTransactions.Count"
-                           TotalCount="@FilteredTransactions.Count"
-                           ItemLabel="transactions"
-                           HideWhenSinglePage="false"
-                           ShowSummary="true"
-                           ShowPageLabel="false"
-                           OnPrevious="PreviousPage"
-                           OnNext="NextPage" />
+                    }
+                </ChildContent>
+                <FooterContent>
+                    <PaginationBar ContainerClass="transaction-table-footer"
+                                   ButtonGroupClass="transaction-table-footer-actions"
+                                   ButtonClass="table-icon-button"
+                                   CurrentPage="@currentPage"
+                                   PageCount="@PageCount"
+                                   ShowingCount="@PagedTransactions.Count"
+                                   TotalCount="@FilteredTransactions.Count"
+                                   ItemLabel="transactions"
+                                   HideWhenSinglePage="false"
+                                   ShowSummary="true"
+                                   ShowPageLabel="false"
+                                   OnPrevious="PreviousPage"
+                                   OnNext="NextPage" />
+                </FooterContent>
+            </DataTable>
         }
     </div>
 

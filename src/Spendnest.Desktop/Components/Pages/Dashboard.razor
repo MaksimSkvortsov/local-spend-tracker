@@ -77,35 +77,45 @@ else
     </section>
 
     <section class="dashboard-workspace-grid">
-        <Card Class="dashboard-card spending-card" Title="Spending by Category">
+        <Card Class="spending-card" Title="Spending by Category">
             <SpendingByCategory Lines="@report.Lines"
                                 CategoryColors="@categoryColorsById" />
         </Card>
 
         <div class="dashboard-side-stack">
-            <TopMerchantsCard Transactions="@filteredTransactions"
+            <Card Title="Top Merchants">
+                <TopMerchants Transactions="@filteredTransactions"
                               MerchantCodeResolver="@MerchantCodeResolver" />
+            </Card>
 
-            <NeedsAttentionCard ReviewCount="@reviewCount" />
+            <Card Title="Needs Attention">
+                <NeedsAttention ReviewCount="@reviewCount" />
+            </Card>
         </div>
     </section>
 
-    <BiggestTransactionsCard Rows="@biggestTransactionRows"
+    <Card Title="Biggest Transactions">
+        <BiggestTransactions Rows="@biggestTransactionRows"
                              WindowLabel="@ReportWindowShortLabel" />
+    </Card>
 
-    <TransactionFrequencyCard Transactions="@filteredTransactions"
+    <Card Title="Transaction Frequency">
+        <TransactionFrequency Transactions="@filteredTransactions"
                               Cards="@cards"
                               CardNames="@cardNamesById"
                               Mode="@reportMode"
                               Year="@selectedYear"
                               Month="@selectedMonth"
                               WindowLabel="@ReportWindowShortLabel" />
+    </Card>
 
-    <DailySpendCard Transactions="@filteredTransactions"
+    <Card Title="Amount Spent per Day">
+        <DailySpend Transactions="@filteredTransactions"
                     Mode="@reportMode"
                     Year="@selectedYear"
                     Month="@selectedMonth"
                     WindowLabel="@ReportWindowShortLabel" />
+    </Card>
 }
 
 @code {

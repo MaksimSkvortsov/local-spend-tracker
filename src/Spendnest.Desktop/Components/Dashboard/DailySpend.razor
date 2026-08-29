@@ -1,31 +1,31 @@
-<Card Class="dashboard-card daily-spend-card" Title="Amount Spent per Day" Subtitle="@($"All cards - {WindowLabel}")">
-    @if (DailySpendCells.Count == 0 || DailySpendCells.All(cell => cell.Amount <= 0))
-    {
-        <div class="empty-state compact">No daily spending in this window.</div>
-    }
-    else
-    {
-        <div class="@DailySpendGridClass" style="@DailySpendGridStyle" aria-label="Amount spent per day across all cards">
-            @foreach (var cell in DailySpendCells)
-            {
-                <span class="@GetDailySpendCellClass(cell.Amount)"
-                      title="@GetDailySpendCellTitle(cell)">
-                </span>
-            }
-        </div>
+<div class="dashboard-widget-heading">All cards - @WindowLabel</div>
 
-        <div class="daily-spend-legend" aria-hidden="true">
-            <span>Less</span>
-            <div>
-                <i class="daily-spend-cell empty"></i>
-                <i class="daily-spend-cell low"></i>
-                <i class="daily-spend-cell medium"></i>
-                <i class="daily-spend-cell high"></i>
-            </div>
-            <span>More</span>
+@if (DailySpendCells.Count == 0 || DailySpendCells.All(cell => cell.Amount <= 0))
+{
+    <div class="empty-state compact">No daily spending in this window.</div>
+}
+else
+{
+    <div class="@DailySpendGridClass" style="@DailySpendGridStyle" aria-label="Amount spent per day across all cards">
+        @foreach (var cell in DailySpendCells)
+        {
+            <span class="@GetDailySpendCellClass(cell.Amount)"
+                  title="@GetDailySpendCellTitle(cell)">
+            </span>
+        }
+    </div>
+
+    <div class="daily-spend-legend" aria-hidden="true">
+        <span>Less</span>
+        <div>
+            <i class="daily-spend-cell empty"></i>
+            <i class="daily-spend-cell low"></i>
+            <i class="daily-spend-cell medium"></i>
+            <i class="daily-spend-cell high"></i>
         </div>
-    }
-</Card>
+        <span>More</span>
+    </div>
+}
 
 @code {
     [Parameter]

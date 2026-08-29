@@ -1,4 +1,4 @@
-<Card Class="@StateClass" Title="Needs Attention">
+<div class="@StateClass">
     <div class="attention-body">
         <span class="material-symbols-outlined" aria-hidden="true">@Icon</span>
         <strong>@Summary</strong>
@@ -8,7 +8,7 @@
     {
         <a href="transactions">Review now</a>
     }
-</Card>
+</div>
 
 @code {
     [Parameter]
@@ -16,8 +16,8 @@
 
     private string StateClass =>
         ReviewCount > 0
-            ? "dashboard-card attention-card attention-warning"
-            : "dashboard-card attention-card attention-clear";
+            ? "attention-card attention-warning"
+            : "attention-card attention-clear";
 
     private string Icon =>
         ReviewCount > 0 ? "warning" : "check_circle";

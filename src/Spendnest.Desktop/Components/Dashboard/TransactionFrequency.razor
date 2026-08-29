@@ -1,31 +1,31 @@
-<Card Class="dashboard-card frequency-card" Title="Transaction Frequency" Subtitle="@WindowLabel">
-    <div class="frequency-list">
-        @foreach (var row in FrequencyRows)
-        {
-            <div class="frequency-row">
-                <p>@row.Label</p>
-                <div class="@row.GridClass" style="@row.GridStyle" aria-label="@($"{row.Label} transaction frequency")">
-                    @foreach (var cell in row.Cells)
-                    {
-                        <span class="@GetFrequencyCellClass(cell.Count)"
-                              title="@GetFrequencyCellTitle(cell)">
-                        </span>
-                    }
-                </div>
-            </div>
-        }
-    </div>
+<div class="dashboard-widget-heading">@WindowLabel</div>
 
-    <div class="frequency-legend" aria-hidden="true">
-        <span>Less</span>
-        <div>
-            <i class="frequency-cell empty"></i>
-            <i class="frequency-cell medium"></i>
-            <i class="frequency-cell high"></i>
+<div class="frequency-list">
+    @foreach (var row in FrequencyRows)
+    {
+        <div class="frequency-row">
+            <p>@row.Label</p>
+            <div class="@row.GridClass" style="@row.GridStyle" aria-label="@($"{row.Label} transaction frequency")">
+                @foreach (var cell in row.Cells)
+                {
+                    <span class="@GetFrequencyCellClass(cell.Count)"
+                          title="@GetFrequencyCellTitle(cell)">
+                    </span>
+                }
+            </div>
         </div>
-        <span>More</span>
+    }
+</div>
+
+<div class="frequency-legend" aria-hidden="true">
+    <span>Less</span>
+    <div>
+        <i class="frequency-cell empty"></i>
+        <i class="frequency-cell medium"></i>
+        <i class="frequency-cell high"></i>
     </div>
-</Card>
+    <span>More</span>
+</div>
 
 @code {
     [Parameter]

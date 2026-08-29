@@ -379,7 +379,7 @@ dt,
 }
 
 .dashboard-metrics span,
-.dashboard-card .app-card__subtitle {
+.dashboard-widget-heading {
     display: block;
     color: var(--muted);
     font-size: 0.7rem;
@@ -411,6 +411,14 @@ dt,
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: 24px;
     margin-bottom: 24px;
+}
+
+.dashboard-workspace-grid ~ .app-card {
+    margin-bottom: 24px;
+}
+
+.dashboard-workspace-grid ~ .app-card + .app-card {
+    margin-top: 24px;
 }
 
 .dashboard-empty-card {
@@ -1641,11 +1649,6 @@ dt,
     gap: 12px;
 }
 
-.attention-card > .app-card__body {
-    display: grid;
-    gap: 12px;
-}
-
 .attention-body {
     display: flex;
     gap: 8px;
@@ -1685,19 +1688,8 @@ dt,
     text-decoration: underline;
 }
 
-.dashboard-table-card {
-    padding: 0;
-}
-
-.dashboard-table-card .table-wrap {
-    border: 0;
-    border-radius: 0;
-}
-
-.dashboard-table-card > .app-card__header {
-    margin: 0;
-    border-bottom: 1px solid var(--line);
-    padding: 16px 24px;
+.dashboard-widget-heading {
+    margin-bottom: 12px;
 }
 
 .table-category-pill {
@@ -1713,22 +1705,6 @@ dt,
     text-transform: uppercase;
 }
 
-.frequency-card {
-    display: grid;
-    gap: 24px;
-    margin-top: 24px;
-    margin-bottom: 24px;
-}
-
-.frequency-card > .app-card__header,
-.daily-spend-card > .app-card__header {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: end;
-    margin-bottom: 0;
-}
-
 .frequency-row p,
 .frequency-legend span,
 .daily-spend-legend span {
@@ -1741,12 +1717,6 @@ dt,
 }
 
 .frequency-list {
-    display: grid;
-    gap: 24px;
-}
-
-.frequency-card > .app-card__body,
-.daily-spend-card > .app-card__body {
     display: grid;
     gap: 24px;
 }
@@ -1802,13 +1772,6 @@ dt,
     height: 12px;
     aspect-ratio: auto;
     border-radius: 3px;
-}
-
-.daily-spend-card {
-    display: grid;
-    gap: 24px;
-    margin-top: 0;
-    margin-bottom: 24px;
 }
 
 .daily-spend-grid {

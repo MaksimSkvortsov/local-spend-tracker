@@ -1,28 +1,26 @@
-<Card Class="dashboard-card" Title="Top Merchants">
-    <div class="category-bars">
-        @if (topMerchantLines.Count == 0)
+<div class="category-bars">
+    @if (topMerchantLines.Count == 0)
+    {
+        <div class="empty-state compact">No merchant spending in this window.</div>
+    }
+    else
+    {
+        @foreach (var line in topMerchantLines)
         {
-            <div class="empty-state compact">No merchant spending in this window.</div>
-        }
-        else
-        {
-            @foreach (var line in topMerchantLines)
-            {
-                var width = GetMerchantWidth(line.Amount);
-                <div class="category-row">
-                    <div class="category-row-label">
-                        <strong>@line.DisplayName</strong>
-                        <span>@line.Amount.ToString("C")</span>
-                    </div>
-                    <div class="bar-track" aria-hidden="true">
-                        <div class="bar-fill" style="width: @width%; --category-color: #00652f"></div>
-                    </div>
-                    <span class="merchant-count">@FormatTransactionCount(line.TransactionCount)</span>
+            var width = GetMerchantWidth(line.Amount);
+            <div class="category-row">
+                <div class="category-row-label">
+                    <strong>@line.DisplayName</strong>
+                    <span>@line.Amount.ToString("C")</span>
                 </div>
-            }
+                <div class="bar-track" aria-hidden="true">
+                    <div class="bar-fill" style="width: @width%; --category-color: #00652f"></div>
+                </div>
+                <span class="merchant-count">@FormatTransactionCount(line.TransactionCount)</span>
+            </div>
         }
-    </div>
-</Card>
+    }
+</div>
 
 @code {
     private IReadOnlyList<TopMerchantLine> topMerchantLines = [];

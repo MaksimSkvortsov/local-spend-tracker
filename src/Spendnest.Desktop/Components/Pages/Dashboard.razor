@@ -78,49 +78,8 @@ else
 
     <section class="dashboard-workspace-grid">
         <Card Class="dashboard-card spending-card" Title="Spending by Category">
-            @if (ChartCategoryLines.Count == 0)
-            {
-                <div class="empty-state compact">No category spending in this window.</div>
-            }
-            else
-            {
-                <div class="category-chart">
-                    <div class="donut-chart" aria-label="Spending by category chart">
-                        <svg viewBox="0 0 100 100" role="img">
-                            @foreach (var segment in DonutSegments)
-                            {
-                                <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="@DonutRadius"
-                                    fill="transparent"
-                                    stroke="@segment.Color"
-                                    stroke-dasharray="@($"{segment.Length:0.###} {DonutCircumference - segment.Length:0.###}")"
-                                    stroke-dashoffset="@($"{segment.Offset:0.###}")"
-                                    stroke-width="12">
-                                </circle>
-                            }
-                        </svg>
-                        <div>
-                            <span>Total</span>
-                            <strong>@ChartTotalSpending.ToString("C")</strong>
-                        </div>
-                    </div>
-
-                    <div class="category-legend">
-                        @foreach (var line in ChartCategoryLines)
-                        {
-                            <div class="legend-row">
-                                <div>
-                                    <span class="legend-dot" style="background: @GetCategoryColor(line.CategoryId)"></span>
-                                    <span>@line.CategoryName</span>
-                                </div>
-                                <strong>@line.Amount.ToString("C")</strong>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
+            <SpendingByCategory Lines="@report.Lines"
+                                CategoryColors="@categoryColorsById" />
         </Card>
 
         <div class="dashboard-side-stack">
@@ -298,41 +257,6 @@ else
             .ThenBy(line => line.DisplayName, StringComparer.Ordinal)
             .Take(5)
             .ToArray();
-
-    private IReadOnlyList<CategorySpendingReportLine> ChartCategoryLines =>
-        report.Lines
-            .Where(line => line.Amount > 0)
-            .Take(6)
-            .ToArray();
-
-    private decimal ChartTotalSpending =>
-        ChartCategoryLines.Sum(line => line.Amount);
-
-    private const decimal DonutRadius = 40m;
-
-    private const decimal DonutCircumference = 251.327m;
-
-    private IReadOnlyList<DonutSegment> DonutSegments
-    {
-        get
-        {
-            var offset = 0m;
-            var segments = new List<DonutSegment>();
-            foreach (var line in ChartCategoryLines)
-            {
-                var length = ChartTotalSpending == 0
-                    ? 0
-                    : Math.Round(line.Amount / ChartTotalSpending * DonutCircumference, 3);
-                segments.Add(new DonutSegment(
-                    GetCategoryColor(line.CategoryId),
-                    length,
-                    -offset));
-                offset += length;
-            }
-
-            return segments;
-        }
-    }
 
     private IReadOnlyList<Transaction> BiggestTransactions =>
         filteredTransactions
@@ -713,7 +637,9 @@ else
             ? assignment.CategoryId
             : BuiltInCategoryIds.Other;
 
-        return $"--category-color: {GetCategoryColor(categoryId)}";
+        var color = categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
+
+        return $"--category-color: {color}";
     }
 
     private IEnumerable<DateOnly?> BuildFrequencyDates(DateOnly startDate, DateOnly endDate)
@@ -792,11 +718,6 @@ else
             : $"{cell.Date.Value:MMM d, yyyy}: {cell.Amount:C} spent";
     }
 
-    private string GetCategoryColor(int categoryId)
-    {
-        return categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
-    }
-
     private void GoToNextSetupStep()
     {
         NavigationManager.NavigateTo(IsAiConfigured ? "import" : "settings");
@@ -844,11 +765,6 @@ else
             ? preferredMonth.Value
             : fallbackMonth;
     }
-
-    private sealed record DonutSegment(
-        string Color,
-        decimal Length,
-        decimal Offset);
 
     private sealed record FrequencyRow(
         string Label,

@@ -138,59 +138,12 @@
     </HeaderAction>
 
     <ChildContent>
-        <DataTable HasItems="@(uploadHistory.Count > 0)"
-                   EmptyMessage="No uploads in this session."
-                   EmptyStateClass="empty-state compact"
-                   TableClass="import-history-table">
-            <HeaderContent>
-                <tr>
-                    <th>File Name</th>
-                    <th>Transactions</th>
-                    <th>Transaction Range</th>
-                    <th class="status-column">Status</th>
-                    <th class="date-column">Date Imported</th>
-                    <th class="amount">Actions</th>
-                </tr>
-            </HeaderContent>
-            <ChildContent>
-                @foreach (var upload in PagedUploadHistory)
-                {
-                    <tr>
-                        <td>
-                            <span class="history-file">
-                                <span class="material-symbols-outlined" aria-hidden="true">description</span>
-                                <span>@upload.FileName</span>
-                            </span>
-                            @if (upload.TimeoutCount > 0)
-                            {
-                                <span class="history-note">@upload.TimeoutCount AI timeouts</span>
-                            }
-                        </td>
-                        <td class="data-cell">@upload.SavedTransactionCount</td>
-                        <td>@upload.TransactionRange</td>
-                        <td class="status-column"><span class="@GetImportStatusClass(upload)">@upload.StatusLabel</span></td>
-                        <td class="date-column">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</td>
-                        <td class="amount">
-                            <button type="button" class="table-icon-button" aria-label="@($"Actions for {upload.FileName}")">
-                                <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
-                            </button>
-                        </td>
-                    </tr>
-                }
-            </ChildContent>
-            <FooterContent>
-                <PaginationBar ContainerClass="import-history-footer"
-                               CurrentPage="@uploadHistoryPage"
-                               PageCount="@UploadHistoryPageCount"
-                               ShowingCount="@PagedUploadHistory.Count"
-                               TotalCount="@uploadHistory.Count"
-                               ItemLabel="imports"
-                               ShowSummary="true"
-                               StrongPageLabel="true"
-                               OnPrevious="PreviousUploadHistoryPage"
-                               OnNext="NextUploadHistoryPage" />
-            </FooterContent>
-        </DataTable>
+        <ImportHistory Rows="@uploadHistory"
+                       PagedRows="@PagedUploadHistory"
+                       CurrentPage="@uploadHistoryPage"
+                       PageCount="@UploadHistoryPageCount"
+                       OnPrevious="PreviousUploadHistoryPage"
+                       OnNext="NextUploadHistoryPage" />
     </ChildContent>
 </Card>
 
@@ -590,18 +543,6 @@
         await RefreshTransactionsAsync();
         await RefreshCardsAsync();
         await RefreshUploadHistoryAsync();
-    }
-
-    private static string GetImportStatusClass(UploadHistoryItem upload)
-    {
-        if (upload.Status == StatementImportStatus.Failed)
-        {
-            return "import-status failed";
-        }
-
-        return upload.Status == StatementImportStatus.Pending
-            ? "import-status pending"
-            : "import-status complete";
     }
 
     private string GetPreviewCategory(Transaction transaction)

@@ -1,14 +1,6 @@
 @page "/dashboard"
-@using Spendnest.Core.Credentials
-@using Spendnest.Core.Review
-@inject ITransactionRepository TransactionRepository
-@inject ICategorySpendingReportService ReportService
-@inject ITransactionCategoryAssignmentRepository AssignmentRepository
-@inject ITransactionReviewService ReviewService
+@inject DashboardService DashboardService
 @inject ITransactionMerchantCodeResolver MerchantCodeResolver
-@inject ICardAccountRepository CardAccountRepository
-@inject ICategoryRepository CategoryRepository
-@inject ICredentialStore CredentialStore
 @inject AppDataRefreshNotifier DataRefreshNotifier
 @inject DashboardPeriodState PeriodState
 @inject NavigationManager NavigationManager
@@ -119,31 +111,30 @@ else
 }
 
 @code {
-    private IReadOnlyList<Transaction> transactions = [];
-    private IReadOnlyList<Transaction> filteredTransactions = [];
-    private CategorySpendingReport report = new([], 0m);
-    private decimal totalSpending;
-    private decimal averageTransaction;
-    private decimal largestCharge;
-    private decimal creditTotal;
-    private int reviewCount;
+    private DashboardModel dashboard = DashboardModel.Empty;
     private ReportMode reportMode = ReportMode.Year;
     private int selectedYear;
     private int selectedMonth;
-    private IReadOnlyList<CardAccount> cards = [];
-    private IReadOnlyList<BuiltInCategory> categories = [];
-    private IReadOnlyDictionary<Guid, TransactionCategoryAssignment> assignmentsByTransactionId =
-        new Dictionary<Guid, TransactionCategoryAssignment>();
-    private IReadOnlyDictionary<int, string> categoryNamesById =
-        new Dictionary<int, string>();
-    private IReadOnlyDictionary<int, string> categoryColorsById =
-        new Dictionary<int, string>();
-    private IReadOnlyDictionary<Guid, string> cardNamesById =
-        new Dictionary<Guid, string>();
-    private IReadOnlyList<BiggestTransactionRow> biggestTransactionRows = [];
-    private bool isAiConfigured;
 
-    private bool IsAiConfigured => isAiConfigured;
+    private IReadOnlyList<Transaction> transactions => dashboard.Transactions;
+
+    private IReadOnlyList<Transaction> filteredTransactions => dashboard.FilteredTransactions;
+
+    private CategorySpendingReport report => dashboard.Report;
+
+    private decimal totalSpending => dashboard.TotalSpending;
+
+    private int reviewCount => dashboard.ReviewCount;
+
+    private IReadOnlyList<CardAccount> cards => dashboard.Cards;
+
+    private IReadOnlyDictionary<int, string> categoryColorsById => dashboard.CategoryColorsById;
+
+    private IReadOnlyDictionary<Guid, string> cardNamesById => dashboard.CardNamesById;
+
+    private IReadOnlyList<BiggestTransactionRow> biggestTransactionRows => dashboard.BiggestTransactionRows;
+
+    private bool IsAiConfigured => dashboard.IsAiConfigured;
 
     private string NextSetupActionLabel =>
         IsAiConfigured ? "Import Transactions" : "Configure AI";
@@ -151,104 +142,35 @@ else
     private string NextSetupActionIcon =>
         IsAiConfigured ? "upload_file" : "settings";
 
-    private IReadOnlyList<int> AvailableYears =>
-        transactions
-            .Select(transaction => transaction.PostedDate.Year)
-            .Distinct()
-            .OrderByDescending(year => year)
-            .ToArray();
+    private IReadOnlyList<int> AvailableYears => dashboard.AvailableYears;
 
-    private string ReportWindowLabel =>
-        reportMode == ReportMode.All
-            ? "All time"
-            : reportMode == ReportMode.Year
-            ? selectedYear.ToString()
-            : new DateOnly(selectedYear, selectedMonth, 1).ToString("MMMM yyyy");
+    private string ReportWindowShortLabel => dashboard.ReportWindowShortLabel;
 
-    private string ReportWindowShortLabel =>
-        reportMode == ReportMode.All
-            ? "All time"
-            : reportMode == ReportMode.Year
-            ? selectedYear.ToString()
-            : new DateOnly(selectedYear, selectedMonth, 1).ToString("yyyy-MM");
-
-    private string WindowRangeLabel
-    {
-        get
-        {
-            var query = BuildQuery();
-            if (query.StartDate is null || query.EndDate is null)
-            {
-                var firstTransactionDate = transactions
-                    .Select(transaction => (DateOnly?)transaction.PostedDate)
-                    .Min();
-                var lastTransactionDate = transactions
-                    .Select(transaction => (DateOnly?)transaction.PostedDate)
-                    .Max();
-
-                return firstTransactionDate is null || lastTransactionDate is null
-                    ? string.Empty
-                    : $"{firstTransactionDate:MMM d, yyyy} - {lastTransactionDate:MMM d, yyyy}";
-            }
-
-            return $"{query.StartDate:MMM d} - {query.EndDate:MMM d, yyyy}";
-        }
-    }
+    private string WindowRangeLabel => dashboard.WindowRangeLabel;
 
     protected override async Task OnInitializedAsync()
     {
         DataRefreshNotifier.TransactionsChanged += HandleTransactionsChanged;
-        await LoadSetupStateAsync();
         await LoadDashboardDataAsync(preserveSelectedWindow: false, focusDate: null);
     }
 
     private async Task LoadDashboardDataAsync(bool preserveSelectedWindow, DateOnly? focusDate)
     {
-        var previousYear = selectedYear;
-        var previousMonth = selectedMonth;
-        var previousReportMode = reportMode;
-        transactions = await TransactionRepository.ListAsync(CancellationToken.None);
-        var fallbackDate = transactions
-            .OrderByDescending(transaction => transaction.PostedDate)
-            .Select(transaction => (DateOnly?)transaction.PostedDate)
-            .FirstOrDefault();
-        var selectedDate = focusDate ?? fallbackDate;
-        if (selectedDate is null)
-        {
-            filteredTransactions = [];
-            report = new CategorySpendingReport([], 0m);
-            totalSpending = 0m;
-            averageTransaction = 0m;
-            largestCharge = 0m;
-            creditTotal = 0m;
-            biggestTransactionRows = [];
-            return;
-        }
+        dashboard = await DashboardService.LoadAsync(
+            new DashboardLoadRequest(
+                preserveSelectedWindow,
+                focusDate,
+                reportMode,
+                selectedYear,
+                selectedMonth,
+                PeriodState.Mode,
+                PeriodState.Year,
+                PeriodState.Month),
+            CancellationToken.None);
 
-        var availableYears = AvailableYears;
-        reportMode = preserveSelectedWindow
-            ? previousReportMode
-            : ParseReportMode(PeriodState.Mode);
-        selectedYear = GetSelectedYear(
-            availableYears,
-            preserveSelectedWindow ? previousYear : PeriodState.Year,
-            selectedDate.Value.Year);
-        selectedMonth = GetSelectedMonth(
-            preserveSelectedWindow ? previousMonth : PeriodState.Month,
-            selectedDate.Value.Month);
-        cards = await CardAccountRepository.ListAsync(CancellationToken.None);
-        categories = await CategoryRepository.ListAsync(CancellationToken.None);
-        cardNamesById = cards.ToDictionary(card => card.Id, card => card.Name);
-        categoryNamesById = categories.ToDictionary(category => category.Id, category => category.Name);
-        categoryColorsById = categories.ToDictionary(category => category.Id, category => category.ColorHex);
-        await ReloadAssignmentsAsync();
-        await ReloadReportAsync();
-    }
-
-    private async Task LoadSetupStateAsync()
-    {
-        var apiKey = await CredentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, CancellationToken.None);
-        isAiConfigured = !string.IsNullOrWhiteSpace(apiKey);
+        reportMode = dashboard.Mode;
+        selectedYear = dashboard.Year;
+        selectedMonth = dashboard.Month;
     }
 
     private void HandleTransactionsChanged(DateOnly? focusDate)
@@ -265,31 +187,6 @@ else
         DataRefreshNotifier.TransactionsChanged -= HandleTransactionsChanged;
     }
 
-    private async Task ReloadReportAsync()
-    {
-        if (reportMode != ReportMode.All && selectedYear == 0)
-        {
-            return;
-        }
-
-        var query = BuildQuery();
-        filteredTransactions = await TransactionRepository.ListAsync(query, CancellationToken.None);
-        report = await ReportService.BuildAsync(query, CancellationToken.None);
-
-        totalSpending = report.TotalSpending;
-        averageTransaction = filteredTransactions.Count == 0 ? 0 : totalSpending / filteredTransactions.Count;
-        largestCharge = filteredTransactions.Where(transaction => transaction.Amount > 0).DefaultIfEmpty().Max(transaction => transaction?.Amount ?? 0);
-        creditTotal = filteredTransactions.Where(transaction => transaction.Amount < 0).Sum(transaction => transaction.Amount);
-        RebuildBiggestTransactionRows();
-    }
-
-    private async Task ReloadAssignmentsAsync()
-    {
-        assignmentsByTransactionId = (await AssignmentRepository.ListAsync(CancellationToken.None))
-            .ToDictionary(assignment => assignment.TransactionId);
-        reviewCount = await ReviewService.CountNeedsReviewAsync(CancellationToken.None);
-    }
-
     private async Task ChangeReportPeriodAsync(ReportPeriod period)
     {
         if (reportMode == period.Mode
@@ -303,7 +200,7 @@ else
         selectedYear = period.Year;
         selectedMonth = period.Month;
         SavePeriodState();
-        await ReloadReportAsync();
+        await LoadDashboardDataAsync(preserveSelectedWindow: true, focusDate: null);
     }
 
     private void SavePeriodState()
@@ -311,52 +208,6 @@ else
         PeriodState.Mode = reportMode.ToString();
         PeriodState.Year = selectedYear == 0 ? null : selectedYear;
         PeriodState.Month = selectedMonth == 0 ? null : selectedMonth;
-    }
-
-    private TransactionQuery BuildQuery()
-    {
-        if (reportMode == ReportMode.All)
-        {
-            return new TransactionQuery();
-        }
-
-        if (reportMode == ReportMode.Year)
-        {
-            return new TransactionQuery
-            {
-                StartDate = new DateOnly(selectedYear, 1, 1),
-                EndDate = new DateOnly(selectedYear, 12, 31)
-            };
-        }
-
-        var monthStart = new DateOnly(selectedYear, selectedMonth, 1);
-        return new TransactionQuery
-        {
-            StartDate = monthStart,
-            EndDate = monthStart.AddMonths(1).AddDays(-1)
-        };
-    }
-
-    private void RebuildBiggestTransactionRows()
-    {
-        biggestTransactionRows = filteredTransactions
-            .Where(transaction => transaction.Amount > 0)
-            .OrderByDescending(transaction => transaction.Amount)
-            .ThenByDescending(transaction => transaction.ImportedAtUtc)
-            .Take(5)
-            .Select(transaction =>
-            {
-                var categoryId = assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
-                    ? assignment.CategoryId
-                    : BuiltInCategoryIds.Other;
-
-                return new BiggestTransactionRow(
-                    transaction.OriginalDescription,
-                    categoryNamesById.GetValueOrDefault(categoryId, "Other"),
-                    categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2"),
-                    transaction.Amount);
-            })
-            .ToArray();
     }
 
     private void GoToNextSetupStep()
@@ -374,37 +225,6 @@ else
         return isComplete
             ? "dashboard-empty-check complete"
             : "dashboard-empty-check";
-    }
-
-    private static ReportMode ParseReportMode(string? value)
-    {
-        return Enum.TryParse<ReportMode>(value, ignoreCase: true, out var mode)
-            ? mode
-            : ReportMode.Year;
-    }
-
-    private static int GetSelectedYear(
-        IReadOnlyList<int> availableYears,
-        int? preferredYear,
-        int fallbackYear)
-    {
-        if (preferredYear is not null && availableYears.Contains(preferredYear.Value))
-        {
-            return preferredYear.Value;
-        }
-
-        return availableYears.Contains(fallbackYear)
-            ? fallbackYear
-            : availableYears.FirstOrDefault();
-    }
-
-    private static int GetSelectedMonth(
-        int? preferredMonth,
-        int fallbackMonth)
-    {
-        return preferredMonth is >= 1 and <= 12
-            ? preferredMonth.Value
-            : fallbackMonth;
     }
 
 }

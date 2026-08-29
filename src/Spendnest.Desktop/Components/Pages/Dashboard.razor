@@ -10,35 +10,10 @@
 
 @if (transactions.Count == 0)
 {
-    <section class="app-card dashboard-empty-card">
-        <div class="dashboard-empty-content">
-            <div class="dashboard-empty-icon">
-                <img src="images/peasantmoney-icon.png" alt="" aria-hidden="true" />
-            </div>
-
-            <h1>Welcome to PeasantMoney</h1>
-            <p>Set up private AI categorization, then import your first credit card statement to unlock local spending reports.</p>
-
-            <div class="dashboard-empty-checklist" aria-label="Getting started checklist">
-                <h2>Getting Started</h2>
-
-                <div class="@GetChecklistItemClass(IsAiConfigured)">
-                    <span class="material-symbols-outlined" aria-hidden="true">@GetChecklistIcon(IsAiConfigured)</span>
-                    <span>Configure AI in Settings</span>
-                </div>
-
-                <div class="@GetChecklistItemClass(false)">
-                    <span class="material-symbols-outlined" aria-hidden="true">check_box_outline_blank</span>
-                    <span>Upload the first statement in Import</span>
-                </div>
-            </div>
-
-            <button type="button" class="primary-button dashboard-empty-action" @onclick="GoToNextSetupStep">
-                <span class="material-symbols-outlined" aria-hidden="true">@NextSetupActionIcon</span>
-                @NextSetupActionLabel
-            </button>
-        </div>
-    </section>
+    <Card Class="dashboard-empty-card">
+        <DashboardEmptyState IsAiConfigured="@IsAiConfigured"
+                             OnActionClick="GoToNextSetupStep" />
+    </Card>
 }
 else
 {
@@ -136,12 +111,6 @@ else
 
     private bool IsAiConfigured => dashboard.IsAiConfigured;
 
-    private string NextSetupActionLabel =>
-        IsAiConfigured ? "Import Transactions" : "Configure AI";
-
-    private string NextSetupActionIcon =>
-        IsAiConfigured ? "upload_file" : "settings";
-
     private IReadOnlyList<int> AvailableYears => dashboard.AvailableYears;
 
     private string ReportWindowShortLabel => dashboard.ReportWindowShortLabel;
@@ -213,18 +182,6 @@ else
     private void GoToNextSetupStep()
     {
         NavigationManager.NavigateTo(IsAiConfigured ? "import" : "settings");
-    }
-
-    private static string GetChecklistIcon(bool isComplete)
-    {
-        return isComplete ? "check_box" : "check_box_outline_blank";
-    }
-
-    private static string GetChecklistItemClass(bool isComplete)
-    {
-        return isComplete
-            ? "dashboard-empty-check complete"
-            : "dashboard-empty-check";
     }
 
 }

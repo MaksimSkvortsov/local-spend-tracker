@@ -1,0 +1,53 @@
+<div class="dashboard-empty-content">
+    <div class="dashboard-empty-icon">
+        <img src="images/peasantmoney-icon.png" alt="" aria-hidden="true" />
+    </div>
+
+    <h1>Welcome to PeasantMoney</h1>
+    <p>Set up private AI categorization, then import your first credit card statement to unlock local spending reports.</p>
+
+    <div class="dashboard-empty-checklist" aria-label="Getting started checklist">
+        <h2>Getting Started</h2>
+
+        <div class="@GetChecklistItemClass(IsAiConfigured)">
+            <span class="material-symbols-outlined" aria-hidden="true">@GetChecklistIcon(IsAiConfigured)</span>
+            <span>Configure AI in Settings</span>
+        </div>
+
+        <div class="@GetChecklistItemClass(false)">
+            <span class="material-symbols-outlined" aria-hidden="true">check_box_outline_blank</span>
+            <span>Upload the first statement in Import</span>
+        </div>
+    </div>
+
+    <button type="button" class="primary-button dashboard-empty-action" @onclick="OnActionClick">
+        <span class="material-symbols-outlined" aria-hidden="true">@ActionIcon</span>
+        @ActionLabel
+    </button>
+</div>
+
+@code {
+    [Parameter]
+    public bool IsAiConfigured { get; set; }
+
+    [Parameter]
+    public EventCallback OnActionClick { get; set; }
+
+    private string ActionLabel =>
+        IsAiConfigured ? "Import Transactions" : "Configure AI";
+
+    private string ActionIcon =>
+        IsAiConfigured ? "upload_file" : "settings";
+
+    private static string GetChecklistIcon(bool isComplete)
+    {
+        return isComplete ? "check_box" : "check_box_outline_blank";
+    }
+
+    private static string GetChecklistItemClass(bool isComplete)
+    {
+        return isComplete
+            ? "dashboard-empty-check complete"
+            : "dashboard-empty-check";
+    }
+}

@@ -50,80 +50,23 @@
         </HeaderAction>
 
         <ChildContent>
-            <div class="selected-card-row">
-                <div class="field-group">
-                    <label for="cardName">Card</label>
-                    @if (cardDetected)
-                    {
-                        <div class="detected-card compact">
-                            <span>Detected card</span>
-                            <strong>@cardName</strong>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="@(IsExistingCardSelected ? "card-picker-grid single" : "card-picker-grid")">
-                            <select id="cardName" class="text-input" @bind="selectedExistingCardName" @bind:after="UseSelectedExistingCard" disabled="@isBusy">
-                                <option value="">New card</option>
-                                @foreach (var card in availableCards)
-                                {
-                                    <option value="@card.Name">@card.Name</option>
-                                }
-                            </select>
-                            @if (!IsExistingCardSelected)
-                            {
-                                <input class="text-input" placeholder="Card name" @bind="cardName" @bind:event="oninput" disabled="@isBusy" />
-                            }
-                        </div>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(cardSelectionMessage))
-                    {
-                        <span class="field-hint">@cardSelectionMessage</span>
-                    }
-                </div>
-
-                @if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    <span class="status-message">@statusMessage</span>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(errorMessage))
-                {
-                    <div class="alert error">@errorMessage</div>
-                }
-            </div>
-
-            <DataTable HasItems="@(PreviewRows.Count > 0)"
-                       EmptyMessage="No transactions found in the selected file."
-                       EmptyStateClass="empty-state compact">
-                <HeaderContent>
-                    <tr>
-                        <th>Date</th>
-                        <th>Description</th>
-                        <th>Category</th>
-                        <th class="amount">Amount</th>
-                    </tr>
-                </HeaderContent>
-                <ChildContent>
-                    @foreach (var row in PagedPreviewRows)
-                    {
-                        <tr>
-                            <td>@row.PostedDate.ToString("yyyy-MM-dd")</td>
-                            <td>@row.Description</td>
-                            <td><span class="@GetPreviewCategoryClass(row)">@row.Category</span></td>
-                            <td class="amount">@row.Amount.ToString("C")</td>
-                        </tr>
-                    }
-                </ChildContent>
-                <FooterContent>
-                    <PaginationBar ContainerClass="pagination-bar selected-transactions-pagination"
-                                   CurrentPage="@previewPage"
-                                   PageCount="@PreviewPageCount"
-                                   Disabled="@isBusy"
-                                   OnPrevious="PreviousPreviewPage"
-                                   OnNext="NextPreviewPage" />
-                </FooterContent>
-            </DataTable>
+            <SelectedTransactionsPreview CardDetected="@cardDetected"
+                                         CardName="@cardName"
+                                         CardNameChanged="SetCardName"
+                                         SelectedExistingCardName="@selectedExistingCardName"
+                                         SelectedExistingCardNameChanged="SetSelectedExistingCardName"
+                                         OnExistingCardChanged="UseSelectedExistingCard"
+                                         AvailableCards="@availableCards"
+                                         CardSelectionMessage="@cardSelectionMessage"
+                                         StatusMessage="@statusMessage"
+                                         ErrorMessage="@errorMessage"
+                                         IsBusy="@isBusy"
+                                         Rows="@PreviewRows"
+                                         PagedRows="@PagedPreviewRows"
+                                         CurrentPage="@previewPage"
+                                         PageCount="@PreviewPageCount"
+                                         OnPrevious="PreviousPreviewPage"
+                                         OnNext="NextPreviewPage" />
         </ChildContent>
     </Card>
 }
@@ -201,9 +144,6 @@
         string.IsNullOrWhiteSpace(cardName)
             ? BuildFallbackCardName(selectedFileName)
             : cardName.Trim();
-
-    private bool IsExistingCardSelected =>
-        !string.IsNullOrWhiteSpace(selectedExistingCardName);
 
     private bool IsCategorizing =>
         currentProgress?.Stage == FileUploadProgressStage.CategorizingWithAi;
@@ -513,6 +453,16 @@
         cardName = BuildFallbackCardName(selectedFileName);
     }
 
+    private void SetCardName(string value)
+    {
+        cardName = value;
+    }
+
+    private void SetSelectedExistingCardName(string value)
+    {
+        selectedExistingCardName = value;
+    }
+
     private void ClearSelectedFile()
     {
         ClearSelectedFileState(clearMessages: true);
@@ -553,13 +503,6 @@
         }
 
         return previewCategoryNamesByTransactionId.GetValueOrDefault(transaction.Id, "Needs review");
-    }
-
-    private static string GetPreviewCategoryClass(PreviewRow row)
-    {
-        return row.Category.Equals("Pending", StringComparison.OrdinalIgnoreCase)
-            ? "preview-category-pill pending"
-            : "preview-category-pill";
     }
 
 }

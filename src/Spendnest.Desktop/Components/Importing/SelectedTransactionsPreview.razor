@@ -1,0 +1,148 @@
+<div class="selected-card-row">
+    <div class="field-group">
+        <label for="cardName">Card</label>
+        @if (CardDetected)
+        {
+            <div class="detected-card compact">
+                <span>Detected card</span>
+                <strong>@CardName</strong>
+            </div>
+        }
+        else
+        {
+            <div class="@(IsExistingCardSelected ? "card-picker-grid single" : "card-picker-grid")">
+                <select id="cardName" class="text-input" value="@SelectedExistingCardName" @onchange="HandleExistingCardChanged" disabled="@IsBusy">
+                    <option value="">New card</option>
+                    @foreach (var card in AvailableCards)
+                    {
+                        <option value="@card.Name">@card.Name</option>
+                    }
+                </select>
+                @if (!IsExistingCardSelected)
+                {
+                    <input class="text-input" placeholder="Card name" value="@CardName" @oninput="HandleCardNameChanged" disabled="@IsBusy" />
+                }
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(CardSelectionMessage))
+        {
+            <span class="field-hint">@CardSelectionMessage</span>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+    {
+        <span class="status-message">@StatusMessage</span>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="alert error">@ErrorMessage</div>
+    }
+</div>
+
+<DataTable HasItems="@(Rows.Count > 0)"
+           EmptyMessage="No transactions found in the selected file."
+           EmptyStateClass="empty-state compact">
+    <HeaderContent>
+        <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th class="amount">Amount</th>
+        </tr>
+    </HeaderContent>
+    <ChildContent>
+        @foreach (var row in PagedRows)
+        {
+            <tr>
+                <td>@row.PostedDate.ToString("yyyy-MM-dd")</td>
+                <td>@row.Description</td>
+                <td><span class="@GetPreviewCategoryClass(row)">@row.Category</span></td>
+                <td class="amount">@row.Amount.ToString("C")</td>
+            </tr>
+        }
+    </ChildContent>
+    <FooterContent>
+        <PaginationBar ContainerClass="pagination-bar selected-transactions-pagination"
+                       CurrentPage="@CurrentPage"
+                       PageCount="@PageCount"
+                       Disabled="@IsBusy"
+                       OnPrevious="OnPrevious"
+                       OnNext="OnNext" />
+    </FooterContent>
+</DataTable>
+
+@code {
+    [Parameter]
+    public bool CardDetected { get; set; }
+
+    [Parameter]
+    public string CardName { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> CardNameChanged { get; set; }
+
+    [Parameter]
+    public string SelectedExistingCardName { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> SelectedExistingCardNameChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnExistingCardChanged { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<CardAccount> AvailableCards { get; set; } = [];
+
+    [Parameter]
+    public string? CardSelectionMessage { get; set; }
+
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<PreviewRow> Rows { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<PreviewRow> PagedRows { get; set; } = [];
+
+    [Parameter]
+    public int CurrentPage { get; set; }
+
+    [Parameter]
+    public int PageCount { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    private bool IsExistingCardSelected =>
+        !string.IsNullOrWhiteSpace(SelectedExistingCardName);
+
+    private async Task HandleExistingCardChanged(ChangeEventArgs args)
+    {
+        await SelectedExistingCardNameChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+        await OnExistingCardChanged.InvokeAsync();
+    }
+
+    private async Task HandleCardNameChanged(ChangeEventArgs args)
+    {
+        await CardNameChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+    }
+
+    private static string GetPreviewCategoryClass(PreviewRow row)
+    {
+        return row.Category.Equals("Pending", StringComparison.OrdinalIgnoreCase)
+            ? "preview-category-pill pending"
+            : "preview-category-pill";
+    }
+}

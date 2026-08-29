@@ -44,6 +44,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<AppDataRefreshNotifier>();
         builder.Services.AddSingleton<DashboardPeriodState>();
         builder.Services.AddSingleton<DashboardService>();
+        builder.Services.AddSingleton<ImportWorkflowService>();
         builder.Services.AddSingleton<IStatementFilePicker, MauiStatementFilePicker>();
         builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
         builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();

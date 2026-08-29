@@ -1,8 +1,6 @@
 @page "/import"
-@inject IStatementFileImportService ImportService
+@inject ImportWorkflowService ImportWorkflowService
 @inject ITransactionRepository TransactionRepository
-@inject ITransactionCategorizationService CategorizationService
-@inject ITransactionCategorizationApplier CategorizationApplier
 @inject IStatementImportRepository ImportHistoryRepository
 @inject IStatementParser StatementParser
 @inject ICardAccountRepository CardAccountRepository
@@ -348,59 +346,24 @@
 
         try
         {
-            importResult = await ImportService.ImportAsync(
+            var workflowResult = await ImportWorkflowService.ImportAndCategorizeAsync(
                 selectedFilePath!,
-                new StatementFileImportOptions
-                {
-                    CardAccountName = EffectiveCardName,
-                    Progress = progress
-                },
-                CancellationToken.None);
-            await RefreshTransactionsAsync();
-            await RefreshCardsAsync();
-            await RefreshUploadHistoryAsync();
-            DataRefreshNotifier.NotifyTransactionsChanged(GetImportFocusDate(importResult));
-
-            await UpdateStatementImportStatusAsync(
-                importResult.StatementImportId,
-                StatementImportStatus.Pending);
-            ReportProgress(FileUploadProgress.CategorizingTransactions(
-                0,
-                importResult.SavedTransactions.Count));
-            await RefreshUploadHistoryAsync();
-            await InvokeAsync(StateHasChanged);
-
-            var categorizations = await CategorizationService.CategorizeAsync(
-                importResult.SavedTransactions,
+                EffectiveCardName,
                 progress,
                 CancellationToken.None);
-            await CategorizationApplier.ApplyAsync(categorizations, CancellationToken.None);
-            previewCategoryNamesByTransactionId = categorizations.ToDictionary(
-                categorization => categorization.TransactionId,
-                categorization => GetBuiltInCategoryName(categorization.CategoryId));
 
+            importResult = workflowResult.ImportResult;
+            previewCategoryNamesByTransactionId = workflowResult.PreviewCategoryNamesByTransactionId;
             categorizationSummariesByImportId[importResult.StatementImportId] =
-                CategorizationHistorySummary.From(categorizations);
-            await UpdateStatementImportStatusAsync(
-                importResult.StatementImportId,
-                StatementImportStatus.Completed);
-            ReportProgress(FileUploadProgress.RefreshingData);
+                workflowResult.CategorizationSummary;
             await RefreshTransactionsAsync();
             await RefreshCardsAsync();
             await RefreshUploadHistoryAsync();
-            DataRefreshNotifier.NotifyTransactionsChanged(GetImportFocusDate(importResult));
+            DataRefreshNotifier.NotifyTransactionsChanged(workflowResult.FocusDate);
             ClearSelectedFileState(clearMessages: true);
         }
         catch (Exception exception)
         {
-            if (importResult is not null)
-            {
-                await UpdateStatementImportStatusAsync(
-                    importResult.StatementImportId,
-                    StatementImportStatus.Failed,
-                    exception.Message);
-            }
-
             errorMessage = exception.Message;
             await RefreshImportHistoryViewAsync();
         }
@@ -431,14 +394,6 @@
         }
 
         return progress.Message;
-    }
-
-    private static DateOnly? GetImportFocusDate(StatementFileImportResult importResult)
-    {
-        return importResult.SavedTransactions
-            .OrderByDescending(transaction => transaction.PostedDate)
-            .Select(transaction => (DateOnly?)transaction.PostedDate)
-            .FirstOrDefault();
     }
 
     private async Task RefreshTransactionsAsync()
@@ -637,28 +592,6 @@
         await RefreshUploadHistoryAsync();
     }
 
-    private async Task UpdateStatementImportStatusAsync(
-        Guid statementImportId,
-        StatementImportStatus status,
-        string? errorMessage = null)
-    {
-        var statementImport = (await ImportHistoryRepository.ListAsync(CancellationToken.None))
-            .FirstOrDefault(import => import.Id == statementImportId);
-        if (statementImport is null)
-        {
-            return;
-        }
-
-        statementImport.Status = status;
-        statementImport.ErrorMessage = errorMessage;
-        if (status is StatementImportStatus.Completed or StatementImportStatus.Failed)
-        {
-            statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
-        }
-
-        await ImportHistoryRepository.UpdateAsync(statementImport, CancellationToken.None);
-    }
-
     private static string GetImportStatusClass(UploadHistoryItem upload)
     {
         if (upload.Status == StatementImportStatus.Failed)
@@ -686,26 +619,6 @@
         return row.Category.Equals("Pending", StringComparison.OrdinalIgnoreCase)
             ? "preview-category-pill pending"
             : "preview-category-pill";
-    }
-
-    private static string GetBuiltInCategoryName(int categoryId)
-    {
-        return BuiltInCategories.All.FirstOrDefault(category => category.Id == categoryId)?.Name
-            ?? "Other";
-    }
-
-    private sealed record CategorizationHistorySummary(
-        int CategorizedTransactionCount,
-        int NeedsReviewCount,
-        int TimeoutCount)
-    {
-        public static CategorizationHistorySummary From(IReadOnlyList<TransactionCategorization> categorizations)
-        {
-            return new CategorizationHistorySummary(
-                categorizations.Count,
-                categorizations.Count(categorization => categorization.NeedsReview),
-                categorizations.Count(categorization => categorization.Explanation.Contains("timed out", StringComparison.OrdinalIgnoreCase)));
-        }
     }
 
     private sealed record UploadHistoryItem(

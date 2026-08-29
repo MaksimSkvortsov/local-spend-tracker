@@ -1,0 +1,87 @@
+<div class="period-controls" aria-label="Report period controls">
+    <div class="period-toggle" role="group" aria-label="Report mode">
+        <button type="button" class="@GetReportModeClass(ReportMode.All)" @onclick="() => ChangeModeAsync(ReportMode.All)">All</button>
+        <button type="button" class="@GetReportModeClass(ReportMode.Year)" @onclick="() => ChangeModeAsync(ReportMode.Year)">Year</button>
+        <button type="button" class="@GetReportModeClass(ReportMode.Month)" @onclick="() => ChangeModeAsync(ReportMode.Month)">Month</button>
+    </div>
+
+    @if (Mode != ReportMode.All)
+    {
+        <select class="dashboard-select" aria-label="Year" value="@Year" @onchange="ChangeYearAsync">
+            @foreach (var year in AvailableYears)
+            {
+                <option value="@year">@year</option>
+            }
+        </select>
+
+        @if (Mode == ReportMode.Month)
+        {
+            <select class="dashboard-select" aria-label="Month" value="@Month" @onchange="ChangeMonthAsync">
+                @foreach (var month in AvailableMonths)
+                {
+                    <option value="@month.Value">@month.Label</option>
+                }
+            </select>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public ReportMode Mode { get; set; }
+
+    [Parameter]
+    public int Year { get; set; }
+
+    [Parameter]
+    public int Month { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<int> AvailableYears { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<ReportPeriod> PeriodChanged { get; set; }
+
+    private static readonly IReadOnlyList<MonthOption> AvailableMonths =
+        Enumerable.Range(1, 12)
+            .Select(month => new MonthOption(month, new DateOnly(2000, month, 1).ToString("MMMM")))
+            .ToArray();
+
+    private Task ChangeModeAsync(ReportMode mode)
+    {
+        return ChangePeriodAsync(mode, Year, Month);
+    }
+
+    private Task ChangeYearAsync(ChangeEventArgs args)
+    {
+        return ChangePeriodAsync(Mode, ParseInt(args.Value, Year), Month);
+    }
+
+    private Task ChangeMonthAsync(ChangeEventArgs args)
+    {
+        return ChangePeriodAsync(Mode, Year, ParseInt(args.Value, Month));
+    }
+
+    private Task ChangePeriodAsync(ReportMode mode, int year, int month)
+    {
+        return PeriodChanged.InvokeAsync(new ReportPeriod(mode, year, month));
+    }
+
+    private string GetReportModeClass(ReportMode mode)
+    {
+        return Mode == mode
+            ? "active"
+            : string.Empty;
+    }
+
+    private static int ParseInt(object? value, int fallback)
+    {
+        return int.TryParse(value?.ToString(), out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private sealed record MonthOption(
+        int Value,
+        string Label);
+}

@@ -51,33 +51,11 @@
 else
 {
     <section class="app-card dashboard-metric-panel">
-        <div class="period-controls" aria-label="Report period controls">
-            <div class="period-toggle" role="group" aria-label="Report mode">
-                <button type="button" class="@GetReportModeClass(ReportMode.All)" @onclick="() => SetReportModeAsync(ReportMode.All)">All</button>
-                <button type="button" class="@GetReportModeClass(ReportMode.Year)" @onclick="() => SetReportModeAsync(ReportMode.Year)">Year</button>
-                <button type="button" class="@GetReportModeClass(ReportMode.Month)" @onclick="() => SetReportModeAsync(ReportMode.Month)">Month</button>
-            </div>
-
-            @if (reportMode != ReportMode.All)
-            {
-                <select class="dashboard-select" aria-label="Year" @bind="selectedYear" @bind:after="YearChangedAsync">
-                    @foreach (var year in AvailableYears)
-                    {
-                        <option value="@year">@year</option>
-                    }
-                </select>
-
-                @if (reportMode == ReportMode.Month)
-                {
-                    <select class="dashboard-select" aria-label="Month" @bind="selectedMonth" @bind:after="MonthChangedAsync">
-                        @foreach (var month in AvailableMonths)
-                        {
-                            <option value="@month.Value">@month.Label</option>
-                        }
-                    </select>
-                }
-            }
-        </div>
+        <DashboardPeriodSelector Mode="@reportMode"
+                                 Year="@selectedYear"
+                                 Month="@selectedMonth"
+                                 AvailableYears="@AvailableYears"
+                                 PeriodChanged="ChangeReportPeriodAsync" />
 
         <div class="dashboard-metrics">
             <div class="metric-divider" aria-hidden="true"></div>
@@ -146,9 +124,7 @@ else
         </Card>
 
         <div class="dashboard-side-stack">
-            <div class="app-card dashboard-card">
-                <h3>Top Merchants</h3>
-
+            <Card Class="dashboard-card" Title="Top Merchants">
                 <div class="category-bars">
                     @if (TopMerchantLines.Count == 0)
                     {
@@ -172,10 +148,9 @@ else
                         }
                     }
                 </div>
-            </div>
+            </Card>
 
-            <div class="@AttentionCardClass">
-                <h3>Needs Attention</h3>
+            <Card Class="@AttentionCardClass" Title="Needs Attention">
                 <div class="attention-body">
                     <span class="material-symbols-outlined" aria-hidden="true">@AttentionIcon</span>
                     <strong>@AttentionSummary</strong>
@@ -185,7 +160,7 @@ else
                 {
                     <a href="transactions">Review now</a>
                 }
-            </div>
+            </Card>
         </div>
     </section>
 
@@ -249,7 +224,7 @@ else
         </div>
     </Card>
 
-    <Card Class="dashboard-card daily-spend-card" Title="Amount Spent per Day" Subtitle="@($"All cards · {ReportWindowShortLabel}")">
+    <Card Class="dashboard-card daily-spend-card" Title="Amount Spent per Day" Subtitle="@($"All cards - {ReportWindowShortLabel}")">
         @if (DailySpendCells.Count == 0 || DailySpendCells.All(cell => cell.Amount <= 0))
         {
             <div class="empty-state compact">No daily spending in this window.</div>
@@ -481,11 +456,6 @@ else
             .OrderByDescending(year => year)
             .ToArray();
 
-    private IReadOnlyList<MonthOption> AvailableMonths =>
-        Enumerable.Range(1, 12)
-            .Select(month => new MonthOption(month, new DateOnly(2000, month, 1).ToString("MMMM")))
-            .ToArray();
-
     private string ReportWindowLabel =>
         reportMode == ReportMode.All
             ? "All time"
@@ -525,8 +495,8 @@ else
 
     private string AttentionCardClass =>
         reviewCount > 0
-            ? "app-card dashboard-card attention-card attention-warning"
-            : "app-card dashboard-card attention-card attention-clear";
+            ? "dashboard-card attention-card attention-warning"
+            : "dashboard-card attention-card attention-clear";
 
     private string AttentionIcon =>
         reviewCount > 0 ? "warning" : "check_circle";
@@ -634,26 +604,18 @@ else
         reviewCount = await ReviewService.CountNeedsReviewAsync(CancellationToken.None);
     }
 
-    private async Task SetReportModeAsync(ReportMode mode)
+    private async Task ChangeReportPeriodAsync(ReportPeriod period)
     {
-        if (reportMode == mode)
+        if (reportMode == period.Mode
+            && selectedYear == period.Year
+            && selectedMonth == period.Month)
         {
             return;
         }
 
-        reportMode = mode;
-        SavePeriodState();
-        await ReloadReportAsync();
-    }
-
-    private async Task YearChangedAsync()
-    {
-        SavePeriodState();
-        await ReloadReportAsync();
-    }
-
-    private async Task MonthChangedAsync()
-    {
+        reportMode = period.Mode;
+        selectedYear = period.Year;
+        selectedMonth = period.Month;
         SavePeriodState();
         await ReloadReportAsync();
     }
@@ -734,13 +696,6 @@ else
         return transactionCount == 1
             ? "1 transaction"
             : $"{transactionCount} transactions";
-    }
-
-    private string GetReportModeClass(ReportMode mode)
-    {
-        return reportMode == mode
-            ? "active"
-            : string.Empty;
     }
 
     private string GetTransactionCategoryName(Transaction transaction)
@@ -889,17 +844,6 @@ else
             ? preferredMonth.Value
             : fallbackMonth;
     }
-
-    private enum ReportMode
-    {
-        All,
-        Year,
-        Month
-    }
-
-    private sealed record MonthOption(
-        int Value,
-        string Label);
 
     private sealed record DonutSegment(
         string Color,

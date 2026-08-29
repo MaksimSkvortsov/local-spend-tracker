@@ -379,7 +379,6 @@ dt,
 }
 
 .dashboard-metrics span,
-.dashboard-card h3,
 .dashboard-card .app-card__subtitle {
     display: block;
     color: var(--muted);
@@ -1638,6 +1637,11 @@ dt,
 }
 
 .attention-card {
+    display: grid;
+    gap: 12px;
+}
+
+.attention-card > .app-card__body {
     display: grid;
     gap: 12px;
 }

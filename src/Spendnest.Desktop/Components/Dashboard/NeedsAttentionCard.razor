@@ -1,0 +1,41 @@
+<Card Class="@StateClass" Title="Needs Attention">
+    <div class="attention-body">
+        <span class="material-symbols-outlined" aria-hidden="true">@Icon</span>
+        <strong>@Summary</strong>
+    </div>
+    <p>@Description</p>
+    @if (ReviewCount > 0)
+    {
+        <a href="transactions">Review now</a>
+    }
+</Card>
+
+@code {
+    [Parameter]
+    public int ReviewCount { get; set; }
+
+    private string StateClass =>
+        ReviewCount > 0
+            ? "dashboard-card attention-card attention-warning"
+            : "dashboard-card attention-card attention-clear";
+
+    private string Icon =>
+        ReviewCount > 0 ? "warning" : "check_circle";
+
+    private string Summary =>
+        ReviewCount == 0
+            ? "All transactions look good"
+            : FormatTransactionCount(ReviewCount) + " require attention";
+
+    private string Description =>
+        ReviewCount == 0
+            ? "No low-confidence categorizations found."
+            : "Low classification confidence detected for recent activity.";
+
+    private static string FormatTransactionCount(int transactionCount)
+    {
+        return transactionCount == 1
+            ? "1 transaction"
+            : $"{transactionCount} transactions";
+    }
+}

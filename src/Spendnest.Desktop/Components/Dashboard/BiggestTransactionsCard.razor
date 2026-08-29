@@ -1,0 +1,43 @@
+<Card Class="dashboard-card dashboard-table-card" Title="Biggest Transactions">
+    <HeaderAction>
+        <span class="app-card__subtitle">Top 5 @WindowLabel</span>
+    </HeaderAction>
+    <ChildContent>
+        <DataTable>
+            <HeaderContent>
+                <tr>
+                    <th>Merchant</th>
+                    <th>Category</th>
+                    <th class="amount">Amount</th>
+                </tr>
+            </HeaderContent>
+            <ChildContent>
+                @foreach (var row in Rows)
+                {
+                    <tr>
+                        <td>@row.Merchant</td>
+                        <td>
+                            <span class="table-category-pill" style="@GetCategoryStyle(row.CategoryColor)">
+                                @row.Category
+                            </span>
+                        </td>
+                        <td class="amount">@row.Amount.ToString("C")</td>
+                    </tr>
+                }
+            </ChildContent>
+        </DataTable>
+    </ChildContent>
+</Card>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<BiggestTransactionRow> Rows { get; set; } = [];
+
+    [Parameter]
+    public string WindowLabel { get; set; } = string.Empty;
+
+    private static string GetCategoryStyle(string categoryColor)
+    {
+        return $"--category-color: {categoryColor}";
+    }
+}

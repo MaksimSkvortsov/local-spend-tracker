@@ -1,0 +1,192 @@
+<Card Class="dashboard-card daily-spend-card" Title="Amount Spent per Day" Subtitle="@($"All cards - {WindowLabel}")">
+    @if (DailySpendCells.Count == 0 || DailySpendCells.All(cell => cell.Amount <= 0))
+    {
+        <div class="empty-state compact">No daily spending in this window.</div>
+    }
+    else
+    {
+        <div class="@DailySpendGridClass" style="@DailySpendGridStyle" aria-label="Amount spent per day across all cards">
+            @foreach (var cell in DailySpendCells)
+            {
+                <span class="@GetDailySpendCellClass(cell.Amount)"
+                      title="@GetDailySpendCellTitle(cell)">
+                </span>
+            }
+        </div>
+
+        <div class="daily-spend-legend" aria-hidden="true">
+            <span>Less</span>
+            <div>
+                <i class="daily-spend-cell empty"></i>
+                <i class="daily-spend-cell low"></i>
+                <i class="daily-spend-cell medium"></i>
+                <i class="daily-spend-cell high"></i>
+            </div>
+            <span>More</span>
+        </div>
+    }
+</Card>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<Transaction> Transactions { get; set; } = [];
+
+    [Parameter]
+    public ReportMode Mode { get; set; }
+
+    [Parameter]
+    public int Year { get; set; }
+
+    [Parameter]
+    public int Month { get; set; }
+
+    [Parameter]
+    public string WindowLabel { get; set; } = string.Empty;
+
+    private IReadOnlyList<DailySpendCell> DailySpendCells
+    {
+        get
+        {
+            var frequencyWindow = BuildFrequencyWindow();
+            if (frequencyWindow is null)
+            {
+                return [];
+            }
+
+            var (startDate, endDate) = frequencyWindow.Value;
+            var spendingByDate = Transactions
+                .Where(transaction => transaction.Amount > 0)
+                .GroupBy(transaction => transaction.PostedDate)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Sum(transaction => transaction.Amount));
+
+            return BuildFrequencyDates(startDate, endDate)
+                .Select(date => date is null
+                    ? new DailySpendCell(null, 0m)
+                    : new DailySpendCell(date, spendingByDate.GetValueOrDefault(date.Value)))
+                .ToArray();
+        }
+    }
+
+    private string DailySpendGridClass =>
+        Mode == ReportMode.Month
+            ? "daily-spend-grid month"
+            : "daily-spend-grid year";
+
+    private string DailySpendGridStyle
+    {
+        get
+        {
+            var columnCount = Mode == ReportMode.Month
+                ? Math.Max(1, DailySpendCells.Count(cell => cell.Date is not null))
+                : Math.Max(1, DailySpendCells.Count / 7);
+            var rowCount = Mode == ReportMode.Month
+                ? 1
+                : 7;
+
+            return $"--daily-spend-columns: {columnCount}; --daily-spend-rows: {rowCount}";
+        }
+    }
+
+    private decimal MaxDailySpend =>
+        DailySpendCells
+            .Select(cell => cell.Amount)
+            .DefaultIfEmpty(0m)
+            .Max();
+
+    private (DateOnly StartDate, DateOnly EndDate)? BuildFrequencyWindow()
+    {
+        if (Mode == ReportMode.All)
+        {
+            var dates = Transactions
+                .Select(transaction => transaction.PostedDate)
+                .ToArray();
+
+            return dates.Length == 0
+                ? null
+                : (dates.Min(), dates.Max());
+        }
+
+        if (Year == 0)
+        {
+            return null;
+        }
+
+        if (Mode == ReportMode.Year)
+        {
+            return (new DateOnly(Year, 1, 1), new DateOnly(Year, 12, 31));
+        }
+
+        if (Month is < 1 or > 12)
+        {
+            return null;
+        }
+
+        var monthStart = new DateOnly(Year, Month, 1);
+        return (monthStart, monthStart.AddMonths(1).AddDays(-1));
+    }
+
+    private IEnumerable<DateOnly?> BuildFrequencyDates(DateOnly startDate, DateOnly endDate)
+    {
+        if (Mode == ReportMode.Month)
+        {
+            return EachDate(startDate, endDate).Select(date => (DateOnly?)date);
+        }
+
+        var dates = new List<DateOnly?>();
+        var leadingBlanks = GetWeekRowIndex(startDate);
+        dates.AddRange(Enumerable.Repeat<DateOnly?>(null, leadingBlanks));
+        dates.AddRange(EachDate(startDate, endDate).Select(date => (DateOnly?)date));
+
+        var trailingBlanks = (7 - (dates.Count % 7)) % 7;
+        dates.AddRange(Enumerable.Repeat<DateOnly?>(null, trailingBlanks));
+
+        return dates;
+    }
+
+    private static IEnumerable<DateOnly> EachDate(DateOnly startDate, DateOnly endDate)
+    {
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            yield return date;
+        }
+    }
+
+    private static int GetWeekRowIndex(DateOnly date)
+    {
+        return date.DayOfWeek == DayOfWeek.Sunday
+            ? 6
+            : (int)date.DayOfWeek - 1;
+    }
+
+    private string GetDailySpendCellClass(decimal amount)
+    {
+        if (amount <= 0)
+        {
+            return "daily-spend-cell empty";
+        }
+
+        var ratio = MaxDailySpend == 0
+            ? 0
+            : amount / MaxDailySpend;
+
+        return ratio switch
+        {
+            < 0.34m => "daily-spend-cell low",
+            < 0.67m => "daily-spend-cell medium",
+            _ => "daily-spend-cell high"
+        };
+    }
+
+    private static string GetDailySpendCellTitle(DailySpendCell cell)
+    {
+        return cell.Date is null
+            ? "Outside report window"
+            : $"{cell.Date.Value:MMM d, yyyy}: {cell.Amount:C} spent";
+    }
+
+    private sealed record DailySpendCell(
+        DateOnly? Date,
+        decimal Amount);
+}

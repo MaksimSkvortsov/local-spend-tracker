@@ -83,134 +83,29 @@ else
         </Card>
 
         <div class="dashboard-side-stack">
-            <Card Class="dashboard-card" Title="Top Merchants">
-                <div class="category-bars">
-                    @if (TopMerchantLines.Count == 0)
-                    {
-                        <div class="empty-state compact">No merchant spending in this window.</div>
-                    }
-                    else
-                    {
-                        @foreach (var line in TopMerchantLines)
-                        {
-                            var width = GetMerchantWidth(line.Amount);
-                            <div class="category-row">
-                                <div class="category-row-label">
-                                    <strong>@line.DisplayName</strong>
-                                    <span>@line.Amount.ToString("C")</span>
-                                </div>
-                                <div class="bar-track" aria-hidden="true">
-                                    <div class="bar-fill" style="width: @width%; --category-color: #00652f"></div>
-                                </div>
-                                <span class="merchant-count">@FormatTransactionCount(line.TransactionCount)</span>
-                            </div>
-                        }
-                    }
-                </div>
-            </Card>
+            <TopMerchantsCard Transactions="@filteredTransactions"
+                              MerchantCodeResolver="@MerchantCodeResolver" />
 
-            <Card Class="@AttentionCardClass" Title="Needs Attention">
-                <div class="attention-body">
-                    <span class="material-symbols-outlined" aria-hidden="true">@AttentionIcon</span>
-                    <strong>@AttentionSummary</strong>
-                </div>
-                <p>@AttentionDescription</p>
-                @if (reviewCount > 0)
-                {
-                    <a href="transactions">Review now</a>
-                }
-            </Card>
+            <NeedsAttentionCard ReviewCount="@reviewCount" />
         </div>
     </section>
 
-    <Card Class="dashboard-card dashboard-table-card" Title="Biggest Transactions">
-        <HeaderAction>
-            <span class="app-card__subtitle">Top 5 @ReportWindowShortLabel</span>
-        </HeaderAction>
-        <ChildContent>
-            <DataTable>
-                <HeaderContent>
-                    <tr>
-                        <th>Merchant</th>
-                        <th>Category</th>
-                        <th class="amount">Amount</th>
-                    </tr>
-                </HeaderContent>
-                <ChildContent>
-                    @foreach (var transaction in BiggestTransactions)
-                    {
-                        <tr>
-                            <td>@transaction.OriginalDescription</td>
-                            <td>
-                                <span class="table-category-pill" style="@GetTransactionCategoryStyle(transaction)">
-                                    @GetTransactionCategoryName(transaction)
-                                </span>
-                            </td>
-                            <td class="amount">@transaction.Amount.ToString("C")</td>
-                        </tr>
-                    }
-                </ChildContent>
-            </DataTable>
-        </ChildContent>
-    </Card>
+    <BiggestTransactionsCard Rows="@biggestTransactionRows"
+                             WindowLabel="@ReportWindowShortLabel" />
 
-    <Card Class="dashboard-card frequency-card" Title="Transaction Frequency" Subtitle="@ReportWindowShortLabel">
-        <div class="frequency-list">
-            @foreach (var row in FrequencyRows)
-            {
-                <div class="frequency-row">
-                    <p>@row.Label</p>
-                    <div class="@row.GridClass" style="@row.GridStyle" aria-label="@($"{row.Label} transaction frequency")">
-                        @foreach (var cell in row.Cells)
-                        {
-                            <span class="@GetFrequencyCellClass(cell.Count)"
-                                  title="@GetFrequencyCellTitle(cell)">
-                            </span>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
+    <TransactionFrequencyCard Transactions="@filteredTransactions"
+                              Cards="@cards"
+                              CardNames="@cardNamesById"
+                              Mode="@reportMode"
+                              Year="@selectedYear"
+                              Month="@selectedMonth"
+                              WindowLabel="@ReportWindowShortLabel" />
 
-        <div class="frequency-legend" aria-hidden="true">
-            <span>Less</span>
-            <div>
-                <i class="frequency-cell empty"></i>
-                <i class="frequency-cell medium"></i>
-                <i class="frequency-cell high"></i>
-            </div>
-            <span>More</span>
-        </div>
-    </Card>
-
-    <Card Class="dashboard-card daily-spend-card" Title="Amount Spent per Day" Subtitle="@($"All cards - {ReportWindowShortLabel}")">
-        @if (DailySpendCells.Count == 0 || DailySpendCells.All(cell => cell.Amount <= 0))
-        {
-            <div class="empty-state compact">No daily spending in this window.</div>
-        }
-        else
-        {
-            <div class="@DailySpendGridClass" style="@DailySpendGridStyle" aria-label="Amount spent per day across all cards">
-                @foreach (var cell in DailySpendCells)
-                {
-                    <span class="@GetDailySpendCellClass(cell.Amount)"
-                          title="@GetDailySpendCellTitle(cell)">
-                    </span>
-                }
-            </div>
-
-            <div class="daily-spend-legend" aria-hidden="true">
-                <span>Less</span>
-                <div>
-                    <i class="daily-spend-cell empty"></i>
-                    <i class="daily-spend-cell low"></i>
-                    <i class="daily-spend-cell medium"></i>
-                    <i class="daily-spend-cell high"></i>
-                </div>
-                <span>More</span>
-            </div>
-        }
-    </Card>
+    <DailySpendCard Transactions="@filteredTransactions"
+                    Mode="@reportMode"
+                    Year="@selectedYear"
+                    Month="@selectedMonth"
+                    WindowLabel="@ReportWindowShortLabel" />
 }
 
 @code {
@@ -235,6 +130,7 @@ else
         new Dictionary<int, string>();
     private IReadOnlyDictionary<Guid, string> cardNamesById =
         new Dictionary<Guid, string>();
+    private IReadOnlyList<BiggestTransactionRow> biggestTransactionRows = [];
     private bool isAiConfigured;
 
     private bool IsAiConfigured => isAiConfigured;
@@ -244,134 +140,6 @@ else
 
     private string NextSetupActionIcon =>
         IsAiConfigured ? "upload_file" : "settings";
-
-    private IReadOnlyList<TopMerchantLine> TopMerchantLines =>
-        filteredTransactions
-            .Where(transaction => transaction.Amount > 0)
-            .GroupBy(transaction => MerchantCodeResolver.Resolve(transaction), StringComparer.Ordinal)
-            .Select(group => new TopMerchantLine(
-                FormatMerchantName(group.Key),
-                group.Count(),
-                group.Sum(transaction => transaction.Amount)))
-            .OrderByDescending(line => line.Amount)
-            .ThenBy(line => line.DisplayName, StringComparer.Ordinal)
-            .Take(5)
-            .ToArray();
-
-    private IReadOnlyList<Transaction> BiggestTransactions =>
-        filteredTransactions
-            .Where(transaction => transaction.Amount > 0)
-            .OrderByDescending(transaction => transaction.Amount)
-            .ThenByDescending(transaction => transaction.ImportedAtUtc)
-            .Take(5)
-            .ToArray();
-
-    private IReadOnlyList<FrequencyRow> FrequencyRows
-    {
-        get
-        {
-            var frequencyWindow = BuildFrequencyWindow();
-            if (frequencyWindow is null)
-            {
-                return [];
-            }
-
-            var (startDate, endDate) = frequencyWindow.Value;
-            var dates = BuildFrequencyDates(startDate, endDate).ToArray();
-            var columnCount = reportMode == ReportMode.Month
-                ? Math.Max(1, dates.Count(date => date is not null))
-                : Math.Max(1, dates.Length / 7);
-            var rowCount = reportMode == ReportMode.Month
-                ? 1
-                : 7;
-            var transactionsByCard = filteredTransactions
-                .GroupBy(transaction => transaction.CardAccountId)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group
-                        .GroupBy(transaction => transaction.PostedDate)
-                        .ToDictionary(dateGroup => dateGroup.Key, dateGroup => dateGroup.Count()));
-
-            var cardIds = cards
-                .Select(card => card.Id)
-                .Where(cardId => transactionsByCard.ContainsKey(cardId))
-                .Concat(transactionsByCard.Keys.Where(cardId => !cardNamesById.ContainsKey(cardId)))
-                .Distinct()
-                .ToArray();
-
-            return cardIds
-                .Select(cardId =>
-                {
-                    transactionsByCard.TryGetValue(cardId, out var countsByDate);
-                    countsByDate ??= new Dictionary<DateOnly, int>();
-
-                    return new FrequencyRow(
-                        cardNamesById.GetValueOrDefault(cardId, "Unknown Card"),
-                        reportMode == ReportMode.Month
-                            ? "frequency-cells month"
-                            : "frequency-cells year",
-                        $"--frequency-columns: {columnCount}; --frequency-rows: {rowCount}",
-                        dates
-                            .Select(date => date is null
-                                ? new FrequencyCell(null, 0)
-                                : new FrequencyCell(date, countsByDate.GetValueOrDefault(date.Value)))
-                            .ToArray());
-                })
-                .ToArray();
-        }
-    }
-
-    private IReadOnlyList<DailySpendCell> DailySpendCells
-    {
-        get
-        {
-            var frequencyWindow = BuildFrequencyWindow();
-            if (frequencyWindow is null)
-            {
-                return [];
-            }
-
-            var (startDate, endDate) = frequencyWindow.Value;
-            var spendingByDate = filteredTransactions
-                .Where(transaction => transaction.Amount > 0)
-                .GroupBy(transaction => transaction.PostedDate)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group.Sum(transaction => transaction.Amount));
-
-            return BuildFrequencyDates(startDate, endDate)
-                .Select(date => date is null
-                    ? new DailySpendCell(null, 0m)
-                    : new DailySpendCell(date, spendingByDate.GetValueOrDefault(date.Value)))
-                .ToArray();
-        }
-    }
-
-    private string DailySpendGridClass =>
-        reportMode == ReportMode.Month
-            ? "daily-spend-grid month"
-            : "daily-spend-grid year";
-
-    private string DailySpendGridStyle
-    {
-        get
-        {
-            var columnCount = reportMode == ReportMode.Month
-                ? Math.Max(1, DailySpendCells.Count(cell => cell.Date is not null))
-                : Math.Max(1, DailySpendCells.Count / 7);
-            var rowCount = reportMode == ReportMode.Month
-                ? 1
-                : 7;
-
-            return $"--daily-spend-columns: {columnCount}; --daily-spend-rows: {rowCount}";
-        }
-    }
-
-    private decimal MaxDailySpend =>
-        DailySpendCells
-            .Select(cell => cell.Amount)
-            .DefaultIfEmpty(0m)
-            .Max();
 
     private IReadOnlyList<int> AvailableYears =>
         transactions
@@ -417,24 +185,6 @@ else
         }
     }
 
-    private string AttentionCardClass =>
-        reviewCount > 0
-            ? "dashboard-card attention-card attention-warning"
-            : "dashboard-card attention-card attention-clear";
-
-    private string AttentionIcon =>
-        reviewCount > 0 ? "warning" : "check_circle";
-
-    private string AttentionSummary =>
-        reviewCount == 0
-            ? "All transactions look good"
-            : FormatTransactionCount(reviewCount) + " require attention";
-
-    private string AttentionDescription =>
-        reviewCount == 0
-            ? "No low-confidence categorizations found."
-            : "Low classification confidence detected for recent activity.";
-
     protected override async Task OnInitializedAsync()
     {
         DataRefreshNotifier.TransactionsChanged += HandleTransactionsChanged;
@@ -461,6 +211,7 @@ else
             averageTransaction = 0m;
             largestCharge = 0m;
             creditTotal = 0m;
+            biggestTransactionRows = [];
             return;
         }
 
@@ -519,6 +270,7 @@ else
         averageTransaction = filteredTransactions.Count == 0 ? 0 : totalSpending / filteredTransactions.Count;
         largestCharge = filteredTransactions.Where(transaction => transaction.Amount > 0).DefaultIfEmpty().Max(transaction => transaction?.Amount ?? 0);
         creditTotal = filteredTransactions.Where(transaction => transaction.Amount < 0).Sum(transaction => transaction.Amount);
+        RebuildBiggestTransactionRows();
     }
 
     private async Task ReloadAssignmentsAsync()
@@ -575,147 +327,26 @@ else
         };
     }
 
-    private (DateOnly StartDate, DateOnly EndDate)? BuildFrequencyWindow()
+    private void RebuildBiggestTransactionRows()
     {
-        if (reportMode == ReportMode.All)
-        {
-            var dates = filteredTransactions
-                .Select(transaction => transaction.PostedDate)
-                .ToArray();
+        biggestTransactionRows = filteredTransactions
+            .Where(transaction => transaction.Amount > 0)
+            .OrderByDescending(transaction => transaction.Amount)
+            .ThenByDescending(transaction => transaction.ImportedAtUtc)
+            .Take(5)
+            .Select(transaction =>
+            {
+                var categoryId = assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
+                    ? assignment.CategoryId
+                    : BuiltInCategoryIds.Other;
 
-            return dates.Length == 0
-                ? null
-                : (dates.Min(), dates.Max());
-        }
-
-        var query = BuildQuery();
-        return query.StartDate is null || query.EndDate is null
-            ? null
-            : (query.StartDate.Value, query.EndDate.Value);
-    }
-
-    private decimal GetMerchantWidth(decimal amount)
-    {
-        var largestAmount = TopMerchantLines.Select(line => line.Amount).DefaultIfEmpty(0m).Max();
-        if (largestAmount == 0)
-        {
-            return 0;
-        }
-
-        return Math.Max(8m, Math.Round(amount / largestAmount * 100m, 1));
-    }
-
-    private static string FormatMerchantName(string merchantCode)
-    {
-        if (string.IsNullOrWhiteSpace(merchantCode))
-        {
-            return "Unknown Merchant";
-        }
-
-        return merchantCode;
-    }
-
-    private static string FormatTransactionCount(int transactionCount)
-    {
-        return transactionCount == 1
-            ? "1 transaction"
-            : $"{transactionCount} transactions";
-    }
-
-    private string GetTransactionCategoryName(Transaction transaction)
-    {
-        var categoryId = assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
-            ? assignment.CategoryId
-            : BuiltInCategoryIds.Other;
-
-        return categoryNamesById.GetValueOrDefault(categoryId, "Other");
-    }
-
-    private string GetTransactionCategoryStyle(Transaction transaction)
-    {
-        var categoryId = assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
-            ? assignment.CategoryId
-            : BuiltInCategoryIds.Other;
-
-        var color = categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
-
-        return $"--category-color: {color}";
-    }
-
-    private IEnumerable<DateOnly?> BuildFrequencyDates(DateOnly startDate, DateOnly endDate)
-    {
-        if (reportMode == ReportMode.Month)
-        {
-            return EachDate(startDate, endDate).Select(date => (DateOnly?)date);
-        }
-
-        var dates = new List<DateOnly?>();
-        var leadingBlanks = GetWeekRowIndex(startDate);
-        dates.AddRange(Enumerable.Repeat<DateOnly?>(null, leadingBlanks));
-        dates.AddRange(EachDate(startDate, endDate).Select(date => (DateOnly?)date));
-
-        var trailingBlanks = (7 - (dates.Count % 7)) % 7;
-        dates.AddRange(Enumerable.Repeat<DateOnly?>(null, trailingBlanks));
-
-        return dates;
-    }
-
-    private static IEnumerable<DateOnly> EachDate(DateOnly startDate, DateOnly endDate)
-    {
-        for (var date = startDate; date <= endDate; date = date.AddDays(1))
-        {
-            yield return date;
-        }
-    }
-
-    private static int GetWeekRowIndex(DateOnly date)
-    {
-        return date.DayOfWeek == DayOfWeek.Sunday
-            ? 6
-            : (int)date.DayOfWeek - 1;
-    }
-
-    private static string GetFrequencyCellClass(int transactionCount)
-    {
-        return transactionCount switch
-        {
-            <= 0 => "frequency-cell empty",
-            1 => "frequency-cell medium",
-            _ => "frequency-cell high"
-        };
-    }
-
-    private static string GetFrequencyCellTitle(FrequencyCell cell)
-    {
-        return cell.Date is null
-            ? "Outside report window"
-            : $"{cell.Date.Value:MMM d, yyyy}: {cell.Count} transactions";
-    }
-
-    private string GetDailySpendCellClass(decimal amount)
-    {
-        if (amount <= 0)
-        {
-            return "daily-spend-cell empty";
-        }
-
-        var ratio = MaxDailySpend == 0
-            ? 0
-            : amount / MaxDailySpend;
-
-        return ratio switch
-        {
-            < 0.34m => "daily-spend-cell low",
-            < 0.67m => "daily-spend-cell medium",
-            _ => "daily-spend-cell high"
-        };
-    }
-
-    private static string GetDailySpendCellTitle(DailySpendCell cell)
-    {
-        return cell.Date is null
-            ? "Outside report window"
-            : $"{cell.Date.Value:MMM d, yyyy}: {cell.Amount:C} spent";
+                return new BiggestTransactionRow(
+                    transaction.OriginalDescription,
+                    categoryNamesById.GetValueOrDefault(categoryId, "Other"),
+                    categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2"),
+                    transaction.Amount);
+            })
+            .ToArray();
     }
 
     private void GoToNextSetupStep()
@@ -766,22 +397,4 @@ else
             : fallbackMonth;
     }
 
-    private sealed record FrequencyRow(
-        string Label,
-        string GridClass,
-        string GridStyle,
-        IReadOnlyList<FrequencyCell> Cells);
-
-    private sealed record FrequencyCell(
-        DateOnly? Date,
-        int Count);
-
-    private sealed record DailySpendCell(
-        DateOnly? Date,
-        decimal Amount);
-
-    private sealed record TopMerchantLine(
-        string DisplayName,
-        int TransactionCount,
-        decimal Amount);
 }

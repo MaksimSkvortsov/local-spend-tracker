@@ -11,6 +11,12 @@
     --warn: #8a5a00;
     --error: #b42318;
     --focus: #92d56f;
+    --surface-card: var(--surface);
+    --border-card: #c3c8bd;
+    --radius-card: 0;
+    --space-card-x: 24px;
+    --space-card-y: 24px;
+    --shadow-card: none;
 }
 
 * {
@@ -91,6 +97,14 @@ h2 {
     font-size: 1rem;
     line-height: 1.25;
     letter-spacing: 0;
+}
+
+.app-card {
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-card);
+    background: var(--surface-card);
+    padding: var(--space-card-y) var(--space-card-x);
+    box-shadow: var(--shadow-card);
 }
 
 p {
@@ -284,10 +298,6 @@ dt,
     justify-content: space-between;
     gap: 24px;
     align-items: center;
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
-    background: var(--surface);
-    padding: 24px;
     margin-bottom: 24px;
 }
 
@@ -384,20 +394,10 @@ dt,
     margin-bottom: 24px;
 }
 
-.dashboard-card {
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
-    background: var(--surface);
-    padding: 24px;
-}
-
 .dashboard-empty-card {
     min-height: calc(100vh - 48px);
     display: grid;
     place-items: start center;
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
-    background: var(--surface);
     padding: 48px 24px;
 }
 
@@ -551,9 +551,6 @@ dt,
 }
 
 .panel {
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
-    background: var(--surface);
     padding: 18px;
 }
 
@@ -582,19 +579,10 @@ dt,
     margin-bottom: 40px;
 }
 
-.import-upload-card,
-.selected-transactions-card,
-.import-history-card {
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
-    background: var(--surface);
-}
-
 .import-upload-card {
     min-height: 400px;
     display: flex;
     flex-direction: column;
-    padding: 24px;
 }
 
 .import-card-header {
@@ -714,6 +702,7 @@ dt,
 .selected-transactions-card,
 .import-history-card {
     overflow: hidden;
+    padding: 0;
 }
 
 .selected-transactions-card {
@@ -1084,9 +1073,6 @@ dt,
 }
 
 .settings-card {
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
-    background: #ffffff;
     padding: 32px;
 }
 
@@ -1428,8 +1414,8 @@ dt,
     justify-content: space-between;
     gap: 16px;
     align-items: center;
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-card);
     background: #f6f3f2;
     padding: 16px;
 }
@@ -2049,9 +2035,7 @@ dt,
     display: flex;
     overflow: hidden;
     flex-direction: column;
-    border: 1px solid #c3c8bd;
-    border-radius: 0;
-    background: #ffffff;
+    padding: 0;
 }
 
 .transactions-alert-wrap {

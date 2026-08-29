@@ -18,7 +18,7 @@
 
 @if (transactions.Count == 0)
 {
-    <section class="dashboard-empty-card">
+    <section class="app-card dashboard-empty-card">
         <div class="dashboard-empty-content">
             <div class="dashboard-empty-icon">
                 <img src="images/peasantmoney-icon.png" alt="" aria-hidden="true" />
@@ -50,7 +50,7 @@
 }
 else
 {
-    <section class="dashboard-metric-panel">
+    <section class="app-card dashboard-metric-panel">
         <div class="period-controls" aria-label="Report period controls">
             <div class="period-toggle" role="group" aria-label="Report mode">
                 <button type="button" class="@GetReportModeClass(ReportMode.All)" @onclick="() => SetReportModeAsync(ReportMode.All)">All</button>
@@ -99,7 +99,7 @@ else
     </section>
 
     <section class="dashboard-workspace-grid">
-        <div class="dashboard-card spending-card">
+        <div class="app-card dashboard-card spending-card">
             <div class="dashboard-card-header">
                 <h2>Spending by Category</h2>
             </div>
@@ -150,7 +150,7 @@ else
         </div>
 
         <div class="dashboard-side-stack">
-            <div class="dashboard-card">
+            <div class="app-card dashboard-card">
                 <h3>Top Merchants</h3>
 
                 <div class="category-bars">
@@ -193,7 +193,7 @@ else
         </div>
     </section>
 
-    <section class="dashboard-card dashboard-table-card">
+    <section class="app-card dashboard-card dashboard-table-card">
         <div class="dashboard-table-header">
             <h2>Biggest Transactions</h2>
             <span>Top 5 @ReportWindowShortLabel</span>
@@ -224,7 +224,7 @@ else
         </DataTable>
     </section>
 
-    <section class="dashboard-card frequency-card">
+    <section class="app-card dashboard-card frequency-card">
         <div class="frequency-header">
             <div>
                 <h2>Transaction Frequency</h2>
@@ -260,7 +260,7 @@ else
         </div>
     </section>
 
-    <section class="dashboard-card daily-spend-card">
+    <section class="app-card dashboard-card daily-spend-card">
         <div class="frequency-header">
             <div>
                 <h2>Amount Spent per Day</h2>
@@ -543,8 +543,8 @@ else
 
     private string AttentionCardClass =>
         reviewCount > 0
-            ? "dashboard-card attention-card attention-warning"
-            : "dashboard-card attention-card attention-clear";
+            ? "app-card dashboard-card attention-card attention-warning"
+            : "app-card dashboard-card attention-card attention-clear";
 
     private string AttentionIcon =>
         reviewCount > 0 ? "warning" : "check_circle";

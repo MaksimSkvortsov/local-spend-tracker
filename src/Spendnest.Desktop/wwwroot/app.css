@@ -107,6 +107,26 @@ h2 {
     box-shadow: var(--shadow-card);
 }
 
+.app-card__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+.app-card__title {
+    color: var(--ink);
+    font-size: 1.12rem;
+    font-weight: 700;
+}
+
+.app-card__subtitle {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
 p {
     color: var(--muted);
 }
@@ -360,7 +380,7 @@ dt,
 
 .dashboard-metrics span,
 .dashboard-card h3,
-.dashboard-table-header span {
+.dashboard-card .app-card__subtitle {
     display: block;
     color: var(--muted);
     font-size: 0.7rem;
@@ -509,22 +529,6 @@ dt,
     height: 100%;
 }
 
-.dashboard-card-header,
-.dashboard-table-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: center;
-    margin-bottom: 40px;
-}
-
-.dashboard-card-header h2,
-.dashboard-table-header h2 {
-    color: var(--ink);
-    font-size: 1.12rem;
-    font-weight: 700;
-}
-
 .icon-button {
     min-width: 36px;
     min-height: 36px;
@@ -585,20 +589,9 @@ dt,
     flex-direction: column;
 }
 
-.import-card-header {
+.import-upload-card > .app-card__body {
+    flex: 1;
     display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: center;
-    margin-bottom: 40px;
-}
-
-.import-card-header h2,
-.selected-transactions-header h2,
-.import-history-header h2 {
-    color: var(--ink);
-    font-size: 1.12rem;
-    font-weight: 700;
 }
 
 .import-drop-zone {
@@ -715,21 +708,11 @@ dt,
     border-radius: 0;
 }
 
-.selected-transactions-header,
-.import-history-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: center;
+.selected-transactions-card > .app-card__header,
+.import-history-card > .app-card__header {
+    margin: 0;
     border-bottom: 1px solid var(--line);
     padding: 16px 24px;
-}
-
-.selected-transactions-header p,
-.import-history-header p {
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 0.84rem;
 }
 
 .selected-transactions-actions {
@@ -1076,24 +1059,19 @@ dt,
     padding: 32px;
 }
 
-.settings-card-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
+.settings-card > .app-card__header {
     align-items: flex-start;
 }
 
-.settings-card-header h2 {
+.settings-card .app-card__title {
     color: #1b1c1c;
     font-size: 1.5rem;
     line-height: 1.3;
     font-weight: 700;
 }
 
-.settings-card-header p {
-    margin-top: 4px;
+.settings-card .app-card__subtitle {
     color: #434840;
-    font-size: 0.84rem;
 }
 
 .connection-chip {
@@ -1712,7 +1690,7 @@ dt,
     border-radius: 0;
 }
 
-.dashboard-table-header {
+.dashboard-table-card > .app-card__header {
     margin: 0;
     border-bottom: 1px solid var(--line);
     padding: 16px 24px;
@@ -1738,20 +1716,15 @@ dt,
     margin-bottom: 24px;
 }
 
-.frequency-header {
+.frequency-card > .app-card__header,
+.daily-spend-card > .app-card__header {
     display: flex;
     justify-content: space-between;
     gap: 16px;
     align-items: end;
+    margin-bottom: 0;
 }
 
-.frequency-header h2 {
-    color: var(--ink);
-    font-size: 1.12rem;
-    font-weight: 700;
-}
-
-.frequency-header span,
 .frequency-row p,
 .frequency-legend span,
 .daily-spend-legend span {
@@ -1764,6 +1737,12 @@ dt,
 }
 
 .frequency-list {
+    display: grid;
+    gap: 24px;
+}
+
+.frequency-card > .app-card__body,
+.daily-spend-card > .app-card__body {
     display: grid;
     gap: 24px;
 }
@@ -2501,7 +2480,7 @@ tbody tr:last-child td {
         padding: 20px;
     }
 
-    .settings-card-header,
+    .settings-card > .app-card__header,
     .settings-test-section,
     .settings-key-row {
         align-items: stretch;

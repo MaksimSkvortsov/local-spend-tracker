@@ -99,11 +99,7 @@ else
     </section>
 
     <section class="dashboard-workspace-grid">
-        <div class="app-card dashboard-card spending-card">
-            <div class="dashboard-card-header">
-                <h2>Spending by Category</h2>
-            </div>
-
+        <Card Class="dashboard-card spending-card" Title="Spending by Category">
             @if (ChartCategoryLines.Count == 0)
             {
                 <div class="empty-state compact">No category spending in this window.</div>
@@ -147,7 +143,7 @@ else
                     </div>
                 </div>
             }
-        </div>
+        </Card>
 
         <div class="dashboard-side-stack">
             <div class="app-card dashboard-card">
@@ -193,45 +189,38 @@ else
         </div>
     </section>
 
-    <section class="app-card dashboard-card dashboard-table-card">
-        <div class="dashboard-table-header">
-            <h2>Biggest Transactions</h2>
-            <span>Top 5 @ReportWindowShortLabel</span>
-        </div>
-
-        <DataTable>
-            <HeaderContent>
-                <tr>
-                    <th>Merchant</th>
-                    <th>Category</th>
-                    <th class="amount">Amount</th>
-                </tr>
-            </HeaderContent>
-            <ChildContent>
-                @foreach (var transaction in BiggestTransactions)
-                {
+    <Card Class="dashboard-card dashboard-table-card" Title="Biggest Transactions">
+        <HeaderAction>
+            <span class="app-card__subtitle">Top 5 @ReportWindowShortLabel</span>
+        </HeaderAction>
+        <ChildContent>
+            <DataTable>
+                <HeaderContent>
                     <tr>
-                        <td>@transaction.OriginalDescription</td>
-                        <td>
-                            <span class="table-category-pill" style="@GetTransactionCategoryStyle(transaction)">
-                                @GetTransactionCategoryName(transaction)
-                            </span>
-                        </td>
-                        <td class="amount">@transaction.Amount.ToString("C")</td>
+                        <th>Merchant</th>
+                        <th>Category</th>
+                        <th class="amount">Amount</th>
                     </tr>
-                }
-            </ChildContent>
-        </DataTable>
-    </section>
+                </HeaderContent>
+                <ChildContent>
+                    @foreach (var transaction in BiggestTransactions)
+                    {
+                        <tr>
+                            <td>@transaction.OriginalDescription</td>
+                            <td>
+                                <span class="table-category-pill" style="@GetTransactionCategoryStyle(transaction)">
+                                    @GetTransactionCategoryName(transaction)
+                                </span>
+                            </td>
+                            <td class="amount">@transaction.Amount.ToString("C")</td>
+                        </tr>
+                    }
+                </ChildContent>
+            </DataTable>
+        </ChildContent>
+    </Card>
 
-    <section class="app-card dashboard-card frequency-card">
-        <div class="frequency-header">
-            <div>
-                <h2>Transaction Frequency</h2>
-                <span>@ReportWindowShortLabel</span>
-            </div>
-        </div>
-
+    <Card Class="dashboard-card frequency-card" Title="Transaction Frequency" Subtitle="@ReportWindowShortLabel">
         <div class="frequency-list">
             @foreach (var row in FrequencyRows)
             {
@@ -258,16 +247,9 @@ else
             </div>
             <span>More</span>
         </div>
-    </section>
+    </Card>
 
-    <section class="app-card dashboard-card daily-spend-card">
-        <div class="frequency-header">
-            <div>
-                <h2>Amount Spent per Day</h2>
-                <span>All cards &middot; @ReportWindowShortLabel</span>
-            </div>
-        </div>
-
+    <Card Class="dashboard-card daily-spend-card" Title="Amount Spent per Day" Subtitle="@($"All cards · {ReportWindowShortLabel}")">
         @if (DailySpendCells.Count == 0 || DailySpendCells.All(cell => cell.Amount <= 0))
         {
             <div class="empty-state compact">No daily spending in this window.</div>
@@ -294,7 +276,7 @@ else
                 <span>More</span>
             </div>
         }
-    </section>
+    </Card>
 }
 
 @code {

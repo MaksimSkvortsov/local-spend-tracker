@@ -19,11 +19,7 @@
 @if (string.IsNullOrWhiteSpace(selectedFilePath))
 {
     <section class="import-workspace">
-        <div class="app-card import-upload-card">
-            <div class="import-card-header">
-                <h2>Upload Statement</h2>
-            </div>
-
+        <Card Class="import-upload-card" Title="Upload Statement">
             <button type="button" class="import-drop-zone" @onclick="PickCsvAsync" disabled="@isBusy">
                 <span class="upload-icon material-symbols-outlined" aria-hidden="true">file_upload</span>
                 <span>
@@ -32,7 +28,7 @@
                 </span>
             </button>
 
-        </div>
+        </Card>
 
         @if (!string.IsNullOrWhiteSpace(statusMessage))
         {
@@ -43,167 +39,166 @@
 
 @if (!string.IsNullOrWhiteSpace(selectedFilePath))
 {
-    <section class="app-card selected-transactions-card">
-        <div class="selected-transactions-header">
-            <div>
-                <h2>Transactions in File</h2>
-                <p>Previewing @PreviewRows.Count transactions from @SelectedFileName</p>
-            </div>
+    <Card Class="selected-transactions-card"
+          Title="Transactions in File"
+          Subtitle="@($"Previewing {PreviewRows.Count} transactions from {SelectedFileName}")">
+        <HeaderAction>
             <div class="selected-transactions-actions">
                 <button class="secondary-button" @onclick="ClearSelectedFile" disabled="@isBusy">Cancel</button>
                 <button class="primary-button" @onclick="ImportAsync" disabled="@(!CanImport)">
                     @(isBusy ? CurrentProgressLabel : "Confirm Import")
                 </button>
             </div>
-        </div>
+        </HeaderAction>
 
-        <div class="selected-card-row">
-            <div class="field-group">
-                <label for="cardName">Card</label>
-                @if (cardDetected)
-                {
-                    <div class="detected-card compact">
-                        <span>Detected card</span>
-                        <strong>@cardName</strong>
-                    </div>
-                }
-                else
-                {
-                    <div class="@(IsExistingCardSelected ? "card-picker-grid single" : "card-picker-grid")">
-                        <select id="cardName" class="text-input" @bind="selectedExistingCardName" @bind:after="UseSelectedExistingCard" disabled="@isBusy">
-                            <option value="">New card</option>
-                            @foreach (var card in availableCards)
+        <ChildContent>
+            <div class="selected-card-row">
+                <div class="field-group">
+                    <label for="cardName">Card</label>
+                    @if (cardDetected)
+                    {
+                        <div class="detected-card compact">
+                            <span>Detected card</span>
+                            <strong>@cardName</strong>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="@(IsExistingCardSelected ? "card-picker-grid single" : "card-picker-grid")">
+                            <select id="cardName" class="text-input" @bind="selectedExistingCardName" @bind:after="UseSelectedExistingCard" disabled="@isBusy">
+                                <option value="">New card</option>
+                                @foreach (var card in availableCards)
+                                {
+                                    <option value="@card.Name">@card.Name</option>
+                                }
+                            </select>
+                            @if (!IsExistingCardSelected)
                             {
-                                <option value="@card.Name">@card.Name</option>
+                                <input class="text-input" placeholder="Card name" @bind="cardName" @bind:event="oninput" disabled="@isBusy" />
                             }
-                        </select>
-                        @if (!IsExistingCardSelected)
-                        {
-                            <input class="text-input" placeholder="Card name" @bind="cardName" @bind:event="oninput" disabled="@isBusy" />
-                        }
-                    </div>
-                }
-                @if (!string.IsNullOrWhiteSpace(cardSelectionMessage))
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(cardSelectionMessage))
+                    {
+                        <span class="field-hint">@cardSelectionMessage</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(statusMessage))
                 {
-                    <span class="field-hint">@cardSelectionMessage</span>
+                    <span class="status-message">@statusMessage</span>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert error">@errorMessage</div>
                 }
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(statusMessage))
-            {
-                <span class="status-message">@statusMessage</span>
-            }
+            <DataTable HasItems="@(PreviewRows.Count > 0)"
+                       EmptyMessage="No transactions found in the selected file."
+                       EmptyStateClass="empty-state compact">
+                <HeaderContent>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th class="amount">Amount</th>
+                    </tr>
+                </HeaderContent>
+                <ChildContent>
+                    @foreach (var row in PagedPreviewRows)
+                    {
+                        <tr>
+                            <td>@row.PostedDate.ToString("yyyy-MM-dd")</td>
+                            <td>@row.Description</td>
+                            <td><span class="@GetPreviewCategoryClass(row)">@row.Category</span></td>
+                            <td class="amount">@row.Amount.ToString("C")</td>
+                        </tr>
+                    }
+                </ChildContent>
+                <FooterContent>
+                    <PaginationBar ContainerClass="pagination-bar selected-transactions-pagination"
+                                   CurrentPage="@previewPage"
+                                   PageCount="@PreviewPageCount"
+                                   Disabled="@isBusy"
+                                   OnPrevious="PreviousPreviewPage"
+                                   OnNext="NextPreviewPage" />
+                </FooterContent>
+            </DataTable>
+        </ChildContent>
+    </Card>
+}
 
-            @if (!string.IsNullOrWhiteSpace(errorMessage))
-            {
-                <div class="alert error">@errorMessage</div>
-            }
-        </div>
+<Card Class="import-history-card"
+      Title="Import History"
+      Subtitle="View and manage your recent statement uploads">
+    <HeaderAction>
+        <button type="button" class="icon-button" aria-label="Refresh import history" @onclick="RefreshImportHistoryViewAsync">
+            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+        </button>
+    </HeaderAction>
 
-        <DataTable HasItems="@(PreviewRows.Count > 0)"
-                   EmptyMessage="No transactions found in the selected file."
-                   EmptyStateClass="empty-state compact">
+    <ChildContent>
+        <DataTable HasItems="@(uploadHistory.Count > 0)"
+                   EmptyMessage="No uploads in this session."
+                   EmptyStateClass="empty-state compact"
+                   TableClass="import-history-table">
             <HeaderContent>
                 <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Category</th>
-                    <th class="amount">Amount</th>
+                    <th>File Name</th>
+                    <th>Transactions</th>
+                    <th>Transaction Range</th>
+                    <th class="status-column">Status</th>
+                    <th class="date-column">Date Imported</th>
+                    <th class="amount">Actions</th>
                 </tr>
             </HeaderContent>
             <ChildContent>
-                @foreach (var row in PagedPreviewRows)
+                @foreach (var upload in PagedUploadHistory)
                 {
                     <tr>
-                        <td>@row.PostedDate.ToString("yyyy-MM-dd")</td>
-                        <td>@row.Description</td>
-                        <td><span class="@GetPreviewCategoryClass(row)">@row.Category</span></td>
-                        <td class="amount">@row.Amount.ToString("C")</td>
+                        <td>
+                            <span class="history-file">
+                                <span class="material-symbols-outlined" aria-hidden="true">description</span>
+                                <span>@upload.FileName</span>
+                            </span>
+                            @if (upload.TimeoutCount > 0)
+                            {
+                                <span class="history-note">@upload.TimeoutCount AI timeouts</span>
+                            }
+                        </td>
+                        <td class="data-cell">@upload.SavedTransactionCount</td>
+                        <td>@upload.TransactionRange</td>
+                        <td class="status-column"><span class="@GetImportStatusClass(upload)">@upload.StatusLabel</span></td>
+                        <td class="date-column">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</td>
+                        <td class="amount">
+                            <button type="button" class="table-icon-button" aria-label="@($"Actions for {upload.FileName}")">
+                                <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+                            </button>
+                        </td>
                     </tr>
                 }
             </ChildContent>
             <FooterContent>
-                <PaginationBar ContainerClass="pagination-bar selected-transactions-pagination"
-                               CurrentPage="@previewPage"
-                               PageCount="@PreviewPageCount"
-                               Disabled="@isBusy"
-                               OnPrevious="PreviousPreviewPage"
-                               OnNext="NextPreviewPage" />
+                <PaginationBar ContainerClass="import-history-footer"
+                               CurrentPage="@uploadHistoryPage"
+                               PageCount="@UploadHistoryPageCount"
+                               ShowingCount="@PagedUploadHistory.Count"
+                               TotalCount="@uploadHistory.Count"
+                               ItemLabel="imports"
+                               ShowSummary="true"
+                               StrongPageLabel="true"
+                               OnPrevious="PreviousUploadHistoryPage"
+                               OnNext="NextUploadHistoryPage" />
             </FooterContent>
         </DataTable>
-    </section>
-}
-
-<section class="app-card import-history-card">
-    <div class="import-history-header">
-        <div>
-            <h2>Import History</h2>
-            <p>View and manage your recent statement uploads</p>
-        </div>
-        <button type="button" class="icon-button" aria-label="Refresh import history" @onclick="RefreshImportHistoryViewAsync">
-            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
-        </button>
-    </div>
-
-    <DataTable HasItems="@(uploadHistory.Count > 0)"
-               EmptyMessage="No uploads in this session."
-               EmptyStateClass="empty-state compact"
-               TableClass="import-history-table">
-        <HeaderContent>
-            <tr>
-                <th>File Name</th>
-                <th>Transactions</th>
-                <th>Transaction Range</th>
-                <th class="status-column">Status</th>
-                <th class="date-column">Date Imported</th>
-                <th class="amount">Actions</th>
-            </tr>
-        </HeaderContent>
-        <ChildContent>
-            @foreach (var upload in PagedUploadHistory)
-            {
-                <tr>
-                    <td>
-                        <span class="history-file">
-                            <span class="material-symbols-outlined" aria-hidden="true">description</span>
-                            <span>@upload.FileName</span>
-                        </span>
-                        @if (upload.TimeoutCount > 0)
-                        {
-                            <span class="history-note">@upload.TimeoutCount AI timeouts</span>
-                        }
-                    </td>
-                    <td class="data-cell">@upload.SavedTransactionCount</td>
-                    <td>@upload.TransactionRange</td>
-                    <td class="status-column"><span class="@GetImportStatusClass(upload)">@upload.StatusLabel</span></td>
-                    <td class="date-column">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</td>
-                    <td class="amount">
-                        <button type="button" class="table-icon-button" aria-label="@($"Actions for {upload.FileName}")">
-                            <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
-                        </button>
-                    </td>
-                </tr>
-            }
-        </ChildContent>
-        <FooterContent>
-            <PaginationBar ContainerClass="import-history-footer"
-                           CurrentPage="@uploadHistoryPage"
-                           PageCount="@UploadHistoryPageCount"
-                           ShowingCount="@PagedUploadHistory.Count"
-                           TotalCount="@uploadHistory.Count"
-                           ItemLabel="imports"
-                           ShowSummary="true"
-                           StrongPageLabel="true"
-                           OnPrevious="PreviousUploadHistoryPage"
-                           OnNext="NextUploadHistoryPage" />
-        </FooterContent>
-    </DataTable>
-</section>
+    </ChildContent>
+</Card>
 
 @if (importResult?.Warnings.Count > 0)
 {
-    <section class="app-card panel">
-        <h2>Warnings</h2>
+    <Card Class="panel" Title="Warnings">
         <div class="warning-list">
             @foreach (var warning in importResult.Warnings)
             {
@@ -213,7 +208,7 @@
                 </div>
             }
         </div>
-    </section>
+    </Card>
 }
 
 @code {

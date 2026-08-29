@@ -1,0 +1,46 @@
+<section class="@CardClass" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <header class="app-card__header">
+            <div>
+                <h2 class="app-card__title">@Title</h2>
+
+                @if (!string.IsNullOrWhiteSpace(Subtitle))
+                {
+                    <p class="app-card__subtitle">@Subtitle</p>
+                }
+            </div>
+
+            @HeaderAction
+        </header>
+    }
+
+    <div class="app-card__body">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    [Parameter]
+    public RenderFragment? HeaderAction { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string CardClass =>
+        string.IsNullOrWhiteSpace(Class)
+            ? "app-card"
+            : $"app-card {Class}";
+}

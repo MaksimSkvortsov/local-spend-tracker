@@ -47,19 +47,18 @@
     <div class="settings-content">
         @if (activeTab == SettingsTab.Ai)
         {
-        <section class="app-card settings-card">
-            <div class="settings-card-header">
-                <div>
-                    <h2>AI Configuration</h2>
-                    <p>Configure your language model provider for smart transaction categorization.</p>
-                </div>
+        <Card Class="settings-card"
+              Title="AI Configuration"
+              Subtitle="Configure your language model provider for smart transaction categorization.">
+            <HeaderAction>
                 <div class="@ConnectionStatusClass">
                     <span aria-hidden="true"></span>
                     @ConnectionStatusText
                 </div>
-            </div>
+            </HeaderAction>
 
-            <div class="settings-form">
+            <ChildContent>
+                <div class="settings-form">
                 <div class="settings-field">
                     <label>Provider</label>
                     <div class="provider-display" aria-label="AI provider">
@@ -157,19 +156,15 @@
                 {
                     <div class="@StatusClass">@statusMessage</div>
                 }
-            </div>
-        </section>
+                </div>
+            </ChildContent>
+        </Card>
         }
         else if (activeTab == SettingsTab.Data)
         {
-        <section class="app-card settings-card">
-            <div class="settings-card-header">
-                <div>
-                    <h2>Data & Privacy</h2>
-                    <p>Manage your local database, backups, and privacy controls.</p>
-                </div>
-            </div>
-
+        <Card Class="settings-card"
+              Title="Data & Privacy"
+              Subtitle="Manage your local database, backups, and privacy controls.">
             <div class="settings-form">
                 <div class="settings-data-section">
                     <h3>Local Storage</h3>
@@ -209,18 +204,13 @@
                     <div class="@StatusClass">@statusMessage</div>
                 }
             </div>
-        </section>
+        </Card>
         }
         else if (activeTab == SettingsTab.DevTesting)
         {
-        <section class="app-card settings-card">
-            <div class="settings-card-header">
-                <div>
-                    <h2>Developer Testing</h2>
-                    <p>Locate diagnostic files used while testing packaged and local builds.</p>
-                </div>
-            </div>
-
+        <Card Class="settings-card"
+              Title="Developer Testing"
+              Subtitle="Locate diagnostic files used while testing packaged and local builds.">
             <div class="settings-form">
                 <div class="settings-data-section">
                     <h3>Application Logs</h3>
@@ -243,7 +233,7 @@
                     <div class="@StatusClass">@statusMessage</div>
                 }
             </div>
-        </section>
+        </Card>
         }
     </div>
 </section>

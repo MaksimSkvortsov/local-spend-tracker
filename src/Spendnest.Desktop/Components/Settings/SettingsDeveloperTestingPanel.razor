@@ -1,0 +1,40 @@
+<Card Class="settings-card"
+      Title="Developer Testing"
+      Subtitle="Locate diagnostic files used while testing packaged and local builds.">
+    <div class="settings-form">
+        <div class="settings-data-section">
+            <h3>Application Logs</h3>
+            <div class="settings-storage-panel">
+                <div class="settings-storage-main">
+                    <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+                    <div>
+                        <span>Logs Folder</span>
+                        <strong>@LogsFolderLocation</strong>
+                    </div>
+                </div>
+                <button type="button" class="secondary-button" @onclick="OnOpenLogsFolder" disabled="@IsBusy">
+                    Open Logs Folder
+                </button>
+            </div>
+        </div>
+
+        <SettingsStatus Message="@StatusMessage" Kind="@StatusKind" />
+    </div>
+</Card>
+
+@code {
+    [Parameter]
+    public string LogsFolderLocation { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    [Parameter]
+    public SettingsStatusKind StatusKind { get; set; }
+
+    [Parameter]
+    public EventCallback OnOpenLogsFolder { get; set; }
+}

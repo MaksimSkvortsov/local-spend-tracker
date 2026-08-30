@@ -142,29 +142,11 @@
         }
         else if (activeTab == SettingsTab.DevTesting)
         {
-        <Card Class="settings-card"
-              Title="Developer Testing"
-              Subtitle="Locate diagnostic files used while testing packaged and local builds.">
-            <div class="settings-form">
-                <div class="settings-data-section">
-                    <h3>Application Logs</h3>
-                    <div class="settings-storage-panel">
-                        <div class="settings-storage-main">
-                            <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
-                            <div>
-                                <span>Logs Folder</span>
-                                <strong>@LogsFolderLocation</strong>
-                            </div>
-                        </div>
-                        <button type="button" class="secondary-button" @onclick="OpenLogsFolder" disabled="@isBusy">
-                            Open Logs Folder
-                        </button>
-                    </div>
-                </div>
-
-                <SettingsStatus Message="@statusMessage" Kind="@statusKind" />
-            </div>
-        </Card>
+            <SettingsDeveloperTestingPanel LogsFolderLocation="@LogsFolderLocation"
+                                           IsBusy="@isBusy"
+                                           StatusMessage="@statusMessage"
+                                           StatusKind="@statusKind"
+                                           OnOpenLogsFolder="OpenLogsFolder" />
         }
     </div>
 </section>

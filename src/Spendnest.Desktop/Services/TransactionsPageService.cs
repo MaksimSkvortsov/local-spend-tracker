@@ -26,7 +26,6 @@ public sealed class TransactionsPageService(
             cards,
             categories,
             reviewState.AssignmentsByTransactionId,
-            categories.ToDictionary(category => category.Id, category => category.Name),
             categories.ToDictionary(category => category.Id, category => category.ColorHex),
             cards.ToDictionary(card => card.Id, card => card.Name),
             reviewState.ReviewCount);

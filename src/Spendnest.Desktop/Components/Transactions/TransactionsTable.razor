@@ -1,0 +1,149 @@
+<DataTable WrapperClass="table-wrap transaction-table-wrap"
+           TableClass="transaction-table">
+    <HeaderContent>
+        <tr>
+            <th class="transaction-date">Date</th>
+            <th>Description</th>
+            <th class="transaction-category">Category</th>
+            <th class="transaction-card">Card</th>
+            <th class="amount transaction-amount">Amount</th>
+        </tr>
+    </HeaderContent>
+    <ChildContent>
+        @foreach (var transaction in Transactions)
+        {
+            <tr>
+                <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
+                <td class="transaction-description">@transaction.OriginalDescription</td>
+                <td class="transaction-category">
+                    <div class="category-editor-wrap">
+                        <select class="@GetCategoryEditorClass(transaction)"
+                                style="@GetCategoryStyle(transaction)"
+                                value="@GetCategoryId(transaction)"
+                                @onchange="args => OnCategoryChanged.InvokeAsync(new TransactionCategoryChange(transaction, args.Value?.ToString()))"
+                                disabled="@(SavingCategoryTransactionId == transaction.Id)"
+                                aria-label="@($"Category for {transaction.OriginalDescription}")">
+                            @foreach (var category in Categories)
+                            {
+                                <option value="@category.Id">@category.Name</option>
+                            }
+                        </select>
+                        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+                    </div>
+                    @if (NeedsReview(transaction))
+                    {
+                        <span class="review-warning">
+                            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                            <span>Low Confidence</span>
+                        </span>
+                    }
+                </td>
+                <td class="transaction-card">@GetCardName(transaction)</td>
+                <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
+            </tr>
+        }
+    </ChildContent>
+    <FooterContent>
+        <PaginationBar ContainerClass="transaction-table-footer"
+                       ButtonGroupClass="transaction-table-footer-actions"
+                       ButtonClass="table-icon-button"
+                       CurrentPage="@CurrentPage"
+                       PageCount="@PageCount"
+                       ShowingCount="@Transactions.Count"
+                       TotalCount="@TotalCount"
+                       ItemLabel="transactions"
+                       HideWhenSinglePage="false"
+                       ShowSummary="true"
+                       ShowPageLabel="false"
+                       OnPrevious="OnPrevious"
+                       OnNext="OnNext" />
+    </FooterContent>
+</DataTable>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<Transaction> Transactions { get; set; } = [];
+
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<BuiltInCategory> Categories { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyDictionary<Guid, TransactionCategoryAssignment> AssignmentsByTransactionId { get; set; } =
+        new Dictionary<Guid, TransactionCategoryAssignment>();
+
+    [Parameter]
+    public IReadOnlyDictionary<int, string> CategoryColorsById { get; set; } =
+        new Dictionary<int, string>();
+
+    [Parameter]
+    public IReadOnlyDictionary<Guid, string> CardNamesById { get; set; } =
+        new Dictionary<Guid, string>();
+
+    [Parameter]
+    public Guid? SavingCategoryTransactionId { get; set; }
+
+    [Parameter]
+    public int CurrentPage { get; set; }
+
+    [Parameter]
+    public int PageCount { get; set; }
+
+    [Parameter]
+    public EventCallback<TransactionCategoryChange> OnCategoryChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    private int GetCategoryId(Transaction transaction)
+    {
+        return AssignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
+            ? assignment.CategoryId
+            : BuiltInCategoryIds.Other;
+    }
+
+    private string GetCategoryEditorClass(Transaction transaction)
+    {
+        return NeedsReview(transaction)
+            ? "category-editor review"
+            : "category-editor";
+    }
+
+    private string GetCategoryStyle(Transaction transaction)
+    {
+        var categoryId = GetCategoryId(transaction);
+        var color = CategoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
+
+        return $"--category-color: {color}";
+    }
+
+    private string GetCardName(Transaction transaction)
+    {
+        return CardNamesById.GetValueOrDefault(transaction.CardAccountId, "Unknown Card");
+    }
+
+    private static string FormatTransactionAmount(decimal amount)
+    {
+        return amount < 0
+            ? $"+ {Math.Abs(amount):C}"
+            : Math.Abs(amount).ToString("C");
+    }
+
+    private string GetAmountClass(Transaction transaction)
+    {
+        return transaction.Amount < 0
+            ? "amount transaction-amount credit"
+            : "amount transaction-amount";
+    }
+
+    private bool NeedsReview(Transaction transaction)
+    {
+        return AssignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
+               && assignment.NeedsReview;
+    }
+}

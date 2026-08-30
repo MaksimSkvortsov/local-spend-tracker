@@ -10,7 +10,6 @@ public sealed record TransactionsPageData(
     IReadOnlyList<CardAccount> Cards,
     IReadOnlyList<BuiltInCategory> Categories,
     IReadOnlyDictionary<Guid, TransactionCategoryAssignment> AssignmentsByTransactionId,
-    IReadOnlyDictionary<int, string> CategoryNamesById,
     IReadOnlyDictionary<int, string> CategoryColorsById,
     IReadOnlyDictionary<Guid, string> CardNamesById,
     int ReviewCount);

@@ -41,67 +41,18 @@
         }
         else
         {
-            <DataTable WrapperClass="table-wrap transaction-table-wrap"
-                       TableClass="transaction-table">
-                <HeaderContent>
-                    <tr>
-                        <th class="transaction-date">Date</th>
-                        <th>Description</th>
-                        <th class="transaction-category">Category</th>
-                        <th class="transaction-card">Card</th>
-                        <th class="amount transaction-amount">Amount</th>
-                    </tr>
-                </HeaderContent>
-                <ChildContent>
-                    @foreach (var transaction in PagedTransactions)
-                    {
-                        <tr>
-                            <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
-                            <td class="transaction-description">@transaction.OriginalDescription</td>
-                            <td class="transaction-category">
-                                <div class="category-editor-wrap">
-                                    <select class="@GetCategoryEditorClass(transaction)"
-                                            style="@GetCategoryStyle(transaction)"
-                                            value="@GetCategoryId(transaction)"
-                                            @onchange="args => ChangeCategoryAsync(transaction, args)"
-                                            disabled="@(savingCategoryTransactionId == transaction.Id)"
-                                            aria-label="@($"Category for {transaction.OriginalDescription}")">
-                                        @foreach (var category in categories)
-                                        {
-                                            <option value="@category.Id">@category.Name</option>
-                                        }
-                                    </select>
-                                    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
-                                </div>
-                                @if (NeedsReview(transaction))
-                                {
-                                    <span class="review-warning">
-                                        <span class="material-symbols-outlined" aria-hidden="true">warning</span>
-                                        <span>Low Confidence</span>
-                                    </span>
-                                }
-                            </td>
-                            <td class="transaction-card">@GetCardName(transaction)</td>
-                            <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
-                        </tr>
-                    }
-                </ChildContent>
-                <FooterContent>
-                    <PaginationBar ContainerClass="transaction-table-footer"
-                                   ButtonGroupClass="transaction-table-footer-actions"
-                                   ButtonClass="table-icon-button"
-                                   CurrentPage="@currentPage"
-                                   PageCount="@PageCount"
-                                   ShowingCount="@PagedTransactions.Count"
-                                   TotalCount="@FilteredTransactions.Count"
-                                   ItemLabel="transactions"
-                                   HideWhenSinglePage="false"
-                                   ShowSummary="true"
-                                   ShowPageLabel="false"
-                                   OnPrevious="PreviousPage"
-                                   OnNext="NextPage" />
-                </FooterContent>
-            </DataTable>
+            <TransactionsTable Transactions="@PagedTransactions"
+                               TotalCount="@FilteredTransactions.Count"
+                               Categories="@categories"
+                               AssignmentsByTransactionId="@assignmentsByTransactionId"
+                               CategoryColorsById="@categoryColorsById"
+                               CardNamesById="@cardNamesById"
+                               SavingCategoryTransactionId="@savingCategoryTransactionId"
+                               CurrentPage="@currentPage"
+                               PageCount="@PageCount"
+                               OnCategoryChanged="ChangeCategoryAsync"
+                               OnPrevious="PreviousPage"
+                               OnNext="NextPage" />
         }
     </div>
 
@@ -123,8 +74,6 @@
     private string? categorySaveError;
     private IReadOnlyDictionary<Guid, TransactionCategoryAssignment> assignmentsByTransactionId =
         new Dictionary<Guid, TransactionCategoryAssignment>();
-    private IReadOnlyDictionary<int, string> categoryNamesById =
-        new Dictionary<int, string>();
     private IReadOnlyDictionary<int, string> categoryColorsById =
         new Dictionary<int, string>();
     private IReadOnlyDictionary<Guid, string> cardNamesById =
@@ -152,17 +101,9 @@
         cards = pageData.Cards;
         categories = pageData.Categories;
         assignmentsByTransactionId = pageData.AssignmentsByTransactionId;
-        categoryNamesById = pageData.CategoryNamesById;
         categoryColorsById = pageData.CategoryColorsById;
         cardNamesById = pageData.CardNamesById;
         reviewCount = pageData.ReviewCount;
-    }
-
-    private string GetCategoryName(Transaction transaction)
-    {
-        var categoryId = GetCategoryId(transaction);
-
-        return categoryNamesById.GetValueOrDefault(categoryId, categoryId.ToString());
     }
 
     private int GetCategoryId(Transaction transaction)
@@ -170,40 +111,6 @@
         return assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
             ? assignment.CategoryId
             : BuiltInCategoryIds.Other;
-    }
-
-    private string GetCategoryEditorClass(Transaction transaction)
-    {
-        return NeedsReview(transaction)
-            ? "category-editor review"
-            : "category-editor";
-    }
-
-    private string GetCategoryStyle(Transaction transaction)
-    {
-        var categoryId = GetCategoryId(transaction);
-        var color = categoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
-
-        return $"--category-color: {color}";
-    }
-
-    private string GetCardName(Transaction transaction)
-    {
-        return cardNamesById.GetValueOrDefault(transaction.CardAccountId, "Unknown Card");
-    }
-
-    private static string FormatTransactionAmount(decimal amount)
-    {
-        return amount < 0
-            ? $"+ {Math.Abs(amount):C}"
-            : Math.Abs(amount).ToString("C");
-    }
-
-    private string GetAmountClass(Transaction transaction)
-    {
-        return transaction.Amount < 0
-            ? "amount transaction-amount credit"
-            : "amount transaction-amount";
     }
 
     private bool MatchesSelectedCard(Transaction transaction)
@@ -254,20 +161,19 @@
         ResetPagination();
     }
 
-    private async Task ChangeCategoryAsync(Transaction transaction, ChangeEventArgs args)
+    private async Task ChangeCategoryAsync(TransactionCategoryChange change)
     {
         categorySaveError = null;
-        var nextValue = args.Value?.ToString();
-        if (!int.TryParse(nextValue, out var categoryId) || categoryId == GetCategoryId(transaction))
+        if (!int.TryParse(change.CategoryId, out var categoryId) || categoryId == GetCategoryId(change.Transaction))
         {
             return;
         }
 
-        savingCategoryTransactionId = transaction.Id;
+        savingCategoryTransactionId = change.Transaction.Id;
         try
         {
             await TransactionsPageService.SetCategoryAsync(
-                transaction.Id,
+                change.Transaction.Id,
                 categoryId,
                 CancellationToken.None);
             await ReloadAssignmentsAsync();

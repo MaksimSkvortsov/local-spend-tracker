@@ -32,6 +32,7 @@ public static class TransactionRows
 
         return new TransactionRow(
             transaction.Id,
+            transaction.CardAccountId,
             transaction.PostedDate,
             transaction.OriginalDescription,
             categoryId,

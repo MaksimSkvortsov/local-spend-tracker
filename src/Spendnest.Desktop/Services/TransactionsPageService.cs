@@ -19,16 +19,21 @@ public sealed class TransactionsPageService(
         var transactions = await transactionRepository.ListAsync(cancellationToken);
         var cards = await cardAccountRepository.ListAsync(cancellationToken);
         var categories = await categoryRepository.ListAsync(cancellationToken);
-        var reviewState = await LoadReviewStateAsync(cancellationToken);
+        var assignments = await assignmentRepository.ListAsync(cancellationToken);
+        var assignmentsByTransactionId = assignments.ToDictionary(assignment => assignment.TransactionId);
+        var categoryColorsById = categories.ToDictionary(category => category.Id, category => category.ColorHex);
+        var cardNamesById = cards.ToDictionary(card => card.Id, card => card.Name);
+        var reviewCount = await reviewService.CountNeedsReviewAsync(cancellationToken);
 
         return new TransactionsPageData(
-            transactions,
+            TransactionRows.FromTransactions(
+                transactions,
+                assignmentsByTransactionId,
+                categoryColorsById,
+                cardNamesById),
             cards,
             categories,
-            reviewState.AssignmentsByTransactionId,
-            categories.ToDictionary(category => category.Id, category => category.ColorHex),
-            cards.ToDictionary(card => card.Id, card => card.Name),
-            reviewState.ReviewCount);
+            reviewCount);
     }
 
     public async Task SetCategoryAsync(
@@ -43,13 +48,4 @@ public sealed class TransactionsPageService(
             cancellationToken);
     }
 
-    public async Task<TransactionsReviewState> LoadReviewStateAsync(CancellationToken cancellationToken)
-    {
-        var assignments = await assignmentRepository.ListAsync(cancellationToken);
-        var reviewCount = await reviewService.CountNeedsReviewAsync(cancellationToken);
-
-        return new TransactionsReviewState(
-            assignments.ToDictionary(assignment => assignment.TransactionId),
-            reviewCount);
-    }
 }

@@ -2,6 +2,7 @@ namespace Spendnest.Desktop.Presentation.Transactions;
 
 public sealed record TransactionRow(
     Guid Id,
+    Guid CardAccountId,
     DateOnly PostedDate,
     string Description,
     int CategoryId,

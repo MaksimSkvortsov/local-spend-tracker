@@ -59,7 +59,7 @@
 @code {
     private const int PageSize = 10;
 
-    private IReadOnlyList<Transaction> transactions = [];
+    private IReadOnlyList<TransactionRow> transactions = [];
     private IReadOnlyList<CardAccount> cards = [];
     private IReadOnlyList<BuiltInCategory> categories = [];
     private string selectedCardId = string.Empty;
@@ -69,29 +69,17 @@
     private int currentPage = 1;
     private Guid? savingCategoryTransactionId;
     private string? categorySaveError;
-    private IReadOnlyDictionary<Guid, TransactionCategoryAssignment> assignmentsByTransactionId =
-        new Dictionary<Guid, TransactionCategoryAssignment>();
-    private IReadOnlyDictionary<int, string> categoryColorsById =
-        new Dictionary<int, string>();
-    private IReadOnlyDictionary<Guid, string> cardNamesById =
-        new Dictionary<Guid, string>();
-
-    private IReadOnlyList<Transaction> FilteredTransactions =>
+    private IReadOnlyList<TransactionRow> FilteredTransactions =>
         transactions
             .Where(MatchesSelectedCard)
             .Where(MatchesSelectedCategory)
             .Where(MatchesReviewFilter)
             .ToArray();
 
-    private PagedList<Transaction> TransactionPage =>
-        PagedList<Transaction>.Create(FilteredTransactions, currentPage, PageSize);
+    private PagedList<TransactionRow> TransactionPage =>
+        PagedList<TransactionRow>.Create(FilteredTransactions, currentPage, PageSize);
 
-    private IReadOnlyList<TransactionRow> PagedTransactions =>
-        TransactionRows.FromTransactions(
-            TransactionPage.Items,
-            assignmentsByTransactionId,
-            categoryColorsById,
-            cardNamesById);
+    private IReadOnlyList<TransactionRow> PagedTransactions => TransactionPage.Items;
 
     private int PageCount => TransactionPage.PageCount;
 
@@ -102,20 +90,10 @@
         transactions = pageData.Transactions;
         cards = pageData.Cards;
         categories = pageData.Categories;
-        assignmentsByTransactionId = pageData.AssignmentsByTransactionId;
-        categoryColorsById = pageData.CategoryColorsById;
-        cardNamesById = pageData.CardNamesById;
         reviewCount = pageData.ReviewCount;
     }
 
-    private int GetCategoryId(Transaction transaction)
-    {
-        return assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
-            ? assignment.CategoryId
-            : BuiltInCategoryIds.Other;
-    }
-
-    private bool MatchesSelectedCard(Transaction transaction)
+    private bool MatchesSelectedCard(TransactionRow transaction)
     {
         if (string.IsNullOrWhiteSpace(selectedCardId))
         {
@@ -125,24 +103,19 @@
         return Guid.TryParse(selectedCardId, out var cardId) && transaction.CardAccountId == cardId;
     }
 
-    private bool MatchesSelectedCategory(Transaction transaction)
+    private bool MatchesSelectedCategory(TransactionRow transaction)
     {
         if (string.IsNullOrWhiteSpace(selectedCategoryId))
         {
             return true;
         }
 
-        return int.TryParse(selectedCategoryId, out var categoryId) && GetCategoryId(transaction) == categoryId;
+        return int.TryParse(selectedCategoryId, out var categoryId) && transaction.CategoryId == categoryId;
     }
 
-    private bool MatchesReviewFilter(Transaction transaction)
+    private bool MatchesReviewFilter(TransactionRow transaction)
     {
-        return reviewFilterMode == ReviewFilterMode.All || NeedsReview(transaction);
-    }
-
-    private bool NeedsReview(Transaction transaction)
-    {
-        return assignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment) && assignment.NeedsReview;
+        return reviewFilterMode == ReviewFilterMode.All || transaction.NeedsReview;
     }
 
     private void SetReviewFilter(ReviewFilterMode mode)
@@ -178,7 +151,7 @@
                 change.TransactionId,
                 categoryId,
                 CancellationToken.None);
-            await ReloadAssignmentsAsync();
+            await ReloadPageDataAsync();
             DataRefreshNotifier.NotifyTransactionsChanged();
             ResetPaginationAfterCategoryChange();
         }
@@ -192,12 +165,14 @@
         }
     }
 
-    private async Task ReloadAssignmentsAsync()
+    private async Task ReloadPageDataAsync()
     {
-        var reviewState = await TransactionsPageService.LoadReviewStateAsync(CancellationToken.None);
+        var pageData = await TransactionsPageService.LoadAsync(CancellationToken.None);
 
-        assignmentsByTransactionId = reviewState.AssignmentsByTransactionId;
-        reviewCount = reviewState.ReviewCount;
+        transactions = pageData.Transactions;
+        cards = pageData.Cards;
+        categories = pageData.Categories;
+        reviewCount = pageData.ReviewCount;
     }
 
     private void ResetPaginationAfterCategoryChange()

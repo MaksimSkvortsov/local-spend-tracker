@@ -47,6 +47,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ImportFileSelectionService>();
         builder.Services.AddSingleton<ImportPageService>();
         builder.Services.AddSingleton<ImportWorkflowService>();
+        builder.Services.AddSingleton<TransactionsPageService>();
         builder.Services.AddSingleton<IStatementFilePicker, MauiStatementFilePicker>();
         builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
         builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();

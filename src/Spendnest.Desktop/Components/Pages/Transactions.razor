@@ -1,10 +1,6 @@
 @page "/transactions"
 @using Spendnest.Core.Review
-@inject ITransactionRepository TransactionRepository
-@inject ITransactionCategoryAssignmentRepository AssignmentRepository
-@inject ICardAccountRepository CardAccountRepository
-@inject ICategoryRepository CategoryRepository
-@inject ITransactionReviewService ReviewService
+@inject TransactionsPageService TransactionsPageService
 @inject AppDataRefreshNotifier DataRefreshNotifier
 
 <PageTitle>Transactions - PeasantMoney</PageTitle>
@@ -179,15 +175,16 @@
 
     protected override async Task OnInitializedAsync()
     {
-        transactions = await TransactionRepository.ListAsync(CancellationToken.None);
-        cards = await CardAccountRepository.ListAsync(CancellationToken.None);
-        categories = await CategoryRepository.ListAsync(CancellationToken.None);
-        categoryNamesById = categories.ToDictionary(category => category.Id, category => category.Name);
-        categoryColorsById = categories.ToDictionary(category => category.Id, category => category.ColorHex);
-        cardNamesById = cards.ToDictionary(card => card.Id, card => card.Name);
-        assignmentsByTransactionId = (await AssignmentRepository.ListAsync(CancellationToken.None))
-            .ToDictionary(assignment => assignment.TransactionId);
-        reviewCount = await ReviewService.CountNeedsReviewAsync(CancellationToken.None);
+        var pageData = await TransactionsPageService.LoadAsync(CancellationToken.None);
+
+        transactions = pageData.Transactions;
+        cards = pageData.Cards;
+        categories = pageData.Categories;
+        assignmentsByTransactionId = pageData.AssignmentsByTransactionId;
+        categoryNamesById = pageData.CategoryNamesById;
+        categoryColorsById = pageData.CategoryColorsById;
+        cardNamesById = pageData.CardNamesById;
+        reviewCount = pageData.ReviewCount;
     }
 
     private string GetCategoryName(Transaction transaction)
@@ -293,10 +290,9 @@
         savingCategoryTransactionId = transaction.Id;
         try
         {
-            await ReviewService.SetCategoryAsync(
+            await TransactionsPageService.SetCategoryAsync(
                 transaction.Id,
                 categoryId,
-                rememberRule: false,
                 CancellationToken.None);
             await ReloadAssignmentsAsync();
             DataRefreshNotifier.NotifyTransactionsChanged();
@@ -314,9 +310,10 @@
 
     private async Task ReloadAssignmentsAsync()
     {
-        assignmentsByTransactionId = (await AssignmentRepository.ListAsync(CancellationToken.None))
-            .ToDictionary(assignment => assignment.TransactionId);
-        reviewCount = await ReviewService.CountNeedsReviewAsync(CancellationToken.None);
+        var reviewState = await TransactionsPageService.LoadReviewStateAsync(CancellationToken.None);
+
+        assignmentsByTransactionId = reviewState.AssignmentsByTransactionId;
+        reviewCount = reviewState.ReviewCount;
     }
 
     private void ResetPaginationAfterCategoryChange()

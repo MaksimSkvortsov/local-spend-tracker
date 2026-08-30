@@ -1,0 +1,16 @@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="@StatusClass">@Message</div>
+}
+
+@code {
+    [Parameter]
+    public string? Message { get; set; }
+
+    [Parameter]
+    public SettingsStatusKind Kind { get; set; }
+
+    private string StatusClass => Kind == SettingsStatusKind.Error
+        ? "settings-status error"
+        : "settings-status success";
+}

@@ -130,10 +130,7 @@
                     </div>
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    <div class="@StatusClass">@statusMessage</div>
-                }
+                <SettingsStatus Message="@statusMessage" Kind="@statusKind" />
                 </div>
             </ChildContent>
         </Card>
@@ -177,10 +174,7 @@
                     </div>
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    <div class="@StatusClass">@statusMessage</div>
-                }
+                <SettingsStatus Message="@statusMessage" Kind="@statusKind" />
             </div>
         </Card>
         }
@@ -206,10 +200,7 @@
                     </div>
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(statusMessage))
-                {
-                    <div class="@StatusClass">@statusMessage</div>
-                }
+                <SettingsStatus Message="@statusMessage" Kind="@statusKind" />
             </div>
         </Card>
         }
@@ -225,7 +216,7 @@
     private bool showApiKey;
     private bool isBusy;
     private string? statusMessage;
-    private StatusKind statusKind;
+    private SettingsStatusKind statusKind;
 
     private const string DefaultModel = "gpt-5.6-luna";
 
@@ -255,10 +246,6 @@
     private string ApiKeyHelpText => hasConfiguredApiKey
         ? "Leave blank to keep the saved key, or enter a new one to replace it."
         : "The key is stored in platform secure storage on this device.";
-
-    private string StatusClass => statusKind == StatusKind.Error
-        ? "settings-status error"
-        : "settings-status success";
 
     private string ConnectionStatusClass => hasConfiguredApiKey
         ? "connection-chip connected"
@@ -312,13 +299,13 @@
             var hasKey = !string.IsNullOrWhiteSpace(apiKey) || hasConfiguredApiKey;
             if (!hasKey)
             {
-                SetStatus("Enter an API key before testing.", StatusKind.Error);
+                SetStatus("Enter an API key before testing.", SettingsStatusKind.Error);
                 return;
             }
 
             if (!IsValidModel(model))
             {
-                SetStatus("Choose a ChatGPT model.", StatusKind.Error);
+                SetStatus("Choose a ChatGPT model.", SettingsStatusKind.Error);
                 return;
             }
 
@@ -328,7 +315,7 @@
                     model,
                     TimeSpan.FromSeconds(requestTimeoutSeconds)),
                 CancellationToken.None);
-            SetStatus(result.Message, result.Succeeded ? StatusKind.Success : StatusKind.Error);
+            SetStatus(result.Message, result.Succeeded ? SettingsStatusKind.Success : SettingsStatusKind.Error);
         }
         finally
         {
@@ -344,13 +331,13 @@
         {
             if (!IsValidModel(model))
             {
-                SetStatus("Choose a ChatGPT model.", StatusKind.Error);
+                SetStatus("Choose a ChatGPT model.", SettingsStatusKind.Error);
                 return;
             }
 
             if (requestTimeoutSeconds is < 5 or > 180)
             {
-                SetStatus("Timeout must be between 5 and 180 seconds.", StatusKind.Error);
+                SetStatus("Timeout must be between 5 and 180 seconds.", SettingsStatusKind.Error);
                 return;
             }
 
@@ -362,17 +349,17 @@
             }
             else if (!hasConfiguredApiKey)
             {
-                SetStatus("API key is required.", StatusKind.Error);
+                SetStatus("API key is required.", SettingsStatusKind.Error);
                 return;
             }
 
             OpenAiOptions.Model = model;
             OpenAiOptions.RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSeconds);
-            SetStatus("AI configuration saved.", StatusKind.Success);
+            SetStatus("AI configuration saved.", SettingsStatusKind.Success);
         }
         catch (Exception ex)
         {
-            SetStatus($"Could not save configuration: {ex.Message}", StatusKind.Error);
+            SetStatus($"Could not save configuration: {ex.Message}", SettingsStatusKind.Error);
         }
         finally
         {
@@ -394,11 +381,11 @@
             requestTimeoutSeconds = DefaultRequestTimeoutSeconds;
             OpenAiOptions.Model = model;
             OpenAiOptions.RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSeconds);
-            SetStatus("AI connection details deleted.", StatusKind.Success);
+            SetStatus("AI connection details deleted.", SettingsStatusKind.Success);
         }
         catch (Exception ex)
         {
-            SetStatus($"Could not delete AI connection details: {ex.Message}", StatusKind.Error);
+            SetStatus($"Could not delete AI connection details: {ex.Message}", SettingsStatusKind.Error);
         }
         finally
         {
@@ -413,11 +400,11 @@
         try
         {
             await DatabaseInitializer.DeleteUserDataAsync(CancellationToken.None);
-            SetStatus("Local data deleted.", StatusKind.Success);
+            SetStatus("Local data deleted.", SettingsStatusKind.Success);
         }
         catch (Exception ex)
         {
-            SetStatus($"Could not delete local data: {ex.Message}", StatusKind.Error);
+            SetStatus($"Could not delete local data: {ex.Message}", SettingsStatusKind.Error);
         }
         finally
         {
@@ -439,11 +426,11 @@
         }
         catch (Exception ex)
         {
-            SetStatus($"Could not open logs folder: {ex.Message}", StatusKind.Error);
+            SetStatus($"Could not open logs folder: {ex.Message}", SettingsStatusKind.Error);
         }
     }
 
-    private void SetStatus(string message, StatusKind kind)
+    private void SetStatus(string message, SettingsStatusKind kind)
     {
         statusMessage = message;
         statusKind = kind;
@@ -455,9 +442,4 @@
             && value.StartsWith("gpt-", StringComparison.OrdinalIgnoreCase);
     }
 
-    private enum StatusKind
-    {
-        Success,
-        Error
-    }
 }

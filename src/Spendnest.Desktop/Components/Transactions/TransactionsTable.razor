@@ -16,27 +16,10 @@
                 <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
                 <td class="transaction-description">@transaction.Description</td>
                 <td class="transaction-category">
-                    <div class="category-editor-wrap">
-                        <select class="@GetCategoryEditorClass(transaction)"
-                                style="@GetCategoryStyle(transaction)"
-                                value="@transaction.CategoryId"
-                                @onchange="args => OnCategoryChanged.InvokeAsync(new TransactionCategoryChange(transaction.Id, transaction.CategoryId, args.Value?.ToString()))"
-                                disabled="@(SavingCategoryTransactionId == transaction.Id)"
-                                aria-label="@($"Category for {transaction.Description}")">
-                            @foreach (var category in Categories)
-                            {
-                                <option value="@category.Id">@category.Name</option>
-                            }
-                        </select>
-                        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
-                    </div>
-                    @if (transaction.NeedsReview)
-                    {
-                        <span class="review-warning">
-                            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
-                            <span>Low Confidence</span>
-                        </span>
-                    }
+                    <TransactionCategoryEditor Transaction="@transaction"
+                                               Categories="@Categories"
+                                               IsSaving="@(SavingCategoryTransactionId == transaction.Id)"
+                                               OnCategoryChanged="OnCategoryChanged" />
                 </td>
                 <td class="transaction-card">@transaction.CardName</td>
                 <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
@@ -87,18 +70,6 @@
 
     [Parameter]
     public EventCallback OnNext { get; set; }
-
-    private string GetCategoryEditorClass(TransactionRow transaction)
-    {
-        return transaction.NeedsReview
-            ? "category-editor review"
-            : "category-editor";
-    }
-
-    private static string GetCategoryStyle(TransactionRow transaction)
-    {
-        return $"--category-color: {transaction.CategoryColor}";
-    }
 
     private static string FormatTransactionAmount(decimal amount)
     {

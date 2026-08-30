@@ -1,0 +1,52 @@
+<div class="category-editor-wrap">
+    <select class="@EditorClass"
+            style="@EditorStyle"
+            value="@Transaction.CategoryId"
+            @onchange="HandleCategoryChanged"
+            disabled="@IsSaving"
+            aria-label="@($"Category for {Transaction.Description}")">
+        @foreach (var category in Categories)
+        {
+            <option value="@category.Id">@category.Name</option>
+        }
+    </select>
+    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+</div>
+
+@if (Transaction.NeedsReview)
+{
+    <span class="review-warning">
+        <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+        <span>Low Confidence</span>
+    </span>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public TransactionRow Transaction { get; set; } = default!;
+
+    [Parameter]
+    public IReadOnlyList<BuiltInCategory> Categories { get; set; } = [];
+
+    [Parameter]
+    public bool IsSaving { get; set; }
+
+    [Parameter]
+    public EventCallback<TransactionCategoryChange> OnCategoryChanged { get; set; }
+
+    private string EditorClass =>
+        Transaction.NeedsReview
+            ? "category-editor review"
+            : "category-editor";
+
+    private string EditorStyle =>
+        $"--category-color: {Transaction.CategoryColor}";
+
+    private async Task HandleCategoryChanged(ChangeEventArgs args)
+    {
+        await OnCategoryChanged.InvokeAsync(new TransactionCategoryChange(
+            Transaction.Id,
+            Transaction.CategoryId,
+            args.Value?.ToString()));
+    }
+}

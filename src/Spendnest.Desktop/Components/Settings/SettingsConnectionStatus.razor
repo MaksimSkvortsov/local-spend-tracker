@@ -1,0 +1,17 @@
+<div class="@StatusClass">
+    <span aria-hidden="true"></span>
+    @StatusText
+</div>
+
+@code {
+    [Parameter]
+    public bool IsConnected { get; set; }
+
+    private string StatusClass => IsConnected
+        ? "connection-chip connected"
+        : "connection-chip";
+
+    private string StatusText => IsConnected
+        ? "Connected"
+        : "Not configured";
+}

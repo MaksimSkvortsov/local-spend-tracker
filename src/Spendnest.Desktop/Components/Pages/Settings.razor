@@ -29,10 +29,7 @@
               Title="AI Configuration"
               Subtitle="Configure your language model provider for smart transaction categorization.">
             <HeaderAction>
-                <div class="@ConnectionStatusClass">
-                    <span aria-hidden="true"></span>
-                    @ConnectionStatusText
-                </div>
+                <SettingsConnectionStatus IsConnected="@hasConfiguredApiKey" />
             </HeaderAction>
 
             <ChildContent>
@@ -246,14 +243,6 @@
     private string ApiKeyHelpText => hasConfiguredApiKey
         ? "Leave blank to keep the saved key, or enter a new one to replace it."
         : "The key is stored in platform secure storage on this device.";
-
-    private string ConnectionStatusClass => hasConfiguredApiKey
-        ? "connection-chip connected"
-        : "connection-chip";
-
-    private string ConnectionStatusText => hasConfiguredApiKey
-        ? "Connected"
-        : "Not configured";
 
     protected override async Task OnInitializedAsync()
     {

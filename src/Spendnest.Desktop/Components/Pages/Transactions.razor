@@ -69,12 +69,12 @@
     private int currentPage = 1;
     private Guid? savingCategoryTransactionId;
     private string? categorySaveError;
+
+    private TransactionFilter CurrentFilter =>
+        new(selectedCardId, selectedCategoryId, reviewFilterMode);
+
     private IReadOnlyList<TransactionRow> FilteredTransactions =>
-        transactions
-            .Where(MatchesSelectedCard)
-            .Where(MatchesSelectedCategory)
-            .Where(MatchesReviewFilter)
-            .ToArray();
+        TransactionFilters.Apply(transactions, CurrentFilter);
 
     private PagedList<TransactionRow> TransactionPage =>
         PagedList<TransactionRow>.Create(FilteredTransactions, currentPage, PageSize);
@@ -91,31 +91,6 @@
         cards = pageData.Cards;
         categories = pageData.Categories;
         reviewCount = pageData.ReviewCount;
-    }
-
-    private bool MatchesSelectedCard(TransactionRow transaction)
-    {
-        if (string.IsNullOrWhiteSpace(selectedCardId))
-        {
-            return true;
-        }
-
-        return Guid.TryParse(selectedCardId, out var cardId) && transaction.CardAccountId == cardId;
-    }
-
-    private bool MatchesSelectedCategory(TransactionRow transaction)
-    {
-        if (string.IsNullOrWhiteSpace(selectedCategoryId))
-        {
-            return true;
-        }
-
-        return int.TryParse(selectedCategoryId, out var categoryId) && transaction.CategoryId == categoryId;
-    }
-
-    private bool MatchesReviewFilter(TransactionRow transaction)
-    {
-        return reviewFilterMode == ReviewFilterMode.All || transaction.NeedsReview;
     }
 
     private void SetReviewFilter(ReviewFilterMode mode)

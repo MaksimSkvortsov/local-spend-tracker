@@ -33,21 +33,10 @@
                 </HeaderAction>
 
                 <ChildContent>
-                    <SettingsAiConfigurationPanel ApiKey="@apiKey"
+                    <SettingsAiConfigurationPanel State="@AiConfigurationState"
                                                   ApiKeyChanged="OnApiKeyChanged"
-                                                  Model="@model"
                                                   ModelChanged="OnModelChanged"
-                                                  RequestTimeoutSeconds="@requestTimeoutSeconds"
                                                   RequestTimeoutSecondsChanged="OnRequestTimeoutSecondsChanged"
-                                                  IsBusy="@isBusy"
-                                                  CanDeleteConfiguration="@CanDeleteConfiguration"
-                                                  ApiKeyInputType="@ApiKeyInputType"
-                                                  ApiKeyVisibilityIcon="@ApiKeyVisibilityIcon"
-                                                  ApiKeyVisibilityLabel="@ApiKeyVisibilityLabel"
-                                                  ApiKeyPlaceholder="@ApiKeyPlaceholder"
-                                                  ApiKeyHelpText="@ApiKeyHelpText"
-                                                  StatusMessage="@statusMessage"
-                                                  StatusKind="@statusKind"
                                                   OnToggleApiKeyVisibility="ToggleApiKeyVisibility"
                                                   OnSave="SaveAsync"
                                                   OnTestConnection="TestConnectionAsync"
@@ -107,20 +96,15 @@
         Path.GetDirectoryName(SpendnestDataPaths.GetDefaultLogPath())
         ?? SpendnestDataPaths.GetDefaultLogPath();
 
-    private bool CanDeleteConfiguration =>
-        hasConfiguredApiKey || !string.IsNullOrWhiteSpace(apiKey);
-
-    private string ApiKeyInputType => showApiKey ? "text" : "password";
-
-    private string ApiKeyVisibilityIcon => showApiKey ? "visibility_off" : "visibility";
-
-    private string ApiKeyVisibilityLabel => showApiKey ? "Hide API key" : "Show API key";
-
-    private string ApiKeyPlaceholder => hasConfiguredApiKey ? "Saved key is configured" : "sk-...";
-
-    private string ApiKeyHelpText => hasConfiguredApiKey
-        ? "Leave blank to keep the saved key, or enter a new one to replace it."
-        : "The key is stored in platform secure storage on this device.";
+    private SettingsAiConfigurationState AiConfigurationState => new(
+        apiKey,
+        model,
+        requestTimeoutSeconds,
+        hasConfiguredApiKey,
+        showApiKey,
+        isBusy,
+        statusMessage,
+        statusKind);
 
     protected override async Task OnInitializedAsync()
     {

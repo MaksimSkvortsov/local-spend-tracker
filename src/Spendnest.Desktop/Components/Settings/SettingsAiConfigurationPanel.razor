@@ -16,18 +16,18 @@
                     <span class="material-symbols-outlined" aria-hidden="true">key</span>
                     <input id="api-key"
                            class="settings-input mono"
-                           type="@ApiKeyInputType"
-                           placeholder="@ApiKeyPlaceholder"
-                           value="@ApiKey"
+                           type="@State.ApiKeyInputType"
+                           placeholder="@State.ApiKeyPlaceholder"
+                           value="@State.ApiKey"
                            @onchange="HandleApiKeyChanged" />
-                    <button type="button" class="settings-field-button" aria-label="@ApiKeyVisibilityLabel" @onclick="OnToggleApiKeyVisibility">
-                        <span class="material-symbols-outlined" aria-hidden="true">@ApiKeyVisibilityIcon</span>
+                    <button type="button" class="settings-field-button" aria-label="@State.ApiKeyVisibilityLabel" @onclick="OnToggleApiKeyVisibility">
+                        <span class="material-symbols-outlined" aria-hidden="true">@State.ApiKeyVisibilityIcon</span>
                     </button>
                 </div>
             </div>
             <div class="settings-note">
                 <span class="material-symbols-outlined" aria-hidden="true">info</span>
-                <p>@ApiKeyHelpText Usage is billed directly by OpenAI.</p>
+                <p>@State.ApiKeyHelpText Usage is billed directly by OpenAI.</p>
             </div>
         </div>
 
@@ -48,7 +48,7 @@
             <label for="ai-model">Model</label>
             <div class="settings-input-wrap">
                 <span class="material-symbols-outlined" aria-hidden="true">memory</span>
-                <select id="ai-model" class="settings-input mono select" value="@Model" @onchange="HandleModelChanged">
+                <select id="ai-model" class="settings-input mono select" value="@State.AiModel" @onchange="HandleModelChanged">
                     <option value="gpt-5.6-luna">gpt-5.6-luna</option>
                     <option value="gpt-4o">gpt-4o</option>
                     <option value="gpt-4-turbo">gpt-4-turbo</option>
@@ -69,7 +69,7 @@
                        min="5"
                        max="180"
                        step="1"
-                       value="@RequestTimeoutSeconds"
+                       value="@State.RequestTimeoutSeconds"
                        @onchange="HandleRequestTimeoutChanged" />
             </div>
             <p>Seconds before categorization falls back to review.</p>
@@ -82,66 +82,33 @@
             <p>Verify your API credentials and latency.</p>
         </div>
         <div class="settings-action-buttons">
-            <button type="button" class="primary-button" @onclick="OnSave" disabled="@IsBusy">
+            <button type="button" class="primary-button" @onclick="OnSave" disabled="@State.IsBusy">
                 Save
             </button>
-            <button type="button" class="secondary-button" @onclick="OnTestConnection" disabled="@IsBusy">
+            <button type="button" class="secondary-button" @onclick="OnTestConnection" disabled="@State.IsBusy">
                 Test Connection
             </button>
-            <button type="button" class="danger-button" @onclick="OnDeleteConfiguration" disabled="@(IsBusy || !CanDeleteConfiguration)">
+            <button type="button" class="danger-button" @onclick="OnDeleteConfiguration" disabled="@(State.IsBusy || !State.CanDeleteConfiguration)">
                 Delete Configuration
             </button>
         </div>
     </div>
 
-    <SettingsStatus Message="@StatusMessage" Kind="@StatusKind" />
+    <SettingsStatus Message="@State.StatusMessage" Kind="@State.StatusKind" />
 </div>
 
 @code {
     [Parameter]
-    public string ApiKey { get; set; } = string.Empty;
+    public SettingsAiConfigurationState State { get; set; } = SettingsAiConfigurationState.Empty;
 
     [Parameter]
     public EventCallback<string> ApiKeyChanged { get; set; }
 
     [Parameter]
-    public string Model { get; set; } = string.Empty;
-
-    [Parameter]
     public EventCallback<string> ModelChanged { get; set; }
 
     [Parameter]
-    public int RequestTimeoutSeconds { get; set; }
-
-    [Parameter]
     public EventCallback<int> RequestTimeoutSecondsChanged { get; set; }
-
-    [Parameter]
-    public bool IsBusy { get; set; }
-
-    [Parameter]
-    public bool CanDeleteConfiguration { get; set; }
-
-    [Parameter]
-    public string ApiKeyInputType { get; set; } = "password";
-
-    [Parameter]
-    public string ApiKeyVisibilityIcon { get; set; } = "visibility";
-
-    [Parameter]
-    public string ApiKeyVisibilityLabel { get; set; } = "Show API key";
-
-    [Parameter]
-    public string ApiKeyPlaceholder { get; set; } = "sk-...";
-
-    [Parameter]
-    public string ApiKeyHelpText { get; set; } = string.Empty;
-
-    [Parameter]
-    public string? StatusMessage { get; set; }
-
-    [Parameter]
-    public SettingsStatusKind StatusKind { get; set; }
 
     [Parameter]
     public EventCallback OnToggleApiKeyVisibility { get; set; }

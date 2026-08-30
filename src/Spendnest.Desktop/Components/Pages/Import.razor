@@ -78,10 +78,10 @@
     </ChildContent>
 </Card>
 
-@if (importResult?.Warnings.Count > 0)
+@if (importWarnings.Count > 0)
 {
     <Card Class="panel" Title="Warnings">
-        <ImportWarnings Warnings="@importResult.Warnings" />
+        <ImportWarnings Warnings="@importWarnings" />
     </Card>
 }
 
@@ -100,7 +100,7 @@
     private FileUploadProgress? currentProgress;
     private bool isBusy;
     private bool cardDetected;
-    private StatementFileImportResult? importResult;
+    private IReadOnlyList<StatementParseWarning> importWarnings = [];
     private IReadOnlyList<CardAccount> availableCards = [];
     private IReadOnlyList<UploadHistoryItem> uploadHistory = [];
     private IReadOnlyList<PreviewRow> previewRows = [];
@@ -161,7 +161,7 @@
 
         selectedFileName = file.FileName;
         selectedFilePath = file.LocalPath;
-        importResult = null;
+        importWarnings = [];
         previewPage = 1;
         previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
         var preparedFile = await ImportFileSelectionService.PrepareAsync(
@@ -211,7 +211,8 @@
                 progress,
                 CancellationToken.None);
 
-            importResult = workflowResult.ImportResult;
+            var importResult = workflowResult.ImportResult;
+            importWarnings = importResult.Warnings;
             previewCategoryNamesByTransactionId = workflowResult.PreviewCategoryNamesByTransactionId;
             previewRows = ImportPreviewRows.FromImportResult(
                 importResult,
@@ -320,7 +321,7 @@
         selectedFilePath = null;
         selectedExistingCardName = string.Empty;
         previewPage = 1;
-        importResult = null;
+        importWarnings = [];
         previewRows = [];
         previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
         if (clearMessages)

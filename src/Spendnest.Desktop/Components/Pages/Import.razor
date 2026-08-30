@@ -27,7 +27,7 @@
 {
     <Card Class="selected-transactions-card"
           Title="Transactions in File"
-          Subtitle="@($"Previewing {PreviewRows.Count} transactions from {SelectedFileName}")">
+          Subtitle="@($"Previewing {previewRows.Count} transactions from {SelectedFileName}")">
         <HeaderAction>
             <div class="selected-transactions-actions">
                 <button class="secondary-button" @onclick="ClearSelectedFile" disabled="@isBusy">Cancel</button>
@@ -49,7 +49,7 @@
                                          StatusMessage="@statusMessage"
                                          ErrorMessage="@errorMessage"
                                          IsBusy="@isBusy"
-                                         Rows="@PreviewRows"
+                                         Rows="@previewRows"
                                          PagedRows="@PagedPreviewRows"
                                          CurrentPage="@previewPage"
                                          PageCount="@PreviewPageCount"
@@ -98,12 +98,12 @@
     private string? statusMessage;
     private string? errorMessage;
     private FileUploadProgress? currentProgress;
-    private StatementParseResult? selectedFilePreview;
     private bool isBusy;
     private bool cardDetected;
     private StatementFileImportResult? importResult;
     private IReadOnlyList<CardAccount> availableCards = [];
     private IReadOnlyList<UploadHistoryItem> uploadHistory = [];
+    private IReadOnlyList<PreviewRow> previewRows = [];
     private IReadOnlyDictionary<Guid, string> previewCategoryNamesByTransactionId =
         new Dictionary<Guid, string>();
     private Dictionary<Guid, CategorizationHistorySummary> categorizationSummariesByImportId = [];
@@ -128,28 +128,11 @@
     private bool IsCategorizing =>
         currentProgress?.Stage == FileUploadProgressStage.CategorizingWithAi;
 
-    private IReadOnlyList<PreviewRow> PreviewRows =>
-        importResult is not null
-            ? importResult.SavedTransactions
-                .Select(transaction => new PreviewRow(
-                    transaction.PostedDate,
-                    transaction.OriginalDescription,
-                    GetPreviewCategory(transaction),
-                    transaction.Amount))
-                .ToArray()
-            : selectedFilePreview?.Rows
-                .Select(row => new PreviewRow(
-                    row.PostedDate,
-                    row.OriginalDescription,
-                    string.IsNullOrWhiteSpace(row.SourceCategory) ? "Will categorize" : row.SourceCategory,
-                    row.Amount))
-                .ToArray() ?? [];
-
     private PagedList<UploadHistoryItem> UploadHistoryPage =>
         PagedList<UploadHistoryItem>.Create(uploadHistory, uploadHistoryPage, UploadHistoryPageSize);
 
     private PagedList<PreviewRow> PreviewPage =>
-        PagedList<PreviewRow>.Create(PreviewRows, previewPage, PreviewPageSize);
+        PagedList<PreviewRow>.Create(previewRows, previewPage, PreviewPageSize);
 
     private IReadOnlyList<UploadHistoryItem> PagedUploadHistory => UploadHistoryPage.Items;
 
@@ -185,7 +168,7 @@
             file,
             CancellationToken.None);
 
-        selectedFilePreview = preparedFile.Preview;
+        previewRows = ImportPreviewRows.FromParseResult(preparedFile.Preview);
         errorMessage = preparedFile.ErrorMessage;
         selectedFileFallbackCardName = preparedFile.FallbackCardName;
         if (!string.IsNullOrWhiteSpace(preparedFile.DetectedCardName))
@@ -230,6 +213,10 @@
 
             importResult = workflowResult.ImportResult;
             previewCategoryNamesByTransactionId = workflowResult.PreviewCategoryNamesByTransactionId;
+            previewRows = ImportPreviewRows.FromImportResult(
+                importResult,
+                previewCategoryNamesByTransactionId,
+                IsCategorizing);
             categorizationSummariesByImportId[importResult.StatementImportId] =
                 workflowResult.CategorizationSummary;
             await RefreshImportPageDataAsync();
@@ -334,7 +321,7 @@
         selectedExistingCardName = string.Empty;
         previewPage = 1;
         importResult = null;
-        selectedFilePreview = null;
+        previewRows = [];
         previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
         if (clearMessages)
         {
@@ -352,15 +339,4 @@
     {
         await RefreshImportPageDataAsync();
     }
-
-    private string GetPreviewCategory(Transaction transaction)
-    {
-        if (IsCategorizing)
-        {
-            return "Pending";
-        }
-
-        return previewCategoryNamesByTransactionId.GetValueOrDefault(transaction.Id, "Needs review");
-    }
-
 }

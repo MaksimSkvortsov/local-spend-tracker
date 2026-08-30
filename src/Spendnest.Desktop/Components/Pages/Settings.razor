@@ -25,128 +25,59 @@
     <div class="settings-content">
         @if (activeTab == SettingsTab.Ai)
         {
-        <Card Class="settings-card"
-              Title="AI Configuration"
-              Subtitle="Configure your language model provider for smart transaction categorization.">
-            <HeaderAction>
-                <SettingsConnectionStatus IsConnected="@hasConfiguredApiKey" />
-            </HeaderAction>
+            <Card Class="settings-card"
+                  Title="AI Configuration"
+                  Subtitle="Configure your language model provider for smart transaction categorization.">
+                <HeaderAction>
+                    <SettingsConnectionStatus IsConnected="@hasConfiguredApiKey" />
+                </HeaderAction>
 
-            <ChildContent>
-                <div class="settings-form">
-                <div class="settings-field">
-                    <label>Provider</label>
-                    <div class="provider-display" aria-label="AI provider">
-                        <span class="material-symbols-outlined" aria-hidden="true">smart_toy</span>
-                        ChatGPT
-                    </div>
-                    <p>Only OpenAI is supported for now.</p>
-                </div>
-
-                <div class="settings-key-section">
-                    <div class="settings-field">
-                        <label for="api-key">OpenAI API Key <span>*</span></label>
-                        <div class="settings-key-row">
-                            <div class="settings-input-wrap">
-                                <span class="material-symbols-outlined" aria-hidden="true">key</span>
-                                <input id="api-key"
-                                       class="settings-input mono"
-                                       type="@ApiKeyInputType"
-                                       placeholder="@ApiKeyPlaceholder"
-                                       @bind="apiKey" />
-                                <button type="button" class="settings-field-button" aria-label="@ApiKeyVisibilityLabel" @onclick="ToggleApiKeyVisibility">
-                                    <span class="material-symbols-outlined" aria-hidden="true">@ApiKeyVisibilityIcon</span>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="settings-note">
-                            <span class="material-symbols-outlined" aria-hidden="true">info</span>
-                            <p>@ApiKeyHelpText Usage is billed directly by OpenAI.</p>
-                        </div>
-                    </div>
-
-                    <div class="settings-help">
-                        <h3>How to get an API key</h3>
-                        <ol>
-                            <li>Open <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI API keys</a> and sign in.</li>
-                            <li>Create a new secret key for this app.</li>
-                            <li>Copy it immediately. OpenAI only shows the full key once.</li>
-                            <li>Paste it here, save, then test the connection.</li>
-                        </ol>
-                        <p>Keep the key private. If it is lost or exposed, delete it in OpenAI and create a new one.</p>
-                    </div>
-                </div>
-
-                <div class="settings-options-grid">
-                    <div class="settings-field">
-                        <label for="ai-model">Model</label>
-                        <div class="settings-input-wrap">
-                            <span class="material-symbols-outlined" aria-hidden="true">memory</span>
-                            <select id="ai-model" class="settings-input mono select" @bind="model">
-                                <option value="gpt-5.6-luna">gpt-5.6-luna</option>
-                                <option value="gpt-4o">gpt-4o</option>
-                                <option value="gpt-4-turbo">gpt-4-turbo</option>
-                                <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
-                            </select>
-                            <span class="material-symbols-outlined settings-select-icon" aria-hidden="true">expand_more</span>
-                        </div>
-                        <p>Model used for transaction categorization.</p>
-                    </div>
-
-                    <div class="settings-field">
-                        <label for="request-timeout">Request Timeout</label>
-                        <div class="settings-input-wrap">
-                            <span class="material-symbols-outlined" aria-hidden="true">timer</span>
-                            <input id="request-timeout"
-                                   class="settings-input mono"
-                                   type="number"
-                                   min="5"
-                                   max="180"
-                                   step="1"
-                                   @bind="requestTimeoutSeconds" />
-                        </div>
-                        <p>Seconds before categorization falls back to review.</p>
-                    </div>
-                </div>
-
-                <div class="settings-test-section">
-                    <div>
-                        <h3>Test Connection</h3>
-                        <p>Verify your API credentials and latency.</p>
-                    </div>
-                    <div class="settings-action-buttons">
-                        <button type="button" class="primary-button" @onclick="SaveAsync" disabled="@isBusy">
-                            Save
-                        </button>
-                        <button type="button" class="secondary-button" @onclick="TestConnectionAsync" disabled="@isBusy">
-                            Test Connection
-                        </button>
-                        <button type="button" class="danger-button" @onclick="DeleteConfigurationAsync" disabled="@(isBusy || !CanDeleteConfiguration)">
-                            Delete Configuration
-                        </button>
-                    </div>
-                </div>
-
-                <SettingsStatus Message="@statusMessage" Kind="@statusKind" />
-                </div>
-            </ChildContent>
-        </Card>
+                <ChildContent>
+                    <SettingsAiConfigurationPanel ApiKey="@apiKey"
+                                                  ApiKeyChanged="OnApiKeyChanged"
+                                                  Model="@model"
+                                                  ModelChanged="OnModelChanged"
+                                                  RequestTimeoutSeconds="@requestTimeoutSeconds"
+                                                  RequestTimeoutSecondsChanged="OnRequestTimeoutSecondsChanged"
+                                                  IsBusy="@isBusy"
+                                                  CanDeleteConfiguration="@CanDeleteConfiguration"
+                                                  ApiKeyInputType="@ApiKeyInputType"
+                                                  ApiKeyVisibilityIcon="@ApiKeyVisibilityIcon"
+                                                  ApiKeyVisibilityLabel="@ApiKeyVisibilityLabel"
+                                                  ApiKeyPlaceholder="@ApiKeyPlaceholder"
+                                                  ApiKeyHelpText="@ApiKeyHelpText"
+                                                  StatusMessage="@statusMessage"
+                                                  StatusKind="@statusKind"
+                                                  OnToggleApiKeyVisibility="ToggleApiKeyVisibility"
+                                                  OnSave="SaveAsync"
+                                                  OnTestConnection="TestConnectionAsync"
+                                                  OnDeleteConfiguration="DeleteConfigurationAsync" />
+                </ChildContent>
+            </Card>
         }
         else if (activeTab == SettingsTab.Data)
         {
-            <SettingsDataPanel StorageLocation="@StorageLocation"
-                               IsBusy="@isBusy"
-                               StatusMessage="@statusMessage"
-                               StatusKind="@statusKind"
-                               OnDeleteLocalData="DeleteLocalDataAsync" />
+            <Card Class="settings-card"
+                  Title="Data & Privacy"
+                  Subtitle="Manage your local database, backups, and privacy controls.">
+                <SettingsDataPanel StorageLocation="@StorageLocation"
+                                   IsBusy="@isBusy"
+                                   StatusMessage="@statusMessage"
+                                   StatusKind="@statusKind"
+                                   OnDeleteLocalData="DeleteLocalDataAsync" />
+            </Card>
         }
         else if (activeTab == SettingsTab.DevTesting)
         {
-            <SettingsDeveloperTestingPanel LogsFolderLocation="@LogsFolderLocation"
-                                           IsBusy="@isBusy"
-                                           StatusMessage="@statusMessage"
-                                           StatusKind="@statusKind"
-                                           OnOpenLogsFolder="OpenLogsFolder" />
+            <Card Class="settings-card"
+                  Title="Developer Testing"
+                  Subtitle="Locate diagnostic files used while testing packaged and local builds.">
+                <SettingsDeveloperTestingPanel LogsFolderLocation="@LogsFolderLocation"
+                                               IsBusy="@isBusy"
+                                               StatusMessage="@statusMessage"
+                                               StatusKind="@statusKind"
+                                               OnOpenLogsFolder="OpenLogsFolder" />
+            </Card>
         }
     </div>
 </section>
@@ -224,6 +155,21 @@
     private void ToggleApiKeyVisibility()
     {
         showApiKey = !showApiKey;
+    }
+
+    private void OnApiKeyChanged(string value)
+    {
+        apiKey = value;
+    }
+
+    private void OnModelChanged(string value)
+    {
+        model = value;
+    }
+
+    private void OnRequestTimeoutSecondsChanged(int value)
+    {
+        requestTimeoutSeconds = value;
     }
 
     private async Task TestConnectionAsync()

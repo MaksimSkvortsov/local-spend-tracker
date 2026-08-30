@@ -134,46 +134,11 @@
         }
         else if (activeTab == SettingsTab.Data)
         {
-        <Card Class="settings-card"
-              Title="Data & Privacy"
-              Subtitle="Manage your local database, backups, and privacy controls.">
-            <div class="settings-form">
-                <div class="settings-data-section">
-                    <h3>Local Storage</h3>
-                    <div class="settings-storage-panel">
-                        <div class="settings-storage-main">
-                            <span class="material-symbols-outlined" aria-hidden="true">database</span>
-                            <div>
-                                <span>Storage Location</span>
-                                <strong>@StorageLocation</strong>
-                            </div>
-                        </div>
-                        <span class="settings-readonly-chip">Readonly</span>
-                    </div>
-                </div>
-
-                <div class="settings-privacy-section">
-                    <div>
-                        <h3>Privacy and Safety</h3>
-                        <p>Your financial data stays on this device. AI requests only use your configured provider when categorization is required.</p>
-                    </div>
-                </div>
-
-                <div class="settings-test-section">
-                    <div>
-                        <h3>Local Data</h3>
-                        <p>Remove imported cards, statements, transactions, assignments, and learned rules from this device.</p>
-                    </div>
-                    <div class="settings-action-buttons">
-                        <button type="button" class="danger-button" @onclick="DeleteLocalDataAsync" disabled="@isBusy">
-                            Delete Local Data
-                        </button>
-                    </div>
-                </div>
-
-                <SettingsStatus Message="@statusMessage" Kind="@statusKind" />
-            </div>
-        </Card>
+            <SettingsDataPanel StorageLocation="@StorageLocation"
+                               IsBusy="@isBusy"
+                               StatusMessage="@statusMessage"
+                               StatusKind="@statusKind"
+                               OnDeleteLocalData="DeleteLocalDataAsync" />
         }
         else if (activeTab == SettingsTab.DevTesting)
         {

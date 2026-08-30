@@ -14,15 +14,15 @@
         {
             <tr>
                 <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
-                <td class="transaction-description">@transaction.OriginalDescription</td>
+                <td class="transaction-description">@transaction.Description</td>
                 <td class="transaction-category">
                     <div class="category-editor-wrap">
                         <select class="@GetCategoryEditorClass(transaction)"
                                 style="@GetCategoryStyle(transaction)"
-                                value="@GetCategoryId(transaction)"
-                                @onchange="args => OnCategoryChanged.InvokeAsync(new TransactionCategoryChange(transaction, args.Value?.ToString()))"
+                                value="@transaction.CategoryId"
+                                @onchange="args => OnCategoryChanged.InvokeAsync(new TransactionCategoryChange(transaction.Id, transaction.CategoryId, args.Value?.ToString()))"
                                 disabled="@(SavingCategoryTransactionId == transaction.Id)"
-                                aria-label="@($"Category for {transaction.OriginalDescription}")">
+                                aria-label="@($"Category for {transaction.Description}")">
                             @foreach (var category in Categories)
                             {
                                 <option value="@category.Id">@category.Name</option>
@@ -30,7 +30,7 @@
                         </select>
                         <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
                     </div>
-                    @if (NeedsReview(transaction))
+                    @if (transaction.NeedsReview)
                     {
                         <span class="review-warning">
                             <span class="material-symbols-outlined" aria-hidden="true">warning</span>
@@ -38,7 +38,7 @@
                         </span>
                     }
                 </td>
-                <td class="transaction-card">@GetCardName(transaction)</td>
+                <td class="transaction-card">@transaction.CardName</td>
                 <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
             </tr>
         }
@@ -62,25 +62,13 @@
 
 @code {
     [Parameter]
-    public IReadOnlyList<Transaction> Transactions { get; set; } = [];
+    public IReadOnlyList<TransactionRow> Transactions { get; set; } = [];
 
     [Parameter]
     public int TotalCount { get; set; }
 
     [Parameter]
     public IReadOnlyList<BuiltInCategory> Categories { get; set; } = [];
-
-    [Parameter]
-    public IReadOnlyDictionary<Guid, TransactionCategoryAssignment> AssignmentsByTransactionId { get; set; } =
-        new Dictionary<Guid, TransactionCategoryAssignment>();
-
-    [Parameter]
-    public IReadOnlyDictionary<int, string> CategoryColorsById { get; set; } =
-        new Dictionary<int, string>();
-
-    [Parameter]
-    public IReadOnlyDictionary<Guid, string> CardNamesById { get; set; } =
-        new Dictionary<Guid, string>();
 
     [Parameter]
     public Guid? SavingCategoryTransactionId { get; set; }
@@ -100,31 +88,16 @@
     [Parameter]
     public EventCallback OnNext { get; set; }
 
-    private int GetCategoryId(Transaction transaction)
+    private string GetCategoryEditorClass(TransactionRow transaction)
     {
-        return AssignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
-            ? assignment.CategoryId
-            : BuiltInCategoryIds.Other;
-    }
-
-    private string GetCategoryEditorClass(Transaction transaction)
-    {
-        return NeedsReview(transaction)
+        return transaction.NeedsReview
             ? "category-editor review"
             : "category-editor";
     }
 
-    private string GetCategoryStyle(Transaction transaction)
+    private static string GetCategoryStyle(TransactionRow transaction)
     {
-        var categoryId = GetCategoryId(transaction);
-        var color = CategoryColorsById.GetValueOrDefault(categoryId, "#e5e7e2");
-
-        return $"--category-color: {color}";
-    }
-
-    private string GetCardName(Transaction transaction)
-    {
-        return CardNamesById.GetValueOrDefault(transaction.CardAccountId, "Unknown Card");
+        return $"--category-color: {transaction.CategoryColor}";
     }
 
     private static string FormatTransactionAmount(decimal amount)
@@ -134,16 +107,10 @@
             : Math.Abs(amount).ToString("C");
     }
 
-    private string GetAmountClass(Transaction transaction)
+    private static string GetAmountClass(TransactionRow transaction)
     {
         return transaction.Amount < 0
             ? "amount transaction-amount credit"
             : "amount transaction-amount";
-    }
-
-    private bool NeedsReview(Transaction transaction)
-    {
-        return AssignmentsByTransactionId.TryGetValue(transaction.Id, out var assignment)
-               && assignment.NeedsReview;
     }
 }

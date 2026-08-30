@@ -1,7 +1,6 @@
-using Spendnest.Core.Transactions;
-
 namespace Spendnest.Desktop.Presentation.Transactions;
 
 public sealed record TransactionCategoryChange(
-    Transaction Transaction,
+    Guid TransactionId,
+    int CurrentCategoryId,
     string? CategoryId);

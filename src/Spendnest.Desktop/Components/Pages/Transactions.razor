@@ -44,9 +44,6 @@
             <TransactionsTable Transactions="@PagedTransactions"
                                TotalCount="@FilteredTransactions.Count"
                                Categories="@categories"
-                               AssignmentsByTransactionId="@assignmentsByTransactionId"
-                               CategoryColorsById="@categoryColorsById"
-                               CardNamesById="@cardNamesById"
                                SavingCategoryTransactionId="@savingCategoryTransactionId"
                                CurrentPage="@currentPage"
                                PageCount="@PageCount"
@@ -89,7 +86,12 @@
     private PagedList<Transaction> TransactionPage =>
         PagedList<Transaction>.Create(FilteredTransactions, currentPage, PageSize);
 
-    private IReadOnlyList<Transaction> PagedTransactions => TransactionPage.Items;
+    private IReadOnlyList<TransactionRow> PagedTransactions =>
+        TransactionRows.FromTransactions(
+            TransactionPage.Items,
+            assignmentsByTransactionId,
+            categoryColorsById,
+            cardNamesById);
 
     private int PageCount => TransactionPage.PageCount;
 
@@ -164,16 +166,16 @@
     private async Task ChangeCategoryAsync(TransactionCategoryChange change)
     {
         categorySaveError = null;
-        if (!int.TryParse(change.CategoryId, out var categoryId) || categoryId == GetCategoryId(change.Transaction))
+        if (!int.TryParse(change.CategoryId, out var categoryId) || categoryId == change.CurrentCategoryId)
         {
             return;
         }
 
-        savingCategoryTransactionId = change.Transaction.Id;
+        savingCategoryTransactionId = change.TransactionId;
         try
         {
             await TransactionsPageService.SetCategoryAsync(
-                change.Transaction.Id,
+                change.TransactionId,
                 categoryId,
                 CancellationToken.None);
             await ReloadAssignmentsAsync();

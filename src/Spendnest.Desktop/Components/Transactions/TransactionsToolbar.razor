@@ -1,0 +1,87 @@
+<div class="transactions-toolbar">
+    <div class="review-toggle" role="group" aria-label="Review filter">
+        <button type="button" class="@GetReviewModeClass(ReviewFilterMode.All)" @onclick="() => OnReviewFilterChanged.InvokeAsync(ReviewFilterMode.All)">All</button>
+        <button type="button" class="@GetReviewModeClass(ReviewFilterMode.NeedsReview)" @onclick="() => OnReviewFilterChanged.InvokeAsync(ReviewFilterMode.NeedsReview)">
+            Require Review
+            @if (ReviewCount > 0)
+            {
+                <span>@ReviewCount</span>
+            }
+        </button>
+    </div>
+
+    <div class="transaction-count-chip">
+        <span>@TransactionCount Transactions</span>
+    </div>
+
+    <div class="filter-select-wrap">
+        <select id="categoryFilter" class="transaction-filter-select" aria-label="Category" value="@SelectedCategoryId" @onchange="HandleCategoryChanged">
+            <option value="">All Categories</option>
+            @foreach (var category in Categories)
+            {
+                <option value="@category.Id">@category.Name</option>
+            }
+        </select>
+        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+    </div>
+
+    <div class="filter-select-wrap">
+        <select id="cardFilter" class="transaction-filter-select" aria-label="Card" value="@SelectedCardId" @onchange="HandleCardChanged">
+            <option value="">All cards</option>
+            @foreach (var card in Cards)
+            {
+                <option value="@card.Id.ToString()">@card.Name</option>
+            }
+        </select>
+        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ReviewFilterMode ReviewFilterMode { get; set; }
+
+    [Parameter]
+    public EventCallback<ReviewFilterMode> OnReviewFilterChanged { get; set; }
+
+    [Parameter]
+    public int ReviewCount { get; set; }
+
+    [Parameter]
+    public int TransactionCount { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<BuiltInCategory> Categories { get; set; } = [];
+
+    [Parameter]
+    public string SelectedCategoryId { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> SelectedCategoryIdChanged { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<CardAccount> Cards { get; set; } = [];
+
+    [Parameter]
+    public string SelectedCardId { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> SelectedCardIdChanged { get; set; }
+
+    private string GetReviewModeClass(ReviewFilterMode mode)
+    {
+        return ReviewFilterMode == mode
+            ? "active"
+            : string.Empty;
+    }
+
+    private async Task HandleCategoryChanged(ChangeEventArgs args)
+    {
+        await SelectedCategoryIdChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+    }
+
+    private async Task HandleCardChanged(ChangeEventArgs args)
+    {
+        await SelectedCardIdChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+    }
+}

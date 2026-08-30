@@ -1,0 +1,23 @@
+<button type="button" class="import-drop-zone" @onclick="OnPickFile" disabled="@IsBusy">
+    <span class="upload-icon material-symbols-outlined" aria-hidden="true">file_upload</span>
+    <span>
+        <strong>Drag and drop your file here</strong>
+        <em>or <span>browse files</span> from your computer</em>
+    </span>
+</button>
+
+@if (!string.IsNullOrWhiteSpace(StatusMessage))
+{
+    <span class="status-message">@StatusMessage</span>
+}
+
+@code {
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string? StatusMessage { get; set; }
+
+    [Parameter]
+    public EventCallback OnPickFile { get; set; }
+}

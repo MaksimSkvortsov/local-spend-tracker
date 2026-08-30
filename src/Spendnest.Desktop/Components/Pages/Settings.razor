@@ -20,29 +20,7 @@
 </section>
 
 <section class="settings-layout">
-    <aside class="settings-subnav" aria-label="Settings sections">
-        <button type="button" class="@GetSettingsTabClass(SettingsTab.Ai)" @onclick="() => SelectTab(SettingsTab.Ai)">
-            <span>
-                <span class="material-symbols-outlined" aria-hidden="true">psychology</span>
-                AI Configuration
-            </span>
-            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
-        </button>
-        <button type="button" class="@GetSettingsTabClass(SettingsTab.Data)" @onclick="() => SelectTab(SettingsTab.Data)">
-            <span>
-                <span class="material-symbols-outlined" aria-hidden="true">database</span>
-                Data & Privacy
-            </span>
-            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
-        </button>
-        <button type="button" class="@GetSettingsTabClass(SettingsTab.DevTesting)" @onclick="() => SelectTab(SettingsTab.DevTesting)">
-            <span>
-                <span class="material-symbols-outlined" aria-hidden="true">bug_report</span>
-                Developer Testing
-            </span>
-            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
-        </button>
-    </aside>
+    <SettingsSubnav ActiveTab="@activeTab" OnTabSelected="SelectTab" />
 
     <div class="settings-content">
         @if (activeTab == SettingsTab.Ai)
@@ -475,18 +453,6 @@
     {
         return !string.IsNullOrWhiteSpace(value)
             && value.StartsWith("gpt-", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private string GetSettingsTabClass(SettingsTab tab)
-    {
-        return activeTab == tab ? "active" : string.Empty;
-    }
-
-    private enum SettingsTab
-    {
-        Ai,
-        Data,
-        DevTesting
     }
 
     private enum StatusKind

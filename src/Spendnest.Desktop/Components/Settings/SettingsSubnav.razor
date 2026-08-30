@@ -1,0 +1,37 @@
+<aside class="settings-subnav" aria-label="Settings sections">
+    @foreach (var item in Items)
+    {
+        <button type="button" class="@GetSettingsTabClass(item.Tab)" @onclick="() => OnTabSelected.InvokeAsync(item.Tab)">
+            <span>
+                <span class="material-symbols-outlined" aria-hidden="true">@item.Icon</span>
+                @item.Label
+            </span>
+            <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+        </button>
+    }
+</aside>
+
+@code {
+    private static readonly IReadOnlyList<SettingsSubnavItem> Items =
+    [
+        new(SettingsTab.Ai, "psychology", "AI Configuration"),
+        new(SettingsTab.Data, "database", "Data & Privacy"),
+        new(SettingsTab.DevTesting, "bug_report", "Developer Testing")
+    ];
+
+    [Parameter]
+    public SettingsTab ActiveTab { get; set; }
+
+    [Parameter]
+    public EventCallback<SettingsTab> OnTabSelected { get; set; }
+
+    private string GetSettingsTabClass(SettingsTab tab)
+    {
+        return ActiveTab == tab ? "active" : string.Empty;
+    }
+
+    private sealed record SettingsSubnavItem(
+        SettingsTab Tab,
+        string Icon,
+        string Label);
+}

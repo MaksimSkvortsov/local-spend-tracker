@@ -1,9 +1,7 @@
 @page "/import"
+@inject ImportPageService ImportPageService
 @inject ImportWorkflowService ImportWorkflowService
-@inject ITransactionRepository TransactionRepository
-@inject IStatementImportRepository ImportHistoryRepository
 @inject IStatementParser StatementParser
-@inject ICardAccountRepository CardAccountRepository
 @inject AppDataRefreshNotifier DataRefreshNotifier
 @inject IStatementFilePicker StatementFilePicker
 
@@ -103,7 +101,6 @@
     private bool isBusy;
     private bool cardDetected;
     private StatementFileImportResult? importResult;
-    private IReadOnlyList<Transaction> allTransactions = [];
     private IReadOnlyList<CardAccount> availableCards = [];
     private IReadOnlyList<UploadHistoryItem> uploadHistory = [];
     private IReadOnlyDictionary<Guid, string> previewCategoryNamesByTransactionId =
@@ -163,9 +160,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await RefreshTransactionsAsync();
-        await RefreshCardsAsync();
-        await RefreshUploadHistoryAsync();
+        await RefreshImportPageDataAsync();
     }
 
     private async Task PickCsvAsync()
@@ -231,9 +226,7 @@
             previewCategoryNamesByTransactionId = workflowResult.PreviewCategoryNamesByTransactionId;
             categorizationSummariesByImportId[importResult.StatementImportId] =
                 workflowResult.CategorizationSummary;
-            await RefreshTransactionsAsync();
-            await RefreshCardsAsync();
-            await RefreshUploadHistoryAsync();
+            await RefreshImportPageDataAsync();
             DataRefreshNotifier.NotifyTransactionsChanged(workflowResult.FocusDate);
             ClearSelectedFileState(clearMessages: true);
         }
@@ -271,31 +264,14 @@
         return progress.Message;
     }
 
-    private async Task RefreshTransactionsAsync()
+    private async Task RefreshImportPageDataAsync()
     {
-        allTransactions = await TransactionRepository.ListAsync(CancellationToken.None);
-    }
+        var pageData = await ImportPageService.LoadAsync(
+            categorizationSummariesByImportId,
+            CancellationToken.None);
 
-    private async Task RefreshCardsAsync()
-    {
-        availableCards = await CardAccountRepository.ListAsync(CancellationToken.None);
-    }
-
-    private async Task RefreshUploadHistoryAsync()
-    {
-        var imports = await ImportHistoryRepository.ListAsync(CancellationToken.None);
-        var cardsById = (await CardAccountRepository.ListAsync(CancellationToken.None))
-            .ToDictionary(card => card.Id, card => card.Name);
-        var transactionsByImportId = allTransactions
-            .GroupBy(transaction => transaction.StatementImportId)
-            .ToDictionary(group => group.Key, group => (IReadOnlyList<Transaction>)group.ToArray());
-        uploadHistory = imports
-            .Select(statementImport => UploadHistoryItem.From(
-                statementImport,
-                cardsById.GetValueOrDefault(statementImport.CardAccountId, "Unknown Card"),
-                categorizationSummariesByImportId.GetValueOrDefault(statementImport.Id),
-                transactionsByImportId.GetValueOrDefault(statementImport.Id, [])))
-            .ToArray();
+        availableCards = pageData.AvailableCards;
+        uploadHistory = pageData.UploadHistory;
         uploadHistoryPage = 1;
     }
 
@@ -472,9 +448,7 @@
 
     private async Task RefreshImportHistoryViewAsync()
     {
-        await RefreshTransactionsAsync();
-        await RefreshCardsAsync();
-        await RefreshUploadHistoryAsync();
+        await RefreshImportPageDataAsync();
     }
 
     private string GetPreviewCategory(Transaction transaction)

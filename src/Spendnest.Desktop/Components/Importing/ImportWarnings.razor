@@ -1,0 +1,14 @@
+<div class="warning-list">
+    @foreach (var warning in Warnings)
+    {
+        <div>
+            <span>@(warning.SourceRowNumber is null ? "File" : $"Row {warning.SourceRowNumber}")</span>
+            <p>@warning.Message</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<StatementParseWarning> Warnings { get; set; } = [];
+}

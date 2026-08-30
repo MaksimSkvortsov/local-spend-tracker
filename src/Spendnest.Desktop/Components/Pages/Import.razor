@@ -83,15 +83,7 @@
 @if (importResult?.Warnings.Count > 0)
 {
     <Card Class="panel" Title="Warnings">
-        <div class="warning-list">
-            @foreach (var warning in importResult.Warnings)
-            {
-                <div>
-                    <span>@(warning.SourceRowNumber is null ? "File" : $"Row {warning.SourceRowNumber}")</span>
-                    <p>@warning.Message</p>
-                </div>
-            }
-        </div>
+        <ImportWarnings Warnings="@importResult.Warnings" />
     </Card>
 }
 

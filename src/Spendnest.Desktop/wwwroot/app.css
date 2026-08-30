@@ -1984,6 +1984,12 @@ dt,
     padding: 0;
 }
 
+.transaction-table-card > .app-card__body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
 .transactions-alert-wrap {
     border-bottom: 1px solid #c3c8bd;
     padding: 16px 24px;
@@ -1994,7 +2000,7 @@ dt,
     border-radius: 0;
 }
 
-.transaction-table-card > .empty-state {
+.transaction-table-card > .app-card__body > .empty-state {
     margin: 24px;
 }
 

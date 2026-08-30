@@ -12,7 +12,7 @@
 </section>
 
 <section class="transactions-surface">
-    <div class="app-card transaction-table-card">
+    <Card Class="transaction-table-card">
         <TransactionsToolbar ReviewFilterMode="@reviewFilterMode"
                              OnReviewFilterChanged="SetReviewFilter"
                              ReviewCount="@reviewCount"
@@ -51,7 +51,7 @@
                                OnPrevious="PreviousPage"
                                OnNext="NextPage" />
         }
-    </div>
+    </Card>
 
     <div class="transaction-bottom-spacer" aria-hidden="true"></div>
 </section>

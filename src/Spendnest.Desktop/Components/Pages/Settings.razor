@@ -1,14 +1,6 @@
 @page "/settings"
-@using System.Diagnostics
-@using Spendnest.Core.Ai
-@using Spendnest.Core.Credentials
-@using Spendnest.Infrastructure.Categorization
-@using Spendnest.Infrastructure.Persistence
-@inject IAiConnectionTestService AiConnectionTestService
-@inject ICredentialStore CredentialStore
-@inject SpendnestDatabaseInitializer DatabaseInitializer
+@inject SettingsPageService SettingsPageService
 @inject NavigationManager NavigationManager
-@inject OpenAiCategorizerOptions OpenAiOptions
 
 <PageTitle>Settings - PeasantMoney</PageTitle>
 
@@ -82,19 +74,13 @@
     private string? statusMessage;
     private SettingsStatusKind statusKind;
 
-    private const string DefaultModel = "gpt-5.6-luna";
-
-    private const int DefaultRequestTimeoutSeconds = 25;
-
     [Parameter]
     [SupplyParameterFromQuery(Name = "tab")]
     public string? RequestedTab { get; set; }
 
-    private string StorageLocation => SpendnestDataPaths.GetDefaultDatabasePath();
+    private string StorageLocation => SettingsPageService.StorageLocation;
 
-    private string LogsFolderLocation =>
-        Path.GetDirectoryName(SpendnestDataPaths.GetDefaultLogPath())
-        ?? SpendnestDataPaths.GetDefaultLogPath();
+    private string LogsFolderLocation => SettingsPageService.LogsFolderLocation;
 
     private SettingsAiConfigurationState AiConfigurationState => new(
         apiKey,
@@ -108,10 +94,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var storedApiKey = await CredentialStore.GetStringAsync(CredentialKeys.OpenAiApiKey, CancellationToken.None);
-        hasConfiguredApiKey = !string.IsNullOrWhiteSpace(storedApiKey);
-        model = OpenAiOptions.Model;
-        requestTimeoutSeconds = Math.Max(1, (int)Math.Round(OpenAiOptions.RequestTimeout.TotalSeconds));
+        var pageData = await SettingsPageService.LoadAsync(CancellationToken.None);
+        hasConfiguredApiKey = pageData.HasConfiguredApiKey;
+        model = pageData.Model;
+        requestTimeoutSeconds = pageData.RequestTimeoutSeconds;
     }
 
     protected override void OnParametersSet()
@@ -162,26 +148,13 @@
         statusMessage = null;
         try
         {
-            var hasKey = !string.IsNullOrWhiteSpace(apiKey) || hasConfiguredApiKey;
-            if (!hasKey)
-            {
-                SetStatus("Enter an API key before testing.", SettingsStatusKind.Error);
-                return;
-            }
-
-            if (!IsValidModel(model))
-            {
-                SetStatus("Choose a ChatGPT model.", SettingsStatusKind.Error);
-                return;
-            }
-
-            var result = await AiConnectionTestService.TestOpenAiAsync(
-                new AiConnectionTestRequest(
-                    apiKey,
-                    model,
-                    TimeSpan.FromSeconds(requestTimeoutSeconds)),
+            var result = await SettingsPageService.TestConnectionAsync(
+                apiKey,
+                hasConfiguredApiKey,
+                model,
+                requestTimeoutSeconds,
                 CancellationToken.None);
-            SetStatus(result.Message, result.Succeeded ? SettingsStatusKind.Success : SettingsStatusKind.Error);
+            SetStatus(result);
         }
         finally
         {
@@ -195,33 +168,19 @@
         statusMessage = null;
         try
         {
-            if (!IsValidModel(model))
-            {
-                SetStatus("Choose a ChatGPT model.", SettingsStatusKind.Error);
-                return;
-            }
+            var result = await SettingsPageService.SaveAiConfigurationAsync(
+                apiKey,
+                hasConfiguredApiKey,
+                model,
+                requestTimeoutSeconds,
+                CancellationToken.None);
+            SetStatus(result);
 
-            if (requestTimeoutSeconds is < 5 or > 180)
+            if (result.StatusKind == SettingsStatusKind.Success)
             {
-                SetStatus("Timeout must be between 5 and 180 seconds.", SettingsStatusKind.Error);
-                return;
-            }
-
-            if (!string.IsNullOrWhiteSpace(apiKey))
-            {
-                await CredentialStore.SaveStringAsync(CredentialKeys.OpenAiApiKey, apiKey, CancellationToken.None);
                 apiKey = string.Empty;
                 hasConfiguredApiKey = true;
             }
-            else if (!hasConfiguredApiKey)
-            {
-                SetStatus("API key is required.", SettingsStatusKind.Error);
-                return;
-            }
-
-            OpenAiOptions.Model = model;
-            OpenAiOptions.RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSeconds);
-            SetStatus("AI configuration saved.", SettingsStatusKind.Success);
         }
         catch (Exception ex)
         {
@@ -239,15 +198,18 @@
         statusMessage = null;
         try
         {
-            await CredentialStore.ClearAsync(CredentialKeys.OpenAiApiKey, CancellationToken.None);
-            apiKey = string.Empty;
-            hasConfiguredApiKey = false;
-            showApiKey = false;
-            model = DefaultModel;
-            requestTimeoutSeconds = DefaultRequestTimeoutSeconds;
-            OpenAiOptions.Model = model;
-            OpenAiOptions.RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSeconds);
-            SetStatus("AI connection details deleted.", SettingsStatusKind.Success);
+            var result = await SettingsPageService.DeleteConfigurationAsync(CancellationToken.None);
+            if (result.StatusKind == SettingsStatusKind.Success)
+            {
+                var pageData = await SettingsPageService.LoadAsync(CancellationToken.None);
+                apiKey = string.Empty;
+                hasConfiguredApiKey = pageData.HasConfiguredApiKey;
+                showApiKey = false;
+                model = pageData.Model;
+                requestTimeoutSeconds = pageData.RequestTimeoutSeconds;
+            }
+
+            SetStatus(result);
         }
         catch (Exception ex)
         {
@@ -265,8 +227,8 @@
         statusMessage = null;
         try
         {
-            await DatabaseInitializer.DeleteUserDataAsync(CancellationToken.None);
-            SetStatus("Local data deleted.", SettingsStatusKind.Success);
+            var result = await SettingsPageService.DeleteLocalDataAsync(CancellationToken.None);
+            SetStatus(result);
         }
         catch (Exception ex)
         {
@@ -283,12 +245,7 @@
         statusMessage = null;
         try
         {
-            Directory.CreateDirectory(LogsFolderLocation);
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = LogsFolderLocation,
-                UseShellExecute = true
-            });
+            SettingsPageService.OpenLogsFolder();
         }
         catch (Exception ex)
         {
@@ -302,10 +259,9 @@
         statusKind = kind;
     }
 
-    private static bool IsValidModel(string value)
+    private void SetStatus(SettingsOperationResult result)
     {
-        return !string.IsNullOrWhiteSpace(value)
-            && value.StartsWith("gpt-", StringComparison.OrdinalIgnoreCase);
+        SetStatus(result.Message, result.StatusKind);
     }
 
 }

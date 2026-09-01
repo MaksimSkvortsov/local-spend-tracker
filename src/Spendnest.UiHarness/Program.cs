@@ -31,6 +31,7 @@ builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddSingleton<ImportFileSelectionService>();
 builder.Services.AddSingleton<ImportPageService>();
 builder.Services.AddSingleton<ImportWorkflowService>();
+builder.Services.AddSingleton<SettingsPageService>();
 builder.Services.AddSingleton<TransactionsPageService>();
 builder.Services.AddSingleton<IStatementFilePicker, DevStatementFilePicker>();
 builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();

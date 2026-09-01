@@ -34,28 +34,25 @@ public sealed class SettingsPageService(
     }
 
     public async Task<SettingsOperationResult> TestConnectionAsync(
-        string apiKey,
-        bool hasConfiguredApiKey,
-        string model,
-        int requestTimeoutSeconds,
+        SettingsAiConfigurationRequest request,
         CancellationToken cancellationToken)
     {
-        var hasKey = !string.IsNullOrWhiteSpace(apiKey) || hasConfiguredApiKey;
+        var hasKey = !string.IsNullOrWhiteSpace(request.ApiKey) || request.HasConfiguredApiKey;
         if (!hasKey)
         {
             return Error("Enter an API key before testing.");
         }
 
-        if (!IsValidModel(model))
+        if (!IsValidModel(request.Model))
         {
             return Error("Choose a ChatGPT model.");
         }
 
         var result = await aiConnectionTestService.TestOpenAiAsync(
             new AiConnectionTestRequest(
-                apiKey,
-                model,
-                TimeSpan.FromSeconds(requestTimeoutSeconds)),
+                request.ApiKey,
+                request.Model,
+                TimeSpan.FromSeconds(request.RequestTimeoutSeconds)),
             cancellationToken);
 
         return new SettingsOperationResult(
@@ -64,33 +61,30 @@ public sealed class SettingsPageService(
     }
 
     public async Task<SettingsOperationResult> SaveAiConfigurationAsync(
-        string apiKey,
-        bool hasConfiguredApiKey,
-        string model,
-        int requestTimeoutSeconds,
+        SettingsAiConfigurationRequest request,
         CancellationToken cancellationToken)
     {
-        if (!IsValidModel(model))
+        if (!IsValidModel(request.Model))
         {
             return Error("Choose a ChatGPT model.");
         }
 
-        if (requestTimeoutSeconds is < 5 or > 180)
+        if (request.RequestTimeoutSeconds is < 5 or > 180)
         {
             return Error("Timeout must be between 5 and 180 seconds.");
         }
 
-        if (!string.IsNullOrWhiteSpace(apiKey))
+        if (!string.IsNullOrWhiteSpace(request.ApiKey))
         {
-            await credentialStore.SaveStringAsync(CredentialKeys.OpenAiApiKey, apiKey, cancellationToken);
+            await credentialStore.SaveStringAsync(CredentialKeys.OpenAiApiKey, request.ApiKey, cancellationToken);
         }
-        else if (!hasConfiguredApiKey)
+        else if (!request.HasConfiguredApiKey)
         {
             return Error("API key is required.");
         }
 
-        openAiOptions.Model = model;
-        openAiOptions.RequestTimeout = TimeSpan.FromSeconds(requestTimeoutSeconds);
+        openAiOptions.Model = request.Model;
+        openAiOptions.RequestTimeout = TimeSpan.FromSeconds(request.RequestTimeoutSeconds);
 
         return Success("AI configuration saved.");
     }

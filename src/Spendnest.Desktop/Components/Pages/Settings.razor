@@ -94,6 +94,12 @@
         statusMessage,
         statusKind);
 
+    private SettingsAiConfigurationRequest AiConfigurationRequest => new(
+        apiKey,
+        hasConfiguredApiKey,
+        model,
+        requestTimeoutSeconds);
+
     protected override async Task OnInitializedAsync()
     {
         var pageData = await SettingsPageService.LoadAsync(CancellationToken.None);
@@ -141,10 +147,7 @@
         try
         {
             var result = await SettingsPageService.TestConnectionAsync(
-                apiKey,
-                hasConfiguredApiKey,
-                model,
-                requestTimeoutSeconds,
+                AiConfigurationRequest,
                 CancellationToken.None);
             SetStatus(result);
         }
@@ -161,10 +164,7 @@
         try
         {
             var result = await SettingsPageService.SaveAiConfigurationAsync(
-                apiKey,
-                hasConfiguredApiKey,
-                model,
-                requestTimeoutSeconds,
+                AiConfigurationRequest,
                 CancellationToken.None);
             SetStatus(result);
 

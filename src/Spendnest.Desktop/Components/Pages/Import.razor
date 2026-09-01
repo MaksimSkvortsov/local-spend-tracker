@@ -12,7 +12,7 @@
     <p>Upload your bank statements to reconcile your accounts and gain clarity on your spending habits. Your data is processed securely and remains private.</p>
 </section>
 
-@if (string.IsNullOrWhiteSpace(selectedFilePath))
+@if (!selection.HasFile)
 {
     <section class="import-workspace">
         <Card Class="import-upload-card" Title="Upload Statement">
@@ -23,11 +23,11 @@
     </section>
 }
 
-@if (!string.IsNullOrWhiteSpace(selectedFilePath))
+@if (selection.HasFile)
 {
     <Card Class="selected-transactions-card"
           Title="Transactions in File"
-          Subtitle="@($"Previewing {previewRows.Count} transactions from {SelectedFileName}")">
+          Subtitle="@($"Previewing {selection.PreviewRows.Count} transactions from {selection.SelectedFileName}")">
         <HeaderAction>
             <div class="selected-transactions-actions">
                 <button class="secondary-button" @onclick="ClearSelectedFile" disabled="@isBusy">Cancel</button>
@@ -38,20 +38,20 @@
         </HeaderAction>
 
         <ChildContent>
-            <SelectedTransactionsPreview CardDetected="@cardDetected"
-                                         CardName="@cardName"
+            <SelectedTransactionsPreview CardDetected="@selection.CardDetected"
+                                         CardName="@selection.CardName"
                                          CardNameChanged="SetCardName"
-                                         SelectedExistingCardName="@selectedExistingCardName"
+                                         SelectedExistingCardName="@selection.SelectedExistingCardName"
                                          SelectedExistingCardNameChanged="SetSelectedExistingCardName"
                                          OnExistingCardChanged="UseSelectedExistingCard"
                                          AvailableCards="@availableCards"
-                                         CardSelectionMessage="@cardSelectionMessage"
+                                         CardSelectionMessage="@selection.CardSelectionMessage"
                                          StatusMessage="@statusMessage"
-                                         ErrorMessage="@errorMessage"
+                                         ErrorMessage="@selection.ErrorMessage"
                                          IsBusy="@isBusy"
-                                         Rows="@previewRows"
+                                         Rows="@selection.PreviewRows"
                                          PagedRows="@PagedPreviewRows"
-                                         CurrentPage="@previewPage"
+                                         CurrentPage="@selection.PreviewPage"
                                          PageCount="@PreviewPageCount"
                                          OnPrevious="PreviousPreviewPage"
                                          OnNext="NextPreviewPage" />
@@ -78,10 +78,10 @@
     </ChildContent>
 </Card>
 
-@if (importWarnings.Count > 0)
+@if (selection.Warnings.Count > 0)
 {
     <Card Class="panel" Title="Warnings">
-        <ImportWarnings Warnings="@importWarnings" />
+        <ImportWarnings Warnings="@selection.Warnings" />
     </Card>
 }
 
@@ -89,50 +89,29 @@
     private const int UploadHistoryPageSize = 10;
     private const int PreviewPageSize = 5;
 
-    private string cardName = "Default Card";
-    private string selectedFileFallbackCardName = "Imported Card";
-    private string selectedExistingCardName = string.Empty;
-    private string? selectedFilePath;
-    private string? selectedFileName;
-    private string? cardSelectionMessage;
+    private ImportSelectionDraft selection = new();
     private string? statusMessage;
-    private string? errorMessage;
     private FileUploadProgress? currentProgress;
     private bool isBusy;
-    private bool cardDetected;
-    private IReadOnlyList<StatementParseWarning> importWarnings = [];
     private IReadOnlyList<CardAccount> availableCards = [];
     private IReadOnlyList<UploadHistoryItem> uploadHistory = [];
-    private IReadOnlyList<PreviewRow> previewRows = [];
-    private IReadOnlyDictionary<Guid, string> previewCategoryNamesByTransactionId =
-        new Dictionary<Guid, string>();
     private Dictionary<Guid, CategorizationHistorySummary> categorizationSummariesByImportId = [];
     private int uploadHistoryPage = 1;
-    private int previewPage = 1;
-
-    private string SelectedFileName => selectedFileName ?? "No CSV selected";
 
     private string CurrentProgressLabel =>
         currentProgress?.Message ?? "Working...";
 
     private bool CanImport =>
-        !isBusy
-        && !string.IsNullOrWhiteSpace(selectedFilePath)
-        && !string.IsNullOrWhiteSpace(EffectiveCardName);
-
-    private string EffectiveCardName =>
-        string.IsNullOrWhiteSpace(cardName)
-            ? selectedFileFallbackCardName
-            : cardName.Trim();
+        selection.CanImport(isBusy);
 
     private bool IsCategorizing =>
-        currentProgress?.Stage == FileUploadProgressStage.CategorizingWithAi;
+        selection.IsCategorizing(currentProgress);
 
     private PagedList<UploadHistoryItem> UploadHistoryPage =>
         PagedList<UploadHistoryItem>.Create(uploadHistory, uploadHistoryPage, UploadHistoryPageSize);
 
     private PagedList<PreviewRow> PreviewPage =>
-        PagedList<PreviewRow>.Create(previewRows, previewPage, PreviewPageSize);
+        PagedList<PreviewRow>.Create(selection.PreviewRows, selection.PreviewPage, PreviewPageSize);
 
     private IReadOnlyList<UploadHistoryItem> PagedUploadHistory => UploadHistoryPage.Items;
 
@@ -149,7 +128,7 @@
 
     private async Task PickCsvAsync()
     {
-        errorMessage = null;
+        selection.ErrorMessage = null;
         statusMessage = null;
 
         var file = await StatementFilePicker.PickCsvAsync(CancellationToken.None);
@@ -159,35 +138,12 @@
             return;
         }
 
-        selectedFileName = file.FileName;
-        selectedFilePath = file.LocalPath;
-        importWarnings = [];
-        previewPage = 1;
-        previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
+        selection.PrepareForSelectedFile(file);
         var preparedFile = await ImportFileSelectionService.PrepareAsync(
             file,
             CancellationToken.None);
 
-        previewRows = ImportPreviewRows.FromParseResult(preparedFile.Preview);
-        errorMessage = preparedFile.ErrorMessage;
-        selectedFileFallbackCardName = preparedFile.FallbackCardName;
-        if (!string.IsNullOrWhiteSpace(preparedFile.DetectedCardName))
-        {
-            cardName = preparedFile.DetectedCardName;
-            cardDetected = true;
-            selectedExistingCardName = string.Empty;
-            cardSelectionMessage = "Card detected from the selected CSV.";
-        }
-        else
-        {
-            selectedExistingCardName = string.Empty;
-            cardName = preparedFile.FallbackCardName;
-            cardDetected = false;
-
-            cardSelectionMessage = availableCards.Count == 0
-                ? "Card was not detected. Review this generated card name before importing."
-                : "Card was not detected. Choose an existing card or review this generated card name.";
-        }
+        selection.ApplyPreparedFile(preparedFile, availableCards.Count);
     }
 
     private async Task ImportAsync()
@@ -198,7 +154,7 @@
         }
 
         isBusy = true;
-        errorMessage = null;
+        selection.ErrorMessage = null;
         statusMessage = null;
         currentProgress = FileUploadProgress.ReadingFile;
         var progress = new Progress<FileUploadProgress>(ReportProgress);
@@ -206,17 +162,17 @@
         try
         {
             var workflowResult = await ImportWorkflowService.ImportAndCategorizeAsync(
-                selectedFilePath!,
-                EffectiveCardName,
+                selection.FilePath!,
+                selection.EffectiveCardName,
                 progress,
                 CancellationToken.None);
 
             var importResult = workflowResult.ImportResult;
-            importWarnings = importResult.Warnings;
-            previewCategoryNamesByTransactionId = workflowResult.PreviewCategoryNamesByTransactionId;
-            previewRows = ImportPreviewRows.FromImportResult(
+            selection.Warnings = importResult.Warnings;
+            selection.PreviewCategoryNamesByTransactionId = workflowResult.PreviewCategoryNamesByTransactionId;
+            selection.PreviewRows = ImportPreviewRows.FromImportResult(
                 importResult,
-                previewCategoryNamesByTransactionId,
+                selection.PreviewCategoryNamesByTransactionId,
                 IsCategorizing);
             categorizationSummariesByImportId[importResult.StatementImportId] =
                 workflowResult.CategorizationSummary;
@@ -226,7 +182,7 @@
         }
         catch (Exception exception)
         {
-            errorMessage = exception.Message;
+            selection.ErrorMessage = exception.Message;
             await RefreshImportHistoryViewAsync();
         }
         finally
@@ -281,33 +237,27 @@
 
     private void PreviousPreviewPage()
     {
-        previewPage = Math.Max(1, previewPage - 1);
+        selection.PreviewPage = Math.Max(1, selection.PreviewPage - 1);
     }
 
     private void NextPreviewPage()
     {
-        previewPage = Math.Min(PreviewPageCount, previewPage + 1);
+        selection.PreviewPage = Math.Min(PreviewPageCount, selection.PreviewPage + 1);
     }
 
     private void UseSelectedExistingCard()
     {
-        if (!string.IsNullOrWhiteSpace(selectedExistingCardName))
-        {
-            cardName = selectedExistingCardName;
-            return;
-        }
-
-        cardName = selectedFileFallbackCardName;
+        selection.UseSelectedExistingCard();
     }
 
     private void SetCardName(string value)
     {
-        cardName = value;
+        selection.CardName = value;
     }
 
     private void SetSelectedExistingCardName(string value)
     {
-        selectedExistingCardName = value;
+        selection.SelectedExistingCardName = value;
     }
 
     private void ClearSelectedFile()
@@ -317,23 +267,11 @@
 
     private void ClearSelectedFileState(bool clearMessages)
     {
-        selectedFileName = null;
-        selectedFilePath = null;
-        selectedExistingCardName = string.Empty;
-        previewPage = 1;
-        importWarnings = [];
-        previewRows = [];
-        previewCategoryNamesByTransactionId = new Dictionary<Guid, string>();
+        selection.Clear(clearMessages);
         if (clearMessages)
         {
             statusMessage = null;
-            errorMessage = null;
         }
-
-        cardSelectionMessage = null;
-        cardDetected = false;
-        selectedFileFallbackCardName = "Imported Card";
-        cardName = string.Empty;
     }
 
     private async Task RefreshImportHistoryViewAsync()

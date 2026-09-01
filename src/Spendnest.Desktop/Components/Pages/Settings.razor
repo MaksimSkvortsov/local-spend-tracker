@@ -21,11 +21,11 @@
                   Title="@ActiveTabItem.Label"
                   Subtitle="@ActiveTabItem.Subtitle">
                 <HeaderAction>
-                    <SettingsConnectionStatus IsConnected="@hasConfiguredApiKey" />
+                    <SettingsConnectionStatus IsConnected="@aiConfiguration.HasConfiguredApiKey" />
                 </HeaderAction>
 
                 <ChildContent>
-                    <SettingsAiConfigurationPanel State="@AiConfigurationState"
+                    <SettingsAiConfigurationPanel State="@GetAiConfigurationState()"
                                                   ApiKeyChanged="OnApiKeyChanged"
                                                   ModelChanged="OnModelChanged"
                                                   RequestTimeoutSecondsChanged="OnRequestTimeoutSecondsChanged"
@@ -65,11 +65,7 @@
 
 @code {
     private SettingsTab activeTab = SettingsTab.Ai;
-    private string apiKey = string.Empty;
-    private string model = string.Empty;
-    private int requestTimeoutSeconds;
-    private bool hasConfiguredApiKey;
-    private bool showApiKey;
+    private SettingsAiConfigurationDraft aiConfiguration = new();
     private bool isBusy;
     private string? statusMessage;
     private SettingsStatusKind statusKind;
@@ -84,28 +80,10 @@
 
     private SettingsTabItem ActiveTabItem => SettingsTabs.Get(activeTab);
 
-    private SettingsAiConfigurationState AiConfigurationState => new(
-        apiKey,
-        model,
-        requestTimeoutSeconds,
-        hasConfiguredApiKey,
-        showApiKey,
-        isBusy,
-        statusMessage,
-        statusKind);
-
-    private SettingsAiConfigurationRequest AiConfigurationRequest => new(
-        apiKey,
-        hasConfiguredApiKey,
-        model,
-        requestTimeoutSeconds);
-
     protected override async Task OnInitializedAsync()
     {
         var pageData = await SettingsPageService.LoadAsync(CancellationToken.None);
-        hasConfiguredApiKey = pageData.HasConfiguredApiKey;
-        model = pageData.Model;
-        requestTimeoutSeconds = pageData.RequestTimeoutSeconds;
+        aiConfiguration = SettingsAiConfigurationDraft.From(pageData);
     }
 
     protected override void OnParametersSet()
@@ -122,22 +100,22 @@
 
     private void ToggleApiKeyVisibility()
     {
-        showApiKey = !showApiKey;
+        aiConfiguration.ShowApiKey = !aiConfiguration.ShowApiKey;
     }
 
     private void OnApiKeyChanged(string value)
     {
-        apiKey = value;
+        aiConfiguration.ApiKey = value;
     }
 
     private void OnModelChanged(string value)
     {
-        model = value;
+        aiConfiguration.Model = value;
     }
 
     private void OnRequestTimeoutSecondsChanged(int value)
     {
-        requestTimeoutSeconds = value;
+        aiConfiguration.RequestTimeoutSeconds = value;
     }
 
     private async Task TestConnectionAsync()
@@ -147,7 +125,7 @@
         try
         {
             var result = await SettingsPageService.TestConnectionAsync(
-                AiConfigurationRequest,
+                aiConfiguration.ToRequest(),
                 CancellationToken.None);
             SetStatus(result);
         }
@@ -164,14 +142,14 @@
         try
         {
             var result = await SettingsPageService.SaveAiConfigurationAsync(
-                AiConfigurationRequest,
+                aiConfiguration.ToRequest(),
                 CancellationToken.None);
             SetStatus(result);
 
             if (result.StatusKind == SettingsStatusKind.Success)
             {
-                apiKey = string.Empty;
-                hasConfiguredApiKey = true;
+                aiConfiguration.ApiKey = string.Empty;
+                aiConfiguration.HasConfiguredApiKey = true;
             }
         }
         catch (Exception ex)
@@ -194,11 +172,7 @@
             if (result.StatusKind == SettingsStatusKind.Success)
             {
                 var pageData = await SettingsPageService.LoadAsync(CancellationToken.None);
-                apiKey = string.Empty;
-                hasConfiguredApiKey = pageData.HasConfiguredApiKey;
-                showApiKey = false;
-                model = pageData.Model;
-                requestTimeoutSeconds = pageData.RequestTimeoutSeconds;
+                aiConfiguration = SettingsAiConfigurationDraft.From(pageData);
             }
 
             SetStatus(result);
@@ -254,6 +228,14 @@
     private void SetStatus(SettingsOperationResult result)
     {
         SetStatus(result.Message, result.StatusKind);
+    }
+
+    private SettingsAiConfigurationState GetAiConfigurationState()
+    {
+        return aiConfiguration.ToState(
+            isBusy,
+            statusMessage,
+            statusKind);
     }
 
 }

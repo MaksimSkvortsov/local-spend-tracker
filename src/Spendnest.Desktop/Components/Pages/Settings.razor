@@ -18,8 +18,8 @@
         @if (activeTab == SettingsTab.Ai)
         {
             <Card Class="settings-card"
-                  Title="AI Configuration"
-                  Subtitle="Configure your language model provider for smart transaction categorization.">
+                  Title="@ActiveTabItem.Label"
+                  Subtitle="@ActiveTabItem.Subtitle">
                 <HeaderAction>
                     <SettingsConnectionStatus IsConnected="@hasConfiguredApiKey" />
                 </HeaderAction>
@@ -39,8 +39,8 @@
         else if (activeTab == SettingsTab.Data)
         {
             <Card Class="settings-card"
-                  Title="Data & Privacy"
-                  Subtitle="Manage your local database, backups, and privacy controls.">
+                  Title="@ActiveTabItem.Label"
+                  Subtitle="@ActiveTabItem.Subtitle">
                 <SettingsDataPanel StorageLocation="@StorageLocation"
                                    IsBusy="@isBusy"
                                    StatusMessage="@statusMessage"
@@ -51,8 +51,8 @@
         else if (activeTab == SettingsTab.DevTesting)
         {
             <Card Class="settings-card"
-                  Title="Developer Testing"
-                  Subtitle="Locate diagnostic files used while testing packaged and local builds.">
+                  Title="@ActiveTabItem.Label"
+                  Subtitle="@ActiveTabItem.Subtitle">
                 <SettingsDeveloperTestingPanel LogsFolderLocation="@LogsFolderLocation"
                                                IsBusy="@isBusy"
                                                StatusMessage="@statusMessage"
@@ -82,6 +82,8 @@
 
     private string LogsFolderLocation => SettingsPageService.LogsFolderLocation;
 
+    private SettingsTabItem ActiveTabItem => SettingsTabs.Get(activeTab);
+
     private SettingsAiConfigurationState AiConfigurationState => new(
         apiKey,
         model,
@@ -102,24 +104,14 @@
 
     protected override void OnParametersSet()
     {
-        activeTab = RequestedTab?.ToLowerInvariant() switch
-        {
-            "data" => SettingsTab.Data,
-            "dev-testing" => SettingsTab.DevTesting,
-            _ => SettingsTab.Ai
-        };
+        activeTab = SettingsTabs.FromQueryValue(RequestedTab);
     }
 
     private void SelectTab(SettingsTab tab)
     {
         activeTab = tab;
         statusMessage = null;
-        NavigationManager.NavigateTo(tab switch
-        {
-            SettingsTab.Data => "settings?tab=data",
-            SettingsTab.DevTesting => "settings?tab=dev-testing",
-            _ => "settings"
-        });
+        NavigationManager.NavigateTo(SettingsTabs.Get(tab).Url);
     }
 
     private void ToggleApiKeyVisibility()

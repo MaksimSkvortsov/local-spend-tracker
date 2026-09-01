@@ -1,5 +1,5 @@
 <aside class="settings-subnav" aria-label="Settings sections">
-    @foreach (var item in Items)
+    @foreach (var item in SettingsTabs.Items)
     {
         <button type="button" class="@GetSettingsTabClass(item.Tab)" @onclick="() => OnTabSelected.InvokeAsync(item.Tab)">
             <span>
@@ -12,13 +12,6 @@
 </aside>
 
 @code {
-    private static readonly IReadOnlyList<SettingsSubnavItem> Items =
-    [
-        new(SettingsTab.Ai, "psychology", "AI Configuration"),
-        new(SettingsTab.Data, "database", "Data & Privacy"),
-        new(SettingsTab.DevTesting, "bug_report", "Developer Testing")
-    ];
-
     [Parameter]
     public SettingsTab ActiveTab { get; set; }
 
@@ -29,9 +22,4 @@
     {
         return ActiveTab == tab ? "active" : string.Empty;
     }
-
-    private sealed record SettingsSubnavItem(
-        SettingsTab Tab,
-        string Icon,
-        string Label);
 }

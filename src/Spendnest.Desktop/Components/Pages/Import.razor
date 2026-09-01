@@ -69,10 +69,10 @@
     </HeaderAction>
 
     <ChildContent>
-        <ImportHistory Rows="@uploadHistory"
-                       PagedRows="@PagedUploadHistory"
-                       CurrentPage="@uploadHistoryPage"
-                       PageCount="@UploadHistoryPageCount"
+        <ImportHistory Rows="@history.Rows"
+                       PagedRows="@history.PagedRows"
+                       CurrentPage="@history.CurrentPage"
+                       PageCount="@history.PageCount"
                        OnPrevious="PreviousUploadHistoryPage"
                        OnNext="NextUploadHistoryPage" />
     </ChildContent>
@@ -86,17 +86,15 @@
 }
 
 @code {
-    private const int UploadHistoryPageSize = 10;
     private const int PreviewPageSize = 5;
 
     private ImportSelectionDraft selection = new();
+    private ImportHistoryState history = new();
     private string? statusMessage;
     private FileUploadProgress? currentProgress;
     private bool isBusy;
     private IReadOnlyList<CardAccount> availableCards = [];
-    private IReadOnlyList<UploadHistoryItem> uploadHistory = [];
     private Dictionary<Guid, CategorizationHistorySummary> categorizationSummariesByImportId = [];
-    private int uploadHistoryPage = 1;
 
     private string CurrentProgressLabel =>
         currentProgress?.Message ?? "Working...";
@@ -107,19 +105,12 @@
     private bool IsCategorizing =>
         selection.IsCategorizing(currentProgress);
 
-    private PagedList<UploadHistoryItem> UploadHistoryPage =>
-        PagedList<UploadHistoryItem>.Create(uploadHistory, uploadHistoryPage, UploadHistoryPageSize);
-
     private PagedList<PreviewRow> PreviewPage =>
         PagedList<PreviewRow>.Create(selection.PreviewRows, selection.PreviewPage, PreviewPageSize);
-
-    private IReadOnlyList<UploadHistoryItem> PagedUploadHistory => UploadHistoryPage.Items;
 
     private IReadOnlyList<PreviewRow> PagedPreviewRows => PreviewPage.Items;
 
     private int PreviewPageCount => PreviewPage.PageCount;
-
-    private int UploadHistoryPageCount => UploadHistoryPage.PageCount;
 
     protected override async Task OnInitializedAsync()
     {
@@ -221,18 +212,17 @@
             CancellationToken.None);
 
         availableCards = pageData.AvailableCards;
-        uploadHistory = pageData.UploadHistory;
-        uploadHistoryPage = 1;
+        history.ReplaceRows(pageData.UploadHistory);
     }
 
     private void PreviousUploadHistoryPage()
     {
-        uploadHistoryPage = Math.Max(1, uploadHistoryPage - 1);
+        history.PreviousPage();
     }
 
     private void NextUploadHistoryPage()
     {
-        uploadHistoryPage = Math.Min(UploadHistoryPageCount, uploadHistoryPage + 1);
+        history.NextPage();
     }
 
     private void PreviousPreviewPage()

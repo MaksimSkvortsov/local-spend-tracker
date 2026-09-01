@@ -25,14 +25,14 @@
                 </HeaderAction>
 
                 <ChildContent>
-                    <SettingsAiConfigurationPanel State="@GetAiConfigurationState()"
-                                                  ApiKeyChanged="OnApiKeyChanged"
-                                                  ModelChanged="OnModelChanged"
-                                                  RequestTimeoutSecondsChanged="OnRequestTimeoutSecondsChanged"
-                                                  OnToggleApiKeyVisibility="ToggleApiKeyVisibility"
-                                                  OnSave="SaveAsync"
-                                                  OnTestConnection="TestConnectionAsync"
-                                                  OnDeleteConfiguration="DeleteConfigurationAsync" />
+                    <SettingsAiConfiguration State="@GetAiConfigurationState()"
+                                             ApiKeyChanged="OnApiKeyChanged"
+                                             ModelChanged="OnModelChanged"
+                                             RequestTimeoutSecondsChanged="OnRequestTimeoutSecondsChanged"
+                                             OnToggleApiKeyVisibility="ToggleApiKeyVisibility"
+                                             OnSave="SaveAsync"
+                                             OnTestConnection="TestConnectionAsync"
+                                             OnDeleteConfiguration="DeleteConfigurationAsync" />
                 </ChildContent>
             </Card>
         }
@@ -41,11 +41,11 @@
             <Card Class="settings-card"
                   Title="@ActiveTabItem.Label"
                   Subtitle="@ActiveTabItem.Subtitle">
-                <SettingsDataPanel StorageLocation="@StorageLocation"
-                                   IsBusy="@isBusy"
-                                   StatusMessage="@statusMessage"
-                                   StatusKind="@statusKind"
-                                   OnDeleteLocalData="DeleteLocalDataAsync" />
+                <SettingsData StorageLocation="@StorageLocation"
+                              IsBusy="@isBusy"
+                              StatusMessage="@statusMessage"
+                              StatusKind="@statusKind"
+                              OnDeleteLocalData="DeleteLocalDataAsync" />
             </Card>
         }
         else if (activeTab == SettingsTab.DevTesting)
@@ -53,11 +53,11 @@
             <Card Class="settings-card"
                   Title="@ActiveTabItem.Label"
                   Subtitle="@ActiveTabItem.Subtitle">
-                <SettingsDeveloperTestingPanel LogsFolderLocation="@LogsFolderLocation"
-                                               IsBusy="@isBusy"
-                                               StatusMessage="@statusMessage"
-                                               StatusKind="@statusKind"
-                                               OnOpenLogsFolder="OpenLogsFolder" />
+                <SettingsDeveloperTesting LogsFolderLocation="@LogsFolderLocation"
+                                          IsBusy="@isBusy"
+                                          StatusMessage="@statusMessage"
+                                          StatusKind="@statusKind"
+                                          OnOpenLogsFolder="OpenLogsFolder" />
             </Card>
         }
     </div>

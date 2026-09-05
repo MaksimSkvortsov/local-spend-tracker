@@ -13,16 +13,17 @@
     --line: #e5e7eb;
     --border: #e5e7eb;
     --border-strong: #d1d5db;
-    --accent: #6758d9;
-    --accent-hover: #5848c7;
+    --accent: #5f7d68;
+    --accent-hover: #4d6956;
     --accent-dark: var(--accent-hover);
-    --accent-subtle: #f0eefc;
-    --accent-border: #d8d3f5;
+    --accent-subtle: #f0f5f1;
+    --accent-border: #cad9ce;
+    --category-anchor: var(--accent);
     --warn: #8a5a00;
     --error: #b42318;
     --success: #047857;
     --success-subtle: #ecfdf5;
-    --focus: rgba(103, 88, 217, 0.22);
+    --focus: rgba(95, 125, 104, 0.22);
     --surface-card: var(--surface);
     --border-card: var(--border);
     --radius-sm: 8px;
@@ -1669,7 +1670,7 @@ dt,
     height: 100%;
     min-width: 8px;
     border-radius: 999px;
-    background: var(--category-color, var(--accent));
+    background: var(--category-color, var(--category-anchor));
 }
 
 .attention-card {

@@ -9,17 +9,17 @@ public static class BuiltInCategories
     [
         new(BuiltInCategoryIds.Groceries, "Groceries", 10, "#69c145"),
         new(BuiltInCategoryIds.RestaurantsAndCoffee, "Restaurants & Coffee", 20, "#009a55"),
-        new(BuiltInCategoryIds.Transportation, "Transportation", 30, "#04ae5c"),
-        new(BuiltInCategoryIds.Shopping, "Shopping", 40, "#006d36"),
-        new(BuiltInCategoryIds.Entertainment, "Entertainment", 50, "#efa912"),
-        new(BuiltInCategoryIds.Travel, "Travel", 60, "#005227"),
-        new(BuiltInCategoryIds.Healthcare, "Healthcare", 70, "#7ecf55"),
+        new(BuiltInCategoryIds.Transportation, "Transportation", 30, "#64748b"),
+        new(BuiltInCategoryIds.Shopping, "Shopping", 40, "#52525b"),
+        new(BuiltInCategoryIds.Entertainment, "Entertainment", 50, "#a16207"),
+        new(BuiltInCategoryIds.Travel, "Travel", 60, "#0f766e"),
+        new(BuiltInCategoryIds.Healthcare, "Healthcare", 70, "#5b8f42"),
         new(BuiltInCategoryIds.Utilities, "Utilities", 80, "#13a35a"),
         new(BuiltInCategoryIds.Subscriptions, "Subscriptions", 90, "#f0b21c"),
-        new(BuiltInCategoryIds.Insurance, "Insurance", 100, "#b33b1a"),
+        new(BuiltInCategoryIds.Insurance, "Insurance", 100, "#4b5563"),
         new(BuiltInCategoryIds.PersonalCare, "Personal Care", 110, "#46b83f"),
-        new(BuiltInCategoryIds.FeesAndCharges, "Fees & Charges", 120, "#c24a0a"),
-        new(BuiltInCategoryIds.CreditCardPayment, "Credit Card Payment", 130, "#c7cbc5"),
-        new(BuiltInCategoryIds.Other, "Other", 150, "#e5e7e2")
+        new(BuiltInCategoryIds.FeesAndCharges, "Fees & Charges", 120, "#b33b1a"),
+        new(BuiltInCategoryIds.CreditCardPayment, "Credit Card Payment", 130, "#d1d5db"),
+        new(BuiltInCategoryIds.Other, "Other", 150, "#e5e7eb")
     ];
 }

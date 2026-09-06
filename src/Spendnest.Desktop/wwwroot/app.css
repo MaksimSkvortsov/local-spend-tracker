@@ -736,17 +736,21 @@ dt,
     margin-bottom: var(--space-5);
 }
 
-.selected-transactions-card .table-wrap,
-.import-history-card .table-wrap {
+.selected-transactions-card .table-wrap {
     border: 0;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.import-history-card .table-wrap {
+    border: 0;
+    border-radius: 0;
 }
 
 .selected-transactions-card > .app-card__header,
 .import-history-card > .app-card__header {
     margin: 0;
     border-bottom: 1px solid var(--line);
-    padding: 16px 24px;
+    padding: 16px 20px;
 }
 
 .selected-transactions-actions {
@@ -781,15 +785,32 @@ dt,
 }
 
 .history-file {
-    display: inline-flex;
+    display: inline-grid;
+    grid-template-columns: 20px minmax(0, 1fr);
     gap: 8px;
     align-items: center;
+    max-width: 100%;
     color: var(--ink);
     font-weight: 650;
 }
 
+.history-file span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .history-file .material-symbols-outlined {
     color: var(--muted);
+}
+
+.history-imported-date {
+    display: none;
+}
+
+.history-status-inline.import-status {
+    display: none;
 }
 
 .data-cell {
@@ -841,11 +862,11 @@ dt,
 .import-history-footer {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
+    gap: 12px;
     align-items: center;
     border-top: 1px solid var(--line);
-    background: color-mix(in srgb, var(--surface-muted) 48%, transparent);
-    padding: 16px;
+    background: var(--surface-subtle);
+    padding: 14px 20px;
 }
 
 .import-history-footer span {
@@ -1912,12 +1933,12 @@ dt,
 .transactions-surface .transactions-toolbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 12px;
     align-items: center;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
     margin-bottom: 0;
-    padding: 16px 24px;
+    padding: 14px 20px;
 }
 
 .review-toggle {
@@ -2021,12 +2042,7 @@ dt,
 
 .transactions-alert-wrap {
     border-bottom: 1px solid var(--border);
-    padding: 16px 24px;
-}
-
-.transaction-table-wrap {
-    border: 0;
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    padding: 14px 20px;
 }
 
 .transaction-table-card > .app-card__body > .empty-state {
@@ -2035,6 +2051,7 @@ dt,
 
 .transaction-table {
     min-width: 760px;
+    table-layout: fixed;
 }
 
 .transaction-table th,
@@ -2045,7 +2062,7 @@ dt,
 .transaction-table th {
     background: var(--surface-subtle);
     color: var(--text-secondary);
-    font-size: 0.68rem;
+    font-size: 0.78rem;
 }
 
 .transaction-table tbody tr {
@@ -2067,6 +2084,10 @@ dt,
     white-space: nowrap;
 }
 
+.transaction-description {
+    width: auto;
+}
+
 .transaction-category {
     width: 180px;
 }
@@ -2078,11 +2099,20 @@ dt,
 
 .transaction-amount {
     width: 132px;
+    text-align: right;
 }
 
 .transaction-description {
     color: var(--text-primary);
     font-weight: 650;
+}
+
+.transaction-description > span:first-child {
+    display: block;
+}
+
+.transaction-card-inline {
+    display: none;
 }
 
 .transaction-table .category-pill {
@@ -2171,11 +2201,11 @@ dt,
 .transaction-table-footer {
     display: flex;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     align-items: center;
     border-top: 1px solid var(--border);
     background: var(--surface-subtle);
-    padding: 16px;
+    padding: 14px 20px;
 }
 
 .transaction-table-footer > span {
@@ -2256,6 +2286,11 @@ dt,
     border-radius: var(--radius-md);
 }
 
+.transaction-table-card .transaction-table-wrap {
+    border: 0;
+    border-radius: 0;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
@@ -2267,22 +2302,42 @@ table {
     min-width: 860px;
 }
 
+.import-history-table .history-file-column {
+    width: 256px;
+}
+
+.import-history-table .history-count-column {
+    width: 96px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.import-history-table .history-range-column {
+    width: 198px;
+}
+
 .import-history-table .status-column {
     width: 112px;
     white-space: nowrap;
 }
 
 .import-history-table .date-column {
-    width: 140px;
+    width: 132px;
+    white-space: nowrap;
+}
+
+.import-history-table .history-actions-column {
+    width: 58px;
+    text-align: center;
     white-space: nowrap;
 }
 
 th,
 td {
-    padding: 12px 24px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--line);
     text-align: left;
-    vertical-align: top;
+    vertical-align: middle;
 }
 
 th {
@@ -2403,6 +2458,124 @@ tbody tr:last-child td {
     .spending-card,
     .dashboard-side-stack {
         grid-column: 1 / -1;
+    }
+
+    .transactions-surface .transactions-toolbar {
+        align-items: stretch;
+    }
+
+    .review-toggle {
+        width: 100%;
+    }
+
+    .review-toggle button {
+        flex: 1 1 0;
+        justify-content: center;
+    }
+
+    .transaction-count-chip {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .filter-select-wrap {
+        flex: 1 1 220px;
+    }
+}
+
+@media (max-width: 760px) {
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .transaction-table {
+        min-width: 560px;
+    }
+
+    .transaction-table th,
+    .transaction-table td {
+        padding: 10px 14px;
+    }
+
+    .transaction-date {
+        width: 116px;
+    }
+
+    .transaction-category {
+        width: 168px;
+    }
+
+    .transaction-card {
+        display: none;
+    }
+
+    .transaction-card-inline {
+        display: block;
+        margin-top: 4px;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+
+    .transaction-amount {
+        width: 108px;
+    }
+
+    .transaction-description {
+        line-height: 1.35;
+    }
+
+    .category-editor {
+        max-width: 148px;
+    }
+
+    .import-history-table {
+        min-width: 560px;
+    }
+
+    .import-history-table th,
+    .import-history-table td {
+        padding: 10px 14px;
+    }
+
+    .import-history-table .history-file-column {
+        width: 244px;
+    }
+
+    .import-history-table .history-count-column {
+        width: 72px;
+    }
+
+    .import-history-table .history-range-column {
+        width: 198px;
+    }
+
+    .import-history-table .status-column {
+        display: none;
+    }
+
+    .history-imported-date {
+        display: block;
+        margin-top: 4px;
+        color: var(--text-muted);
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+
+    .history-status-inline.import-status {
+        display: inline-flex;
+        margin-top: 6px;
+    }
+
+    .import-history-table .date-column,
+    .import-history-table .history-actions-column {
+        width: 46px;
+    }
+
+    .import-history-table .date-column {
+        display: none;
     }
 }
 

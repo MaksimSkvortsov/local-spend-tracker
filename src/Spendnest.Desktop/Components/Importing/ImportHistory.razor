@@ -4,33 +4,35 @@
            TableClass="import-history-table">
     <HeaderContent>
         <tr>
-            <th>File Name</th>
-            <th>Transactions</th>
-            <th>Transaction Range</th>
+            <th class="history-file-column">File Name</th>
+            <th class="history-count-column">Count</th>
+            <th class="history-range-column">Transaction Range</th>
             <th class="status-column">Status</th>
             <th class="date-column">Date Imported</th>
-            <th class="amount">Actions</th>
+            <th class="history-actions-column" aria-label="Actions"></th>
         </tr>
     </HeaderContent>
     <ChildContent>
         @foreach (var upload in PagedRows)
         {
             <tr>
-                <td>
+                <td class="history-file-column">
                     <span class="history-file">
                         <span class="material-symbols-outlined" aria-hidden="true">description</span>
                         <span>@upload.FileName</span>
                     </span>
+                    <span class="history-imported-date">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</span>
+                    <span class="history-status-inline @GetImportStatusClass(upload)">@upload.StatusLabel</span>
                     @if (upload.TimeoutCount > 0)
                     {
                         <span class="history-note">@upload.TimeoutCount AI timeouts</span>
                     }
                 </td>
-                <td class="data-cell">@upload.SavedTransactionCount</td>
-                <td>@upload.TransactionRange</td>
+                <td class="data-cell history-count-column">@upload.SavedTransactionCount</td>
+                <td class="history-range-column">@upload.TransactionRange</td>
                 <td class="status-column"><span class="@GetImportStatusClass(upload)">@upload.StatusLabel</span></td>
                 <td class="date-column">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</td>
-                <td class="amount">
+                <td class="history-actions-column">
                     <button type="button" class="table-icon-button" aria-label="@($"Actions for {upload.FileName}")">
                         <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                     </button>

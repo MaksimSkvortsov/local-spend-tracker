@@ -6,7 +6,7 @@
             <th>Description</th>
             <th class="transaction-category">Category</th>
             <th class="transaction-card">Card</th>
-            <th class="amount transaction-amount">Amount</th>
+            <th class="transaction-amount">Amount</th>
         </tr>
     </HeaderContent>
     <ChildContent>
@@ -14,7 +14,10 @@
         {
             <tr>
                 <td class="transaction-date">@transaction.PostedDate.ToString("MMM d, yyyy")</td>
-                <td class="transaction-description">@transaction.Description</td>
+                <td class="transaction-description">
+                    <span>@transaction.Description</span>
+                    <span class="transaction-card-inline">@transaction.CardName</span>
+                </td>
                 <td class="transaction-category">
                     <TransactionCategoryEditor Transaction="@transaction"
                                                Categories="@Categories"

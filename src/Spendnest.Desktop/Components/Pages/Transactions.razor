@@ -4,57 +4,57 @@
 
 <PageTitle>Transactions - PeasantMoney</PageTitle>
 
-<section class="transactions-page-header">
-    <div>
-        <h1>Transactions</h1>
-        <p>Review and manage your financial activity.</p>
-    </div>
-</section>
+<div class="transactions-page">
+    <section class="transactions-page-header">
+        <div>
+            <h1>Transactions</h1>
+            <p>Review and manage your financial activity.</p>
+        </div>
+    </section>
 
-<section class="transactions-surface">
-    <Card Class="transaction-table-card">
-        <TransactionsToolbar ReviewFilterMode="@reviewFilterMode"
-                             OnReviewFilterChanged="SetReviewFilter"
-                             ReviewCount="@reviewCount"
-                             TransactionCount="@FilteredTransactions.Count"
-                             Categories="@categories"
-                             SelectedCategoryId="@selectedCategoryId"
-                             SelectedCategoryIdChanged="SetSelectedCategory"
-                             Cards="@cards"
-                             SelectedCardId="@selectedCardId"
-                             SelectedCardIdChanged="SetSelectedCard" />
+    <section class="transactions-surface">
+        <Card Class="transaction-table-card">
+            <TransactionsToolbar ReviewFilterMode="@reviewFilterMode"
+                                 OnReviewFilterChanged="SetReviewFilter"
+                                 ReviewCount="@reviewCount"
+                                 TransactionCount="@FilteredTransactions.Count"
+                                 Categories="@categories"
+                                 SelectedCategoryId="@selectedCategoryId"
+                                 SelectedCategoryIdChanged="SetSelectedCategory"
+                                 Cards="@cards"
+                                 SelectedCardId="@selectedCardId"
+                                 SelectedCardIdChanged="SetSelectedCard" />
 
-        @if (!string.IsNullOrWhiteSpace(categorySaveError))
-        {
-            <div class="transactions-alert-wrap">
-                <div class="alert error">@categorySaveError</div>
-            </div>
-        }
+            @if (!string.IsNullOrWhiteSpace(categorySaveError))
+            {
+                <div class="transactions-alert-wrap">
+                    <div class="alert error">@categorySaveError</div>
+                </div>
+            }
 
-        @if (transactions.Count == 0)
-        {
-            <div class="empty-state">No transactions imported yet.</div>
-        }
-        else if (FilteredTransactions.Count == 0)
-        {
-            <div class="empty-state">No transactions match these filters.</div>
-        }
-        else
-        {
-            <TransactionsTable Transactions="@PagedTransactions"
-                               TotalCount="@FilteredTransactions.Count"
-                               Categories="@categories"
-                               SavingCategoryTransactionId="@savingCategoryTransactionId"
-                               CurrentPage="@currentPage"
-                               PageCount="@PageCount"
-                               OnCategoryChanged="ChangeCategoryAsync"
-                               OnPrevious="PreviousPage"
-                               OnNext="NextPage" />
-        }
-    </Card>
-
-    <div class="transaction-bottom-spacer" aria-hidden="true"></div>
-</section>
+            @if (transactions.Count == 0)
+            {
+                <div class="empty-state">No transactions imported yet.</div>
+            }
+            else if (FilteredTransactions.Count == 0)
+            {
+                <div class="empty-state">No transactions match these filters.</div>
+            }
+            else
+            {
+                <TransactionsTable Transactions="@PagedTransactions"
+                                   TotalCount="@FilteredTransactions.Count"
+                                   Categories="@categories"
+                                   SavingCategoryTransactionId="@savingCategoryTransactionId"
+                                   CurrentPage="@currentPage"
+                                   PageCount="@PageCount"
+                                   OnCategoryChanged="ChangeCategoryAsync"
+                                   OnPrevious="PreviousPage"
+                                   OnNext="NextPage" />
+            }
+        </Card>
+    </section>
+</div>
 
 @code {
     private const int PageSize = 10;

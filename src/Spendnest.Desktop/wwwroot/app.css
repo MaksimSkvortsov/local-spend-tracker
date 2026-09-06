@@ -442,7 +442,10 @@ dt,
     gap: var(--space-4);
 }
 
-.dashboard-page {
+.dashboard-page,
+.import-page,
+.transactions-page,
+.settings-page {
     display: grid;
     gap: var(--space-4);
 }
@@ -596,7 +599,6 @@ dt,
 .import-page-header {
     display: grid;
     gap: 4px;
-    margin-bottom: var(--space-6);
 }
 
 .import-page-header h1 {
@@ -615,7 +617,6 @@ dt,
 .import-workspace {
     display: grid;
     gap: var(--space-4);
-    margin-bottom: var(--space-5);
 }
 
 .import-upload-card {
@@ -732,10 +733,6 @@ dt,
 .import-history-card {
     overflow: hidden;
     padding: 0;
-}
-
-.selected-transactions-card {
-    margin-bottom: var(--space-5);
 }
 
 .selected-transactions-card .table-wrap {
@@ -1033,10 +1030,6 @@ dt,
     border: 1px solid #f0b4ad;
     background: #fff2f0;
     color: var(--error);
-}
-
-.settings-header {
-    margin-bottom: var(--space-6);
 }
 
 .settings-header h1 {
@@ -1911,7 +1904,6 @@ dt,
     justify-content: space-between;
     gap: 16px;
     align-items: end;
-    margin-bottom: var(--space-6);
 }
 
 .transactions-page-header h1 {
@@ -2223,10 +2215,6 @@ dt,
 
 .transaction-table-footer .table-icon-button {
     background: transparent;
-}
-
-.transaction-bottom-spacer {
-    height: 128px;
 }
 
 .table-summary {

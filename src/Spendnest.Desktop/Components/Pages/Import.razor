@@ -7,83 +7,85 @@
 
 <PageTitle>Import - PeasantMoney</PageTitle>
 
-<section class="import-page-header">
-    <h1>Import Transactions</h1>
-    <p>Upload your bank statements to reconcile your accounts and gain clarity on your spending habits. Your data is processed securely and remains private.</p>
-</section>
-
-@if (!selection.HasFile)
-{
-    <section class="import-workspace">
-        <Card Class="import-upload-card" Title="Upload Statement">
-            <ImportUploadPrompt IsBusy="@isBusy"
-                                StatusMessage="@statusMessage"
-                                OnPickFile="PickCsvAsync" />
-        </Card>
+<div class="import-page">
+    <section class="import-page-header">
+        <h1>Import Transactions</h1>
+        <p>Upload your bank statements to reconcile your accounts and gain clarity on your spending habits. Your data is processed securely and remains private.</p>
     </section>
-}
 
-@if (selection.HasFile)
-{
-    <Card Class="selected-transactions-card"
-          Title="Transactions in File"
-          Subtitle="@($"Previewing {selection.PreviewRows.Count} transactions from {selection.SelectedFileName}")">
+    @if (!selection.HasFile)
+    {
+        <section class="import-workspace">
+            <Card Class="import-upload-card" Title="Upload Statement">
+                <ImportUploadPrompt IsBusy="@isBusy"
+                                    StatusMessage="@statusMessage"
+                                    OnPickFile="PickCsvAsync" />
+            </Card>
+        </section>
+    }
+
+    @if (selection.HasFile)
+    {
+        <Card Class="selected-transactions-card"
+              Title="Transactions in File"
+              Subtitle="@($"Previewing {selection.PreviewRows.Count} transactions from {selection.SelectedFileName}")">
+            <HeaderAction>
+                <div class="selected-transactions-actions">
+                    <button class="secondary-button" @onclick="ClearSelectedFile" disabled="@isBusy">Cancel</button>
+                    <button class="primary-button" @onclick="ImportAsync" disabled="@(!CanImport)">
+                        @(isBusy ? CurrentProgressLabel : "Confirm Import")
+                    </button>
+                </div>
+            </HeaderAction>
+
+            <ChildContent>
+                <SelectedTransactionsPreview CardDetected="@selection.CardDetected"
+                                             CardName="@selection.CardName"
+                                             CardNameChanged="SetCardName"
+                                             SelectedExistingCardName="@selection.SelectedExistingCardName"
+                                             SelectedExistingCardNameChanged="SetSelectedExistingCardName"
+                                             OnExistingCardChanged="UseSelectedExistingCard"
+                                             AvailableCards="@availableCards"
+                                             CardSelectionMessage="@selection.CardSelectionMessage"
+                                             StatusMessage="@statusMessage"
+                                             ErrorMessage="@selection.ErrorMessage"
+                                             IsBusy="@isBusy"
+                                             Rows="@selection.PreviewRows"
+                                             PagedRows="@PagedPreviewRows"
+                                             CurrentPage="@selection.PreviewPage"
+                                             PageCount="@PreviewPageCount"
+                                             OnPrevious="PreviousPreviewPage"
+                                             OnNext="NextPreviewPage" />
+            </ChildContent>
+        </Card>
+    }
+
+    <Card Class="import-history-card"
+          Title="Import History"
+          Subtitle="View and manage your recent statement uploads">
         <HeaderAction>
-            <div class="selected-transactions-actions">
-                <button class="secondary-button" @onclick="ClearSelectedFile" disabled="@isBusy">Cancel</button>
-                <button class="primary-button" @onclick="ImportAsync" disabled="@(!CanImport)">
-                    @(isBusy ? CurrentProgressLabel : "Confirm Import")
-                </button>
-            </div>
+            <button type="button" class="icon-button" aria-label="Refresh import history" @onclick="RefreshImportHistoryViewAsync">
+                <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+            </button>
         </HeaderAction>
 
         <ChildContent>
-            <SelectedTransactionsPreview CardDetected="@selection.CardDetected"
-                                         CardName="@selection.CardName"
-                                         CardNameChanged="SetCardName"
-                                         SelectedExistingCardName="@selection.SelectedExistingCardName"
-                                         SelectedExistingCardNameChanged="SetSelectedExistingCardName"
-                                         OnExistingCardChanged="UseSelectedExistingCard"
-                                         AvailableCards="@availableCards"
-                                         CardSelectionMessage="@selection.CardSelectionMessage"
-                                         StatusMessage="@statusMessage"
-                                         ErrorMessage="@selection.ErrorMessage"
-                                         IsBusy="@isBusy"
-                                         Rows="@selection.PreviewRows"
-                                         PagedRows="@PagedPreviewRows"
-                                         CurrentPage="@selection.PreviewPage"
-                                         PageCount="@PreviewPageCount"
-                                         OnPrevious="PreviousPreviewPage"
-                                         OnNext="NextPreviewPage" />
+            <ImportHistory Rows="@history.Rows"
+                           PagedRows="@history.PagedRows"
+                           CurrentPage="@history.CurrentPage"
+                           PageCount="@history.PageCount"
+                           OnPrevious="PreviousUploadHistoryPage"
+                           OnNext="NextUploadHistoryPage" />
         </ChildContent>
     </Card>
-}
 
-<Card Class="import-history-card"
-      Title="Import History"
-      Subtitle="View and manage your recent statement uploads">
-    <HeaderAction>
-        <button type="button" class="icon-button" aria-label="Refresh import history" @onclick="RefreshImportHistoryViewAsync">
-            <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
-        </button>
-    </HeaderAction>
-
-    <ChildContent>
-        <ImportHistory Rows="@history.Rows"
-                       PagedRows="@history.PagedRows"
-                       CurrentPage="@history.CurrentPage"
-                       PageCount="@history.PageCount"
-                       OnPrevious="PreviousUploadHistoryPage"
-                       OnNext="NextUploadHistoryPage" />
-    </ChildContent>
-</Card>
-
-@if (selection.Warnings.Count > 0)
-{
-    <Card Class="panel" Title="Warnings">
-        <ImportWarnings Warnings="@selection.Warnings" />
-    </Card>
-}
+    @if (selection.Warnings.Count > 0)
+    {
+        <Card Class="panel" Title="Warnings">
+            <ImportWarnings Warnings="@selection.Warnings" />
+        </Card>
+    }
+</div>
 
 @code {
     private const int PreviewPageSize = 5;

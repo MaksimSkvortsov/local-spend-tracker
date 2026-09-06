@@ -4,64 +4,66 @@
 
 <PageTitle>Settings - PeasantMoney</PageTitle>
 
-<section class="settings-header">
-    <div>
-        <h1>Settings</h1>
-        <p>Manage PeasantMoney workspace preferences and integrations.</p>
-    </div>
-</section>
+<div class="settings-page">
+    <section class="settings-header">
+        <div>
+            <h1>Settings</h1>
+            <p>Manage PeasantMoney workspace preferences and integrations.</p>
+        </div>
+    </section>
 
-<section class="settings-layout">
-    <SettingsSubnav ActiveTab="@activeTab" OnTabSelected="SelectTab" />
+    <section class="settings-layout">
+        <SettingsSubnav ActiveTab="@activeTab" OnTabSelected="SelectTab" />
 
-    <div class="settings-content">
-        @if (activeTab == SettingsTab.Ai)
-        {
-            <Card Class="settings-card"
-                  Title="@ActiveTabItem.Label"
-                  Subtitle="@ActiveTabItem.Subtitle">
-                <HeaderAction>
-                    <SettingsConnectionStatus IsConnected="@aiConfiguration.HasConfiguredApiKey" />
-                </HeaderAction>
+        <div class="settings-content">
+            @if (activeTab == SettingsTab.Ai)
+            {
+                <Card Class="settings-card"
+                      Title="@ActiveTabItem.Label"
+                      Subtitle="@ActiveTabItem.Subtitle">
+                    <HeaderAction>
+                        <SettingsConnectionStatus IsConnected="@aiConfiguration.HasConfiguredApiKey" />
+                    </HeaderAction>
 
-                <ChildContent>
-                    <SettingsAiConfiguration State="@GetAiConfigurationState()"
-                                             ApiKeyChanged="OnApiKeyChanged"
-                                             ModelChanged="OnModelChanged"
-                                             RequestTimeoutSecondsChanged="OnRequestTimeoutSecondsChanged"
-                                             OnToggleApiKeyVisibility="ToggleApiKeyVisibility"
-                                             OnSave="SaveAsync"
-                                             OnTestConnection="TestConnectionAsync"
-                                             OnDeleteConfiguration="DeleteConfigurationAsync" />
-                </ChildContent>
-            </Card>
-        }
-        else if (activeTab == SettingsTab.Data)
-        {
-            <Card Class="settings-card"
-                  Title="@ActiveTabItem.Label"
-                  Subtitle="@ActiveTabItem.Subtitle">
-                <SettingsData StorageLocation="@StorageLocation"
-                              IsBusy="@isBusy"
-                              StatusMessage="@statusMessage"
-                              StatusKind="@statusKind"
-                              OnDeleteLocalData="DeleteLocalDataAsync" />
-            </Card>
-        }
-        else if (activeTab == SettingsTab.DevTesting)
-        {
-            <Card Class="settings-card"
-                  Title="@ActiveTabItem.Label"
-                  Subtitle="@ActiveTabItem.Subtitle">
-                <SettingsDeveloperTesting LogsFolderLocation="@LogsFolderLocation"
-                                          IsBusy="@isBusy"
-                                          StatusMessage="@statusMessage"
-                                          StatusKind="@statusKind"
-                                          OnOpenLogsFolder="OpenLogsFolder" />
-            </Card>
-        }
-    </div>
-</section>
+                    <ChildContent>
+                        <SettingsAiConfiguration State="@GetAiConfigurationState()"
+                                                 ApiKeyChanged="OnApiKeyChanged"
+                                                 ModelChanged="OnModelChanged"
+                                                 RequestTimeoutSecondsChanged="OnRequestTimeoutSecondsChanged"
+                                                 OnToggleApiKeyVisibility="ToggleApiKeyVisibility"
+                                                 OnSave="SaveAsync"
+                                                 OnTestConnection="TestConnectionAsync"
+                                                 OnDeleteConfiguration="DeleteConfigurationAsync" />
+                    </ChildContent>
+                </Card>
+            }
+            else if (activeTab == SettingsTab.Data)
+            {
+                <Card Class="settings-card"
+                      Title="@ActiveTabItem.Label"
+                      Subtitle="@ActiveTabItem.Subtitle">
+                    <SettingsData StorageLocation="@StorageLocation"
+                                  IsBusy="@isBusy"
+                                  StatusMessage="@statusMessage"
+                                  StatusKind="@statusKind"
+                                  OnDeleteLocalData="DeleteLocalDataAsync" />
+                </Card>
+            }
+            else if (activeTab == SettingsTab.DevTesting)
+            {
+                <Card Class="settings-card"
+                      Title="@ActiveTabItem.Label"
+                      Subtitle="@ActiveTabItem.Subtitle">
+                    <SettingsDeveloperTesting LogsFolderLocation="@LogsFolderLocation"
+                                              IsBusy="@isBusy"
+                                              StatusMessage="@statusMessage"
+                                              StatusKind="@statusKind"
+                                              OnOpenLogsFolder="OpenLogsFolder" />
+                </Card>
+            }
+        </div>
+    </section>
+</div>
 
 @code {
     private SettingsTab activeTab = SettingsTab.Ai;

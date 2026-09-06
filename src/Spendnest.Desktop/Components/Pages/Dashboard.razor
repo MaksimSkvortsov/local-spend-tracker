@@ -17,72 +17,74 @@
 }
 else
 {
-    <section class="app-card dashboard-metric-panel">
-        <DashboardPeriodSelector Mode="@reportMode"
-                                 Year="@selectedYear"
-                                 Month="@selectedMonth"
-                                 AvailableYears="@AvailableYears"
-                                 PeriodChanged="ChangeReportPeriodAsync" />
+    <div class="dashboard-page">
+        <section class="app-card dashboard-metric-panel">
+            <DashboardPeriodSelector Mode="@reportMode"
+                                     Year="@selectedYear"
+                                     Month="@selectedMonth"
+                                     AvailableYears="@AvailableYears"
+                                     PeriodChanged="ChangeReportPeriodAsync" />
 
-        <div class="dashboard-metrics">
-            <div class="metric-divider" aria-hidden="true"></div>
-            <div>
-                <span>Window</span>
-                <strong>@WindowRangeLabel</strong>
+            <div class="dashboard-metrics">
+                <div class="metric-divider" aria-hidden="true"></div>
+                <div>
+                    <span>Window</span>
+                    <strong>@WindowRangeLabel</strong>
+                </div>
+                <div class="metric-divider" aria-hidden="true"></div>
+                <div>
+                    <span>Total Spend</span>
+                    <strong class="metric-primary">@totalSpending.ToString("C")</strong>
+                </div>
+                <div class="metric-divider" aria-hidden="true"></div>
+                <div>
+                    <span>Transactions</span>
+                    <strong>@filteredTransactions.Count</strong>
+                </div>
             </div>
-            <div class="metric-divider" aria-hidden="true"></div>
-            <div>
-                <span>Total Spend</span>
-                <strong class="metric-primary">@totalSpending.ToString("C")</strong>
-            </div>
-            <div class="metric-divider" aria-hidden="true"></div>
-            <div>
-                <span>Transactions</span>
-                <strong>@filteredTransactions.Count</strong>
-            </div>
-        </div>
-    </section>
+        </section>
 
-    <section class="dashboard-workspace-grid">
-        <Card Class="spending-card" Title="Spending by Category">
-            <SpendingByCategory Lines="@report.Lines"
-                                CategoryColors="@categoryColorsById" />
+        <section class="dashboard-workspace-grid">
+            <Card Class="spending-card" Title="Spending by Category">
+                <SpendingByCategory Lines="@report.Lines"
+                                    CategoryColors="@categoryColorsById" />
+            </Card>
+
+            <div class="dashboard-side-stack">
+                <Card Title="Top Merchants">
+                    <TopMerchants Transactions="@filteredTransactions"
+                                  MerchantCodeResolver="@MerchantCodeResolver" />
+                </Card>
+
+                <Card Title="Needs Attention">
+                    <NeedsAttention ReviewCount="@reviewCount" />
+                </Card>
+            </div>
+        </section>
+
+        <Card Title="Biggest Transactions">
+            <BiggestTransactions Rows="@biggestTransactionRows"
+                                 WindowLabel="@ReportWindowShortLabel" />
         </Card>
 
-        <div class="dashboard-side-stack">
-            <Card Title="Top Merchants">
-                <TopMerchants Transactions="@filteredTransactions"
-                              MerchantCodeResolver="@MerchantCodeResolver" />
-            </Card>
+        <Card Title="Transaction Frequency">
+            <TransactionFrequency Transactions="@filteredTransactions"
+                                  Cards="@cards"
+                                  CardNames="@cardNamesById"
+                                  Mode="@reportMode"
+                                  Year="@selectedYear"
+                                  Month="@selectedMonth"
+                                  WindowLabel="@ReportWindowShortLabel" />
+        </Card>
 
-            <Card Title="Needs Attention">
-                <NeedsAttention ReviewCount="@reviewCount" />
-            </Card>
-        </div>
-    </section>
-
-    <Card Title="Biggest Transactions">
-        <BiggestTransactions Rows="@biggestTransactionRows"
-                             WindowLabel="@ReportWindowShortLabel" />
-    </Card>
-
-    <Card Title="Transaction Frequency">
-        <TransactionFrequency Transactions="@filteredTransactions"
-                              Cards="@cards"
-                              CardNames="@cardNamesById"
-                              Mode="@reportMode"
-                              Year="@selectedYear"
-                              Month="@selectedMonth"
-                              WindowLabel="@ReportWindowShortLabel" />
-    </Card>
-
-    <Card Title="Amount Spent per Day">
-        <DailySpend Transactions="@filteredTransactions"
-                    Mode="@reportMode"
-                    Year="@selectedYear"
-                    Month="@selectedMonth"
-                    WindowLabel="@ReportWindowShortLabel" />
-    </Card>
+        <Card Title="Amount Spent per Day">
+            <DailySpend Transactions="@filteredTransactions"
+                        Mode="@reportMode"
+                        Year="@selectedYear"
+                        Month="@selectedMonth"
+                        WindowLabel="@ReportWindowShortLabel" />
+        </Card>
+    </div>
 }
 
 @code {

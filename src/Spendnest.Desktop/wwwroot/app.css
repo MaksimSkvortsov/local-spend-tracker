@@ -340,14 +340,14 @@ dt,
     justify-content: space-between;
     gap: 24px;
     align-items: center;
-    margin-bottom: 24px;
 }
 
 .period-controls {
+    flex: 0 0 auto;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
 }
 
 .period-toggle {
@@ -377,12 +377,18 @@ dt,
 }
 
 .dashboard-select {
-    min-height: 34px;
+    min-width: 112px;
+    min-height: 40px;
+    appearance: none;
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
-    background: var(--surface);
+    background-color: var(--surface);
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 14px center;
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
     color: var(--ink);
-    padding: 0 14px;
+    padding: 0 42px 0 16px;
     font-size: 0.86rem;
     font-weight: 600;
 }
@@ -434,15 +440,11 @@ dt,
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     gap: var(--space-4);
-    margin-bottom: var(--space-4);
 }
 
-.dashboard-workspace-grid ~ .app-card {
-    margin-bottom: var(--space-4);
-}
-
-.dashboard-workspace-grid ~ .app-card + .app-card {
-    margin-top: var(--space-4);
+.dashboard-page {
+    display: grid;
+    gap: var(--space-4);
 }
 
 .dashboard-empty-card {

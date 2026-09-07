@@ -2082,7 +2082,7 @@ dt,
 }
 
 .transaction-table {
-    min-width: 760px;
+    min-width: 840px;
     table-layout: fixed;
 }
 
@@ -2121,7 +2121,7 @@ dt,
 }
 
 .transaction-category {
-    width: 180px;
+    width: 248px;
 }
 
 .transaction-card {
@@ -2160,6 +2160,22 @@ dt,
     position: relative;
     display: inline-flex;
     max-width: 100%;
+}
+
+.category-review-actions {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    max-width: 100%;
+}
+
+.category-review-actions .category-editor-wrap {
+    flex: 0 1 150px;
+    min-width: 0;
+}
+
+.category-review-actions .category-editor {
+    width: 100%;
 }
 
 .category-editor {
@@ -2209,6 +2225,35 @@ dt,
     font-size: 14px;
     pointer-events: none;
     transform: translateY(-50%);
+}
+
+.category-confirm-button {
+    min-height: 24px;
+    border: 1px solid var(--button-primary-border);
+    border-radius: var(--radius-sm);
+    background: var(--button-primary);
+    color: #ffffff;
+    padding: 3px 8px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.category-confirm-button:hover,
+.category-confirm-button:focus {
+    border-color: var(--button-primary-hover);
+    background: var(--button-primary-hover);
+}
+
+.category-confirm-button:focus {
+    outline: 0;
+}
+
+.category-confirm-button:disabled {
+    cursor: progress;
+    opacity: 0.68;
 }
 
 .review-warning {
@@ -2517,7 +2562,7 @@ tbody tr:last-child td {
     }
 
     .transaction-table {
-        min-width: 560px;
+        min-width: 720px;
     }
 
     .transaction-table th,
@@ -2530,7 +2575,7 @@ tbody tr:last-child td {
     }
 
     .transaction-category {
-        width: 168px;
+        width: 228px;
     }
 
     .transaction-card {

@@ -1,16 +1,28 @@
-<div class="category-editor-wrap">
-    <select class="@EditorClass"
-            style="@EditorStyle"
-            value="@Transaction.CategoryId"
-            @onchange="HandleCategoryChanged"
-            disabled="@IsSaving"
-            aria-label="@($"Category for {Transaction.Description}")">
-        @foreach (var category in Categories)
-        {
-            <option value="@category.Id">@category.Name</option>
-        }
-    </select>
-    <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+<div class="category-review-actions">
+    <div class="category-editor-wrap">
+        <select class="@EditorClass"
+                style="@EditorStyle"
+                value="@Transaction.CategoryId"
+                @onchange="HandleCategoryChanged"
+                disabled="@IsSaving"
+                aria-label="@($"Category for {Transaction.Description}")">
+            @foreach (var category in Categories)
+            {
+                <option value="@category.Id">@category.Name</option>
+            }
+        </select>
+        <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+    </div>
+
+    @if (Transaction.NeedsReview)
+    {
+        <button type="button"
+                class="category-confirm-button"
+                disabled="@IsSaving"
+                @onclick="ConfirmCategoryAsync">
+            Confirm
+        </button>
+    }
 </div>
 
 @if (Transaction.NeedsReview)
@@ -34,6 +46,9 @@
     [Parameter]
     public EventCallback<TransactionCategoryChange> OnCategoryChanged { get; set; }
 
+    [Parameter]
+    public EventCallback<Guid> OnCategoryConfirmed { get; set; }
+
     private string EditorClass =>
         Transaction.NeedsReview
             ? "category-editor review"
@@ -48,5 +63,10 @@
             Transaction.Id,
             Transaction.CategoryId,
             args.Value?.ToString()));
+    }
+
+    private async Task ConfirmCategoryAsync()
+    {
+        await OnCategoryConfirmed.InvokeAsync(Transaction.Id);
     }
 }

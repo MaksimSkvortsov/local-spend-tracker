@@ -22,7 +22,8 @@
                     <TransactionCategoryEditor Transaction="@transaction"
                                                Categories="@Categories"
                                                IsSaving="@(SavingCategoryTransactionId == transaction.Id)"
-                                               OnCategoryChanged="OnCategoryChanged" />
+                                               OnCategoryChanged="OnCategoryChanged"
+                                               OnCategoryConfirmed="OnCategoryConfirmed" />
                 </td>
                 <td class="transaction-card">@transaction.CardName</td>
                 <td class="@GetAmountClass(transaction)">@FormatTransactionAmount(transaction.Amount)</td>
@@ -67,6 +68,9 @@
 
     [Parameter]
     public EventCallback<TransactionCategoryChange> OnCategoryChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnCategoryConfirmed { get; set; }
 
     [Parameter]
     public EventCallback OnPrevious { get; set; }

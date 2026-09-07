@@ -49,6 +49,7 @@
                                    CurrentPage="@currentPage"
                                    PageCount="@PageCount"
                                    OnCategoryChanged="ChangeCategoryAsync"
+                                   OnCategoryConfirmed="ConfirmCategoryAsync"
                                    OnPrevious="PreviousPage"
                                    OnNext="NextPage" />
             }
@@ -133,6 +134,29 @@
         catch (Exception ex)
         {
             categorySaveError = $"Could not update category: {ex.Message}";
+        }
+        finally
+        {
+            savingCategoryTransactionId = null;
+        }
+    }
+
+    private async Task ConfirmCategoryAsync(Guid transactionId)
+    {
+        categorySaveError = null;
+        savingCategoryTransactionId = transactionId;
+        try
+        {
+            await TransactionsPageService.ConfirmCategoryAsync(
+                transactionId,
+                CancellationToken.None);
+            await ReloadPageDataAsync();
+            DataRefreshNotifier.NotifyTransactionsChanged();
+            ResetPaginationAfterCategoryChange();
+        }
+        catch (Exception ex)
+        {
+            categorySaveError = $"Could not confirm category: {ex.Message}";
         }
         finally
         {

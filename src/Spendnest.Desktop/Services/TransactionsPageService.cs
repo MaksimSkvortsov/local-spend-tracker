@@ -48,4 +48,14 @@ public sealed class TransactionsPageService(
             cancellationToken);
     }
 
+    public async Task ConfirmCategoryAsync(
+        Guid transactionId,
+        CancellationToken cancellationToken)
+    {
+        await reviewService.ConfirmAsync(
+            transactionId,
+            rememberRule: false,
+            cancellationToken);
+    }
+
 }

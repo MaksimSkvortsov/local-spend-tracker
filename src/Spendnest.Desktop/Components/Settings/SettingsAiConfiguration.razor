@@ -81,16 +81,18 @@
             <h3>Test Connection</h3>
             <p>Verify your API credentials and latency.</p>
         </div>
-        <div class="settings-action-buttons">
-            <button type="button" class="primary-button" @onclick="OnSave" disabled="@State.IsBusy">
-                Save
-            </button>
+        <div class="settings-action-buttons settings-ai-actions">
             <button type="button" class="secondary-button" @onclick="OnTestConnection" disabled="@State.IsBusy">
                 Test Connection
             </button>
-            <button type="button" class="danger-button" @onclick="OnDeleteConfiguration" disabled="@(State.IsBusy || !State.CanDeleteConfiguration)">
-                Delete Configuration
-            </button>
+            <div class="settings-ai-actions__commit">
+                <button type="button" class="primary-button" @onclick="OnSave" disabled="@State.IsBusy">
+                    Save
+                </button>
+                <button type="button" class="danger-button" @onclick="OnDeleteConfiguration" disabled="@(State.IsBusy || !State.CanDeleteConfiguration)">
+                    Delete Configuration
+                </button>
+            </div>
         </div>
     </div>
 

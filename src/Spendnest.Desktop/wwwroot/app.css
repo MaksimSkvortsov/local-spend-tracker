@@ -19,6 +19,14 @@
     --accent-subtle: #f0f5f1;
     --accent-border: #cad9ce;
     --category-anchor: var(--accent);
+    --heat-frequency-medium: #4fb67a;
+    --heat-frequency-high: #009a55;
+    --heat-spend-low: #f6d7d2;
+    --heat-spend-medium: #d86b5d;
+    --heat-spend-high: #8f1f17;
+    --button-primary: #3f7a52;
+    --button-primary-hover: #326442;
+    --button-primary-border: #356b47;
     --warn: #8a5a00;
     --error: #b42318;
     --success: #047857;
@@ -450,6 +458,10 @@ dt,
     gap: var(--space-4);
 }
 
+.dashboard-page .app-card__header {
+    margin-bottom: var(--space-3);
+}
+
 .dashboard-empty-card {
     min-height: calc(100vh - 48px);
     display: grid;
@@ -790,7 +802,7 @@ dt,
     align-items: center;
     max-width: 100%;
     color: var(--ink);
-    font-weight: 650;
+    font-weight: 400;
 }
 
 .history-file span:last-child {
@@ -988,12 +1000,14 @@ dt,
 }
 
 .primary-button {
-    background: var(--accent);
+    border-color: var(--button-primary-border);
+    background: var(--button-primary);
     color: white;
 }
 
 .primary-button:hover:not(:disabled) {
-    background: var(--accent-dark);
+    border-color: var(--button-primary-hover);
+    background: var(--button-primary-hover);
 }
 
 .secondary-button {
@@ -1164,13 +1178,15 @@ dt,
 .settings-card .primary-button {
     min-height: 40px;
     border-radius: var(--radius-sm);
-    background: var(--accent);
+    border-color: var(--button-primary-border);
+    background: var(--button-primary);
     color: #ffffff;
     padding: 0 24px;
 }
 
 .settings-card .primary-button:hover:not(:disabled) {
-    background: var(--accent-dark);
+    border-color: var(--button-primary-hover);
+    background: var(--button-primary-hover);
 }
 
 .settings-card .secondary-button,
@@ -1424,6 +1440,28 @@ dt,
     grid-column: 1 / -1;
 }
 
+.settings-ai-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    justify-self: stretch;
+    width: 100%;
+}
+
+.settings-ai-actions > button,
+.settings-ai-actions__commit button {
+    padding: 0 16px;
+    width: auto;
+    white-space: nowrap;
+}
+
+.settings-ai-actions__commit {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
 .settings-data-section {
     display: grid;
     gap: 16px;
@@ -1549,7 +1587,7 @@ dt,
     justify-content: center;
     gap: 40px;
     align-items: center;
-    padding: 24px 0;
+    padding: 12px 0 8px;
 }
 
 .donut-chart {
@@ -1793,11 +1831,11 @@ dt,
 }
 
 .frequency-cell.medium {
-    background: color-mix(in srgb, var(--accent) 42%, white);
+    background: var(--heat-frequency-medium);
 }
 
 .frequency-cell.high {
-    background: var(--accent);
+    background: var(--heat-frequency-high);
 }
 
 .frequency-legend {
@@ -1845,15 +1883,15 @@ dt,
 }
 
 .daily-spend-cell.low {
-    background: color-mix(in srgb, var(--accent) 18%, white);
+    background: var(--heat-spend-low);
 }
 
 .daily-spend-cell.medium {
-    background: color-mix(in srgb, var(--accent) 46%, white);
+    background: var(--heat-spend-medium);
 }
 
 .daily-spend-cell.high {
-    background: var(--accent);
+    background: var(--heat-spend-high);
 }
 
 .daily-spend-legend {
@@ -2098,7 +2136,7 @@ dt,
 
 .transaction-description {
     color: var(--text-primary);
-    font-weight: 650;
+    font-weight: 400;
 }
 
 .transaction-description > span:first-child {
@@ -2567,6 +2605,19 @@ tbody tr:last-child td {
     .import-history-table .date-column {
         display: none;
     }
+
+    .settings-ai-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .settings-ai-actions > button {
+        width: 100%;
+    }
+
+    .settings-ai-actions__commit {
+        justify-content: flex-end;
+    }
 }
 
 @media (max-width: 1100px) {
@@ -2660,6 +2711,17 @@ tbody tr:last-child td {
     .settings-action-buttons {
         grid-template-columns: 1fr;
         justify-self: stretch;
+        width: 100%;
+    }
+
+    .settings-ai-actions,
+    .settings-ai-actions__commit {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .settings-ai-actions > button,
+    .settings-ai-actions__commit button {
         width: 100%;
     }
 

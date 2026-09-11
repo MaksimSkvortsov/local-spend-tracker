@@ -31,6 +31,7 @@ builder.Services.AddSingleton<DashboardService>();
 builder.Services.AddSingleton<ImportFileSelectionService>();
 builder.Services.AddSingleton<ImportPageService>();
 builder.Services.AddSingleton<ImportWorkflowService>();
+builder.Services.AddSingleton<RulesPageService>();
 builder.Services.AddSingleton<SettingsPageService>();
 builder.Services.AddSingleton<TransactionsPageService>();
 builder.Services.AddSingleton<IStatementFilePicker, DevStatementFilePicker>();
@@ -39,7 +40,6 @@ builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();
 builder.Services.AddSingleton<ICredentialStore, InMemoryCredentialStore>();
 builder.Services.AddSpendnestSqlitePersistence();
 builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();
-builder.Services.AddSingleton<LocalCategoryRuleMatcher>();
 builder.Services.AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>();
 builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton(new OpenAiCategorizerOptions

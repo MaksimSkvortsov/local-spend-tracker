@@ -7,9 +7,9 @@ public sealed class CategoryRule
 {
     public Guid Id { get; init; } = Guid.NewGuid();
 
-    public string Pattern { get; init; } = string.Empty;
+    public string Pattern { get; set; } = string.Empty;
 
-    public int CategoryId { get; init; }
+    public int CategoryId { get; set; }
 
-    public CategoryRuleMatchType MatchType { get; init; } = CategoryRuleMatchType.Contains;
+    public CategoryRuleMatchType MatchType { get; set; } = CategoryRuleMatchType.Contains;
 }

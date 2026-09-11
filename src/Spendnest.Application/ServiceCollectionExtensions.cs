@@ -3,6 +3,7 @@ using Spendnest.Application.Categorization;
 using Spendnest.Application.Importing;
 using Spendnest.Application.Reporting;
 using Spendnest.Application.Review;
+using Spendnest.Application.Rules;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Reporting;
@@ -16,11 +17,13 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IStatementFileImportService, StatementFileImportService>();
         services.AddSingleton<AiCategorizationResultMapper>();
+        services.AddSingleton<LocalCategoryRuleMatcher>();
         services.AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>();
         services.AddSingleton<ITransactionCategorizationApplier, TransactionCategorizationApplier>();
         services.AddSingleton<CategorySpendingReportBuilder>();
         services.AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>();
         services.AddSingleton<ITransactionReviewService, TransactionReviewService>();
+        services.AddSingleton<CategoryRuleManagementService>();
 
         return services;
     }

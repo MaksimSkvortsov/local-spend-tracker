@@ -120,6 +120,119 @@ public class SqlitePersistenceTests
     }
 
     [Fact]
+    public async Task CategoryRuleApplicationStore_ShouldUpdateRuleAndAssignmentsTogether()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+
+            await serviceProvider
+                .GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var cardAccounts = serviceProvider.GetRequiredService<ICardAccountRepository>();
+            var statementImports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var transactions = serviceProvider.GetRequiredService<ITransactionRepository>();
+            var assignments = serviceProvider.GetRequiredService<ITransactionCategoryAssignmentRepository>();
+            var rules = serviceProvider.GetRequiredService<ICategoryRuleRepository>();
+            var ruleApplications = serviceProvider.GetRequiredService<ICategoryRuleApplicationStore>();
+
+            var cardAccount = await cardAccounts.CreateAsync("Family Visa", CancellationToken.None);
+            var statementImport = new StatementImport
+            {
+                CardAccountId = cardAccount.Id,
+                FilePath = "statement.csv",
+                FileName = "statement.csv",
+                FileHash = "ABC123",
+                Status = StatementImportStatus.Completed,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
+            await statementImports.AddAsync(statementImport, CancellationToken.None);
+
+            var importedTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = cardAccount.Id,
+                StatementImportId = statementImport.Id,
+                PostedDate = new DateOnly(2026, 7, 18),
+                OriginalDescription = "DOORDASH CHIPOTLE",
+                Amount = 18.45m,
+                SourceRowNumber = 2,
+                ImportedAtUtc = DateTimeOffset.UtcNow
+            };
+            await transactions.AddRangeAsync([importedTransaction], CancellationToken.None);
+
+            var rule = new CategoryRule
+            {
+                Pattern = "DOORDASH",
+                CategoryId = BuiltInCategoryIds.Other,
+                MatchType = CategoryRuleMatchType.Prefix
+            };
+            await rules.AddAsync(rule, CancellationToken.None);
+
+            await assignments.SaveAsync(
+                new TransactionCategoryAssignment
+                {
+                    TransactionId = importedTransaction.Id,
+                    CategoryId = BuiltInCategoryIds.Other,
+                    Confidence = 0.6m,
+                    NeedsReview = true,
+                    Source = CategorizationSource.Ai,
+                    Explanation = "Needs review."
+                },
+                CancellationToken.None);
+
+            await ruleApplications.UpdateCategoryAndAssignmentsAsync(
+                rule.Id,
+                "DD * DOORDASH",
+                CategoryRuleMatchType.Contains,
+                BuiltInCategoryIds.RestaurantsAndCoffee,
+                [
+                    new TransactionCategoryAssignment
+                    {
+                        TransactionId = importedTransaction.Id,
+                        CategoryId = BuiltInCategoryIds.RestaurantsAndCoffee,
+                        Confidence = 1m,
+                        NeedsReview = false,
+                        Source = CategorizationSource.LocalRules,
+                        Explanation = "Applied category rule 'DOORDASH'."
+                    }
+                ],
+                CancellationToken.None);
+
+            var updatedRule = (await rules.ListAsync(CancellationToken.None))
+                .Should()
+                .ContainSingle()
+                .Which;
+            var updatedAssignment = await assignments.GetByTransactionIdAsync(
+                importedTransaction.Id,
+                CancellationToken.None);
+
+            updatedRule.Pattern.Should().Be("DD * DOORDASH");
+            updatedRule.MatchType.Should().Be(CategoryRuleMatchType.Contains);
+            updatedRule.CategoryId.Should().Be(BuiltInCategoryIds.RestaurantsAndCoffee);
+            updatedAssignment.Should().NotBeNull();
+            updatedAssignment!.CategoryId.Should().Be(BuiltInCategoryIds.RestaurantsAndCoffee);
+            updatedAssignment.Confidence.Should().Be(1m);
+            updatedAssignment.NeedsReview.Should().BeFalse();
+            updatedAssignment.Source.Should().Be(CategorizationSource.LocalRules);
+            updatedAssignment.Explanation.Should().Be("Applied category rule 'DOORDASH'.");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task DeleteUserDataAsync_ShouldClearUserDataAndKeepBuiltInCategories()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

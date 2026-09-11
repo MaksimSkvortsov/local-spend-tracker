@@ -1,6 +1,7 @@
 namespace Spendnest.Infrastructure.Tests.Categorization;
 
 using FluentAssertions;
+using Spendnest.Application.Categorization;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;

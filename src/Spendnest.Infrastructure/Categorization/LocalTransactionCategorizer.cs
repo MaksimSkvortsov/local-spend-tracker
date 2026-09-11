@@ -1,3 +1,4 @@
+using Spendnest.Application.Categorization;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 

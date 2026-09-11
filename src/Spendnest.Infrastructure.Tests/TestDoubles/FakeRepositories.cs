@@ -15,9 +15,46 @@ public sealed class FakeCategoryRuleRepository : ICategoryRuleRepository
         return Task.CompletedTask;
     }
 
+    public void ApplyRuleUpdate(
+        Guid ruleId,
+        string pattern,
+        CategoryRuleMatchType matchType,
+        int categoryId)
+    {
+        var rule = rules.FirstOrDefault(item => item.Id == ruleId)
+            ?? throw new InvalidOperationException("Rule was not found.");
+
+        rule.Pattern = pattern;
+        rule.MatchType = matchType;
+        rule.CategoryId = categoryId;
+    }
+
     public Task<IReadOnlyList<CategoryRule>> ListAsync(CancellationToken cancellationToken)
     {
         return Task.FromResult<IReadOnlyList<CategoryRule>>(rules.ToArray());
+    }
+}
+
+public sealed class FakeCategoryRuleApplicationStore : ICategoryRuleApplicationStore
+{
+    private readonly FakeCategoryRuleRepository ruleRepository;
+
+    public FakeCategoryRuleApplicationStore(FakeCategoryRuleRepository ruleRepository)
+    {
+        this.ruleRepository = ruleRepository;
+    }
+
+    public Task UpdateCategoryAndAssignmentsAsync(
+        Guid ruleId,
+        string pattern,
+        CategoryRuleMatchType matchType,
+        int categoryId,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken)
+    {
+        ruleRepository.ApplyRuleUpdate(ruleId, pattern, matchType, categoryId);
+
+        return Task.CompletedTask;
     }
 }
 

@@ -1,7 +1,7 @@
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 
-namespace Spendnest.Infrastructure.Categorization;
+namespace Spendnest.Application.Categorization;
 
 public sealed class LocalCategoryRuleMatcher
 {

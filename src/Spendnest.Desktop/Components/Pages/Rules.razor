@@ -1,0 +1,438 @@
+@page "/rules"
+@inject RulesPageService RulesPageService
+@inject AppDataRefreshNotifier DataRefreshNotifier
+
+<PageTitle>Rules - PeasantMoney</PageTitle>
+
+<div class="rules-page">
+    <section class="rules-page-header">
+        <div>
+            <h1>Rules</h1>
+            <p>Manage automatic categories for imported transactions.</p>
+        </div>
+
+        <div class="rules-summary-chip">
+            <span>@data.Rules.Count rules</span>
+            <span>@data.Rules.Sum(rule => rule.MatchCount) matching transactions</span>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="@StatusClass">@statusMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <Card>
+            <div class="rules-loading-state" role="status" aria-live="polite">
+                <span class="rules-spinner" aria-hidden="true"></span>
+                <span>Loading rules...</span>
+            </div>
+        </Card>
+    }
+    else if (data.Rules.Count == 0)
+    {
+        <Card>
+            <div class="empty-state">No category rules saved yet.</div>
+        </Card>
+    }
+    else
+    {
+        <section class="rules-workspace">
+            <Card Class="rules-list-card" Title="Saved Rules" Subtitle="@($"{FilteredRules.Count} shown")">
+                <div class="rules-filter-wrap">
+                    <input class="text-input rules-filter"
+                           type="search"
+                           placeholder="Filter rules"
+                           value="@ruleFilter"
+                           @oninput="OnRuleFilterChanged"
+                           aria-label="Filter rules" />
+                </div>
+
+                <div class="rules-list" aria-label="Saved rules">
+                    @if (FilteredRules.Count == 0)
+                    {
+                        <div class="empty-state compact">No rules match this filter.</div>
+                    }
+
+                    @foreach (var rule in FilteredRules)
+                    {
+                        <button class="@GetRuleButtonClass(rule)"
+                                type="button"
+                                aria-pressed="@(rule.Id == selectedRuleId)"
+                                disabled="@isRuleLoading"
+                                @onclick="() => SelectRuleAsync(rule.Id)">
+                            <span class="rule-list-top">
+                                <strong>@rule.Pattern</strong>
+                                <span class="rule-match-count">
+                                    <span>@rule.MatchCount</span>
+                                    <span>matches</span>
+                                </span>
+                            </span>
+                            <span class="rule-list-meta">
+                                <span>@rule.MatchType</span>
+                                <span class="category-pill"
+                                      style="--category-color: @rule.CategoryColorHex">@rule.CategoryName</span>
+                            </span>
+                        </button>
+                    }
+                </div>
+            </Card>
+
+            <div class="rules-detail-stack">
+                <Card Class="rules-detail-card" Title="Rule Details">
+                    @if (isRuleLoading)
+                    {
+                        <div class="rules-loading-state compact" role="status" aria-live="polite">
+                            <span class="rules-spinner" aria-hidden="true"></span>
+                            <span>Loading rule...</span>
+                        </div>
+                    }
+                    else if (SelectedRule is null)
+                    {
+                        <div class="empty-state compact">Select a rule to edit.</div>
+                    }
+                    else
+                    {
+                        <div class="rule-detail-grid">
+                            <div class="field-group">
+                                <label for="rule-pattern">Pattern</label>
+                                <input id="rule-pattern"
+                                       class="text-input rule-pattern-input"
+                                       value="@draftPattern"
+                                       @oninput="OnPatternChanged"
+                                       disabled="@isSaving" />
+                            </div>
+                            <div class="field-group">
+                                <label for="rule-match-type">Match Type</label>
+                                <select id="rule-match-type"
+                                        class="dashboard-select rules-match-type-select"
+                                        value="@draftMatchType"
+                                        @onchange="OnMatchTypeChanged"
+                                        disabled="@isSaving">
+                                    @foreach (var matchType in MatchTypes)
+                                    {
+                                        <option value="@matchType">@matchType</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="field-group">
+                                <label for="rule-category">Assign Category</label>
+                                <select id="rule-category"
+                                        class="dashboard-select rules-category-select"
+                                        value="@selectedCategoryId"
+                                        @onchange="OnCategoryChangedAsync"
+                                        disabled="@isSaving">
+                                    @foreach (var category in data.Categories)
+                                    {
+                                        <option value="@category.Id">@category.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="rule-impact-note">
+                            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+                            <span>
+                                Saving will move @data.PreviewRows.Count existing matching transactions to
+                                @SelectedCategoryName. If there are no matches, only the rule changes.
+                            </span>
+                        </div>
+
+                        <div class="rules-actions">
+                            <span>@DirtyStateLabel</span>
+                            <button class="primary-button"
+                                    type="button"
+                                    disabled="@(!CanSave)"
+                                    @onclick="SaveAndApplyAsync">
+                                Save & Apply to All
+                            </button>
+                        </div>
+                    }
+                </Card>
+
+                <Card Class="rules-preview-card" Title="Matching Transactions Preview" Subtitle="@PreviewSubtitle">
+                    @if (isRuleLoading)
+                    {
+                        <div class="rules-loading-state compact" role="status" aria-live="polite">
+                            <span class="rules-spinner" aria-hidden="true"></span>
+                            <span>Loading matching transactions...</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <DataTable HasItems="@data.PreviewRows.Any()"
+                                   EmptyMessage="@PreviewEmptyMessage"
+                                   TableClass="rules-preview-table">
+                            <HeaderContent>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Card</th>
+                                    <th class="amount">Amount</th>
+                                    <th>Current Category</th>
+                                </tr>
+                            </HeaderContent>
+                            <ChildContent>
+                                @foreach (var row in data.PreviewRows.Take(10))
+                                {
+                                    <tr>
+                                        <td class="rules-preview-date">@row.PostedDate.ToString("MMM d, yyyy")</td>
+                                        <td>@row.Description</td>
+                                        <td>@row.CardName</td>
+                                        <td class="amount">@row.Amount.ToString("C")</td>
+                                        <td>
+                                            <span class="category-pill"
+                                                  style="--category-color: @row.CurrentCategoryColorHex">
+                                                @row.CurrentCategoryName
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </ChildContent>
+                            <FooterContent>
+                                @if (data.PreviewRows.Count > 10)
+                                {
+                                    <div class="rules-preview-footer">
+                                        Showing 10 of @data.PreviewRows.Count matching transactions.
+                                    </div>
+                                }
+                            </FooterContent>
+                        </DataTable>
+                    }
+                </Card>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    private RulesPageData data = RulesPageData.Empty;
+    private Guid? selectedRuleId;
+    private CategoryRuleRow? selectedRuleBaseline;
+    private string ruleFilter = string.Empty;
+    private string draftPattern = string.Empty;
+    private CategoryRuleMatchType draftMatchType = CategoryRuleMatchType.Contains;
+    private string selectedCategoryId = string.Empty;
+    private bool isLoading = true;
+    private bool isRuleLoading;
+    private bool isSaving;
+    private bool hasError;
+    private string? statusMessage;
+
+    private CategoryRuleRow? SelectedRule =>
+        selectedRuleId is Guid ruleId
+            ? data.Rules.FirstOrDefault(rule => rule.Id == ruleId)
+            : null;
+
+    private static IReadOnlyList<CategoryRuleMatchType> MatchTypes { get; } =
+    [
+        CategoryRuleMatchType.Exact,
+        CategoryRuleMatchType.Prefix,
+        CategoryRuleMatchType.Contains
+    ];
+
+    private IReadOnlyList<CategoryRuleRow> FilteredRules =>
+        string.IsNullOrWhiteSpace(ruleFilter)
+            ? data.Rules
+            : data.Rules
+                .Where(RuleMatchesFilter)
+                .ToArray();
+
+    private int? SelectedCategoryId =>
+        int.TryParse(selectedCategoryId, out var categoryId)
+            ? categoryId
+            : null;
+
+    private bool HasCategoryChange =>
+        selectedRuleBaseline is not null
+        && SelectedCategoryId is int categoryId
+        && categoryId != selectedRuleBaseline.CategoryId;
+
+    private bool HasRuleShapeChange =>
+        selectedRuleBaseline is not null
+        && (!string.Equals(draftPattern.Trim(), selectedRuleBaseline.Pattern, StringComparison.Ordinal)
+            || draftMatchType != selectedRuleBaseline.MatchType);
+
+    private bool HasRuleChange =>
+        HasCategoryChange || HasRuleShapeChange;
+
+    private bool CanSave => !isSaving && !isRuleLoading && HasRuleChange && !string.IsNullOrWhiteSpace(draftPattern);
+
+    private string DirtyStateLabel =>
+        HasRuleChange ? "Rule modified" : "No changes";
+
+    private string PreviewSubtitle =>
+        isRuleLoading
+            ? "Loading"
+            : PreviewCountSubtitle;
+
+    private string PreviewCountSubtitle =>
+        data.PreviewRows.Count == 1
+            ? "1 current match"
+            : $"{data.PreviewRows.Count} current matches";
+
+    private string PreviewEmptyMessage =>
+        SelectedRule is null
+            ? "Select a rule to preview matching transactions."
+            : "No imported transactions currently match this rule.";
+
+    private string SelectedCategoryName =>
+        SelectedCategoryId is int categoryId
+            ? data.Categories.FirstOrDefault(category => category.Id == categoryId)?.Name ?? "selected category"
+            : "selected category";
+
+    private string SelectedCategoryColorHex =>
+        SelectedCategoryId is int categoryId
+            ? data.Categories.FirstOrDefault(category => category.Id == categoryId)?.ColorHex ?? "#e5e7eb"
+            : "#e5e7eb";
+
+    private string StatusClass =>
+        hasError ? "alert error" : "alert success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Yield();
+        await LoadAsync(null);
+        isLoading = false;
+    }
+
+    private async Task LoadAsync(Guid? ruleId)
+    {
+        data = await RulesPageService.LoadAsync(ruleId, CancellationToken.None);
+        selectedRuleId = data.SelectedRuleId;
+        selectedRuleBaseline = SelectedRule;
+        ResetDraftFromSelectedRule();
+    }
+
+    private async Task SelectRuleAsync(Guid ruleId)
+    {
+        statusMessage = null;
+        hasError = false;
+        isRuleLoading = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            await LoadAsync(ruleId);
+        }
+        finally
+        {
+            isRuleLoading = false;
+        }
+    }
+
+    private void OnRuleFilterChanged(ChangeEventArgs args)
+    {
+        ruleFilter = args.Value?.ToString() ?? string.Empty;
+    }
+
+    private async Task OnPatternChanged(ChangeEventArgs args)
+    {
+        draftPattern = args.Value?.ToString() ?? string.Empty;
+        await RefreshPreviewAsync();
+    }
+
+    private async Task OnMatchTypeChanged(ChangeEventArgs args)
+    {
+        if (Enum.TryParse<CategoryRuleMatchType>(args.Value?.ToString(), out var matchType))
+        {
+            draftMatchType = matchType;
+        }
+
+        await RefreshPreviewAsync();
+    }
+
+    private async Task OnCategoryChangedAsync(ChangeEventArgs args)
+    {
+        selectedCategoryId = args.Value?.ToString() ?? string.Empty;
+        await RefreshPreviewAsync();
+    }
+
+    private async Task RefreshPreviewAsync()
+    {
+        statusMessage = null;
+        hasError = false;
+        if (selectedRuleBaseline is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(draftPattern))
+        {
+            data = data with { PreviewRows = [] };
+            return;
+        }
+
+        data = await RulesPageService.LoadAsync(
+            selectedRuleBaseline.Id,
+            BuildRuleUpdate(),
+            CancellationToken.None);
+        selectedRuleId = selectedRuleBaseline.Id;
+    }
+
+    private async Task SaveAndApplyAsync()
+    {
+        if (selectedRuleBaseline is null)
+        {
+            return;
+        }
+
+        isSaving = true;
+        statusMessage = null;
+        hasError = false;
+
+        try
+        {
+            var appliedCount = await RulesPageService.SaveAndApplyAsync(
+                BuildRuleUpdate(),
+                CancellationToken.None);
+            await LoadAsync(selectedRuleBaseline.Id);
+            DataRefreshNotifier.NotifyTransactionsChanged();
+            statusMessage = appliedCount == 0
+                ? "Rule saved. No existing transactions matched."
+                : $"Rule saved and applied to {appliedCount} transactions.";
+        }
+        catch (Exception ex)
+        {
+            hasError = true;
+            statusMessage = $"Could not apply rule. Some transactions may not have changed. {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private string GetRuleButtonClass(CategoryRuleRow rule)
+    {
+        return rule.Id == selectedRuleId
+            ? "rule-list-item active"
+            : "rule-list-item";
+    }
+
+    private CategoryRuleUpdate BuildRuleUpdate()
+    {
+        return new CategoryRuleUpdate(
+            selectedRuleBaseline?.Id ?? Guid.Empty,
+            draftPattern,
+            draftMatchType,
+            SelectedCategoryId ?? 0);
+    }
+
+    private void ResetDraftFromSelectedRule()
+    {
+        draftPattern = selectedRuleBaseline?.Pattern ?? string.Empty;
+        draftMatchType = selectedRuleBaseline?.MatchType ?? CategoryRuleMatchType.Contains;
+        selectedCategoryId = selectedRuleBaseline?.CategoryId.ToString() ?? string.Empty;
+    }
+
+    private bool RuleMatchesFilter(CategoryRuleRow rule)
+    {
+        return rule.Pattern.Contains(ruleFilter, StringComparison.OrdinalIgnoreCase)
+            || rule.MatchType.ToString().Contains(ruleFilter, StringComparison.OrdinalIgnoreCase)
+            || rule.CategoryName.Contains(ruleFilter, StringComparison.OrdinalIgnoreCase);
+    }
+}

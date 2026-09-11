@@ -47,6 +47,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ImportFileSelectionService>();
         builder.Services.AddSingleton<ImportPageService>();
         builder.Services.AddSingleton<ImportWorkflowService>();
+        builder.Services.AddSingleton<RulesPageService>();
         builder.Services.AddSingleton<SettingsPageService>();
         builder.Services.AddSingleton<TransactionsPageService>();
         builder.Services.AddSingleton<IStatementFilePicker, MauiStatementFilePicker>();
@@ -55,7 +56,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICredentialStore, SecureStorageCredentialStore>();
         builder.Services.AddSpendnestSqlitePersistence();
         builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();
-        builder.Services.AddSingleton<LocalCategoryRuleMatcher>();
         builder.Services.AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>();
         builder.Services.AddSingleton<HttpClient>();
         builder.Services.AddSingleton(new OpenAiCategorizerOptions

@@ -139,6 +139,138 @@ public class CategoryRuleManagementServiceTests
             .WithMessage("Selected category was not found.");
     }
 
+    [Fact]
+    public async Task LoadCreateDraftAsync_ShouldPreviewTransactionsWhereNewRuleWins()
+    {
+        var ruleRepository = new FakeCategoryRuleRepository();
+        await ruleRepository.AddAsync(
+            Rule("LYFT BIKE", BuiltInCategoryIds.Transportation, CategoryRuleMatchType.Contains),
+            CancellationToken.None);
+        var transactionRepository = new FakeTransactionRepository();
+        var winningTransaction = Transaction("LYFT *RIDE 08-29", 18.42m);
+        var shadowedTransaction = Transaction("LYFT BIKE SHARE", 9.99m);
+        await transactionRepository.AddRangeAsync(
+            [winningTransaction, shadowedTransaction],
+            CancellationToken.None);
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        await assignmentRepository.SaveAsync(
+            Assignment(winningTransaction.Id, BuiltInCategoryIds.Other),
+            CancellationToken.None);
+        var service = CreateService(ruleRepository, transactionRepository, assignmentRepository);
+
+        var result = await service.LoadCreateDraftAsync(
+            new CategoryRuleCreate(
+                "LYFT",
+                CategoryRuleMatchType.Contains,
+                BuiltInCategoryIds.Transportation),
+            CancellationToken.None);
+
+        result.SelectedRuleId.Should().BeNull();
+        result.PreviewRows.Should().HaveCount(2);
+        result.PreviewRows.Should().Contain(row =>
+            row.TransactionId == winningTransaction.Id
+            && row.CurrentCategoryId == BuiltInCategoryIds.Other
+            && row.NewCategoryId == BuiltInCategoryIds.Transportation
+            && row.RuleWins);
+        result.PreviewRows.Should().Contain(row =>
+            row.TransactionId == shadowedTransaction.Id
+            && row.CurrentCategoryId == BuiltInCategoryIds.Other
+            && row.NewCategoryId == BuiltInCategoryIds.Transportation
+            && !row.RuleWins);
+    }
+
+    [Fact]
+    public async Task LoadCreateDraftAsync_ShouldSeparateMatchedRowsFromWinningRows()
+    {
+        var ruleRepository = new FakeCategoryRuleRepository();
+        await ruleRepository.AddAsync(
+            Rule("LYFT BIKE", BuiltInCategoryIds.Transportation, CategoryRuleMatchType.Contains),
+            CancellationToken.None);
+        var transactionRepository = new FakeTransactionRepository();
+        var shadowedTransaction = Transaction("LYFT BIKE SHARE", 9.99m);
+        await transactionRepository.AddRangeAsync(
+            [shadowedTransaction],
+            CancellationToken.None);
+        var service = CreateService(ruleRepository, transactionRepository);
+
+        var result = await service.LoadCreateDraftAsync(
+            new CategoryRuleCreate(
+                "LYFT",
+                CategoryRuleMatchType.Contains,
+                BuiltInCategoryIds.Transportation),
+            CancellationToken.None);
+
+        result.PreviewRows.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            TransactionId = shadowedTransaction.Id,
+            RuleWins = false
+        });
+    }
+
+    [Fact]
+    public async Task CreateAndApplyAsync_ShouldCreateRuleAndAssignmentsForWinningMatches()
+    {
+        var ruleRepository = new FakeCategoryRuleRepository();
+        await ruleRepository.AddAsync(
+            Rule("LYFT BIKE", BuiltInCategoryIds.Transportation, CategoryRuleMatchType.Contains),
+            CancellationToken.None);
+        var transactionRepository = new FakeTransactionRepository();
+        var winningTransaction = Transaction("LYFT *RIDE 08-29", 18.42m);
+        var shadowedTransaction = Transaction("LYFT BIKE SHARE", 9.99m);
+        await transactionRepository.AddRangeAsync(
+            [winningTransaction, shadowedTransaction],
+            CancellationToken.None);
+        var assignmentRepository = new FakeTransactionCategoryAssignmentRepository();
+        await assignmentRepository.SaveAsync(
+            Assignment(winningTransaction.Id, BuiltInCategoryIds.Other),
+            CancellationToken.None);
+        var service = CreateService(ruleRepository, transactionRepository, assignmentRepository);
+
+        var result = await service.CreateAndApplyAsync(
+            new CategoryRuleCreate(
+                " LYFT ",
+                CategoryRuleMatchType.Contains,
+                BuiltInCategoryIds.Transportation),
+            CancellationToken.None);
+
+        result.AppliedCount.Should().Be(1);
+        result.Rule.Pattern.Should().Be("LYFT");
+        result.Rule.MatchType.Should().Be(CategoryRuleMatchType.Contains);
+        result.Rule.CategoryId.Should().Be(BuiltInCategoryIds.Transportation);
+        (await ruleRepository.ListAsync(CancellationToken.None))
+            .Should()
+            .Contain(rule => rule.Id == result.Rule.Id);
+        ruleRepository.AppliedAssignments.Should().ContainSingle().Which.Should().BeEquivalentTo(new
+        {
+            TransactionId = winningTransaction.Id,
+            CategoryId = BuiltInCategoryIds.Transportation,
+            Confidence = 1m,
+            NeedsReview = false,
+            Source = CategorizationSource.LocalRules,
+            Explanation = "Applied category rule 'LYFT'."
+        });
+    }
+
+    [Fact]
+    public async Task CreateAndApplyAsync_ShouldRejectDuplicatePatternAndMatchType()
+    {
+        var ruleRepository = new FakeCategoryRuleRepository();
+        await ruleRepository.AddAsync(
+            Rule("LYFT", BuiltInCategoryIds.Transportation, CategoryRuleMatchType.Contains),
+            CancellationToken.None);
+        var service = CreateService(ruleRepository);
+
+        var act = () => service.CreateAndApplyAsync(
+            new CategoryRuleCreate(
+                " lyft ",
+                CategoryRuleMatchType.Contains,
+                BuiltInCategoryIds.Travel),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("A rule with this pattern and match type already exists.");
+    }
+
     private static CategoryRuleManagementService CreateService(
         FakeCategoryRuleRepository? ruleRepository = null,
         FakeTransactionRepository? transactionRepository = null,

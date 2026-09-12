@@ -7,4 +7,5 @@ public sealed record ManagedRuleTransactionPreview(
     Guid CardAccountId,
     decimal Amount,
     int CurrentCategoryId,
-    int NewCategoryId);
+    int NewCategoryId,
+    bool RuleWins);

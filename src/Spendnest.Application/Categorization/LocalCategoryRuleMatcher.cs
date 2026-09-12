@@ -33,6 +33,19 @@ public sealed class LocalCategoryRuleMatcher
         return null;
     }
 
+    public bool IsMatch(
+        Transaction transaction,
+        CategoryRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        ArgumentNullException.ThrowIfNull(rule);
+
+        var description = Normalize(transaction.OriginalDescription);
+        var merchantCode = merchantCodeResolver.Resolve(transaction);
+
+        return IsMatch(rule, merchantCode, description);
+    }
+
     private static IOrderedEnumerable<CategoryRule> OrderByMatchPriority(IReadOnlyList<CategoryRule> rules)
     {
         return rules

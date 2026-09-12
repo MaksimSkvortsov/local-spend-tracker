@@ -29,6 +29,28 @@ public sealed class SqliteCategoryRuleRepository :
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task CreateRuleAndAssignmentsAsync(
+        CategoryRule rule,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        ArgumentNullException.ThrowIfNull(assignments);
+
+        await using var dbContext = await dbContextFactory
+            .CreateDbContextAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await using var transaction = await dbContext.Database
+            .BeginTransactionAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        dbContext.CategoryRules.Add(rule);
+        await SaveAssignmentsAsync(dbContext, assignments, cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task UpdateCategoryAndAssignmentsAsync(
         Guid ruleId,
         string pattern,
@@ -55,6 +77,30 @@ public sealed class SqliteCategoryRuleRepository :
         rule.MatchType = matchType;
         rule.CategoryId = categoryId;
 
+        await SaveAssignmentsAsync(dbContext, assignments, cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<CategoryRule>> ListAsync(CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory
+            .CreateDbContextAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return await dbContext.CategoryRules
+            .AsNoTracking()
+            .OrderBy(rule => rule.Pattern)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task SaveAssignmentsAsync(
+        SpendnestDbContext dbContext,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken)
+    {
         foreach (var assignment in assignments)
         {
             var existingAssignment = await dbContext.TransactionCategoryAssignments
@@ -72,21 +118,5 @@ public sealed class SqliteCategoryRuleRepository :
                 dbContext.Entry(existingAssignment).CurrentValues.SetValues(assignment);
             }
         }
-
-        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<CategoryRule>> ListAsync(CancellationToken cancellationToken)
-    {
-        await using var dbContext = await dbContextFactory
-            .CreateDbContextAsync(cancellationToken)
-            .ConfigureAwait(false);
-
-        return await dbContext.CategoryRules
-            .AsNoTracking()
-            .OrderBy(rule => rule.Pattern)
-            .ToArrayAsync(cancellationToken)
-            .ConfigureAwait(false);
     }
 }

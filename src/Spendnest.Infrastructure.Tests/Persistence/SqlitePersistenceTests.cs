@@ -233,6 +233,101 @@ public class SqlitePersistenceTests
     }
 
     [Fact]
+    public async Task CategoryRuleApplicationStore_ShouldCreateRuleAndAssignmentsTogether()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+
+            await serviceProvider
+                .GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var cardAccounts = serviceProvider.GetRequiredService<ICardAccountRepository>();
+            var statementImports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var transactions = serviceProvider.GetRequiredService<ITransactionRepository>();
+            var assignments = serviceProvider.GetRequiredService<ITransactionCategoryAssignmentRepository>();
+            var rules = serviceProvider.GetRequiredService<ICategoryRuleRepository>();
+            var ruleApplications = serviceProvider.GetRequiredService<ICategoryRuleApplicationStore>();
+
+            var cardAccount = await cardAccounts.CreateAsync("Family Visa", CancellationToken.None);
+            var statementImport = new StatementImport
+            {
+                CardAccountId = cardAccount.Id,
+                FilePath = "statement.csv",
+                FileName = "statement.csv",
+                FileHash = "ABC123",
+                Status = StatementImportStatus.Completed,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
+            await statementImports.AddAsync(statementImport, CancellationToken.None);
+
+            var importedTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = cardAccount.Id,
+                StatementImportId = statementImport.Id,
+                PostedDate = new DateOnly(2026, 8, 29),
+                OriginalDescription = "LYFT *RIDE 08-29",
+                Amount = 18.42m,
+                SourceRowNumber = 2,
+                ImportedAtUtc = DateTimeOffset.UtcNow
+            };
+            await transactions.AddRangeAsync([importedTransaction], CancellationToken.None);
+
+            var rule = new CategoryRule
+            {
+                Pattern = "LYFT",
+                CategoryId = BuiltInCategoryIds.Transportation,
+                MatchType = CategoryRuleMatchType.Contains
+            };
+
+            await ruleApplications.CreateRuleAndAssignmentsAsync(
+                rule,
+                [
+                    new TransactionCategoryAssignment
+                    {
+                        TransactionId = importedTransaction.Id,
+                        CategoryId = BuiltInCategoryIds.Transportation,
+                        Confidence = 1m,
+                        NeedsReview = false,
+                        Source = CategorizationSource.LocalRules,
+                        Explanation = "Applied category rule 'LYFT'."
+                    }
+                ],
+                CancellationToken.None);
+
+            var createdRule = (await rules.ListAsync(CancellationToken.None))
+                .Should()
+                .ContainSingle()
+                .Which;
+            var createdAssignment = await assignments.GetByTransactionIdAsync(
+                importedTransaction.Id,
+                CancellationToken.None);
+
+            createdRule.Id.Should().Be(rule.Id);
+            createdRule.Pattern.Should().Be("LYFT");
+            createdRule.MatchType.Should().Be(CategoryRuleMatchType.Contains);
+            createdRule.CategoryId.Should().Be(BuiltInCategoryIds.Transportation);
+            createdAssignment.Should().NotBeNull();
+            createdAssignment!.CategoryId.Should().Be(BuiltInCategoryIds.Transportation);
+            createdAssignment.Source.Should().Be(CategorizationSource.LocalRules);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task DeleteUserDataAsync_ShouldClearUserDataAndKeepBuiltInCategories()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

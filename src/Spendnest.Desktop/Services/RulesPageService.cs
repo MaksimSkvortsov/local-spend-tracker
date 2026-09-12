@@ -43,6 +43,32 @@ public sealed class RulesPageService(
         return await ruleManagementService.SaveAndApplyAsync(update, cancellationToken);
     }
 
+    public async Task<RulesPageData> LoadCreateDraftAsync(
+        CategoryRuleCreate draft,
+        CancellationToken cancellationToken)
+    {
+        var pageData = await ruleManagementService.LoadCreateDraftAsync(draft, cancellationToken);
+        var categoryLookup = pageData.Categories.ToDictionary(category => category.Id);
+        var cardNamesById = pageData.Cards.ToDictionary(card => card.Id, card => card.Name);
+
+        return new RulesPageData(
+            pageData.Rules
+                .Select(rule => ToRuleRow(rule, categoryLookup))
+                .ToArray(),
+            pageData.Categories,
+            pageData.SelectedRuleId,
+            pageData.PreviewRows
+                .Select(row => ToPreviewRow(row, cardNamesById, categoryLookup))
+                .ToArray());
+    }
+
+    public async Task<CategoryRuleCreateResult> CreateAndApplyAsync(
+        CategoryRuleCreate create,
+        CancellationToken cancellationToken)
+    {
+        return await ruleManagementService.CreateAndApplyAsync(create, cancellationToken);
+    }
+
     private static CategoryRuleRow ToRuleRow(
         ManagedCategoryRule rule,
         IReadOnlyDictionary<int, BuiltInCategory> categoriesById)
@@ -78,6 +104,7 @@ public sealed class RulesPageService(
             currentCategory?.ColorHex ?? "#e5e7eb",
             row.NewCategoryId,
             newCategory?.Name ?? "Unknown",
-            newCategory?.ColorHex ?? "#e5e7eb");
+            newCategory?.ColorHex ?? "#e5e7eb",
+            row.RuleWins);
     }
 }

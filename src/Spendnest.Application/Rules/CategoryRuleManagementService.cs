@@ -104,6 +104,76 @@ public sealed class CategoryRuleManagementService(
         return updatedAssignments.Length;
     }
 
+    public async Task<CategoryRuleManagementData> LoadCreateDraftAsync(
+        CategoryRuleCreate draft,
+        CancellationToken cancellationToken)
+    {
+        ValidateCreate(draft);
+
+        var categories = await categoryRepository.ListAsync(cancellationToken);
+        var rules = await ruleRepository.ListAsync(cancellationToken);
+        var cards = await cardAccountRepository.ListAsync(cancellationToken);
+        var draftRule = CreateDraftRule(draft);
+        var transactions = await transactionRepository.ListAsync(cancellationToken);
+        var assignments = await assignmentRepository.ListAsync(cancellationToken);
+        var effectiveRules = rules.Concat([draftRule]).ToArray();
+        var matchingTransactions = FindMatchingTransactions(draftRule, transactions);
+        var winningTransactionIds = FindWinningTransactions(draftRule, effectiveRules, transactions)
+            .Select(transaction => transaction.Id)
+            .ToHashSet();
+        var previewRows = BuildPreviewRows(
+            matchingTransactions,
+            assignments,
+            draftRule.CategoryId,
+            winningTransactionIds);
+        var ruleRows = BuildRuleRows(rules, transactions);
+
+        return new CategoryRuleManagementData(
+            ruleRows,
+            categories,
+            cards,
+            null,
+            previewRows);
+    }
+
+    public async Task<CategoryRuleCreateResult> CreateAndApplyAsync(
+        CategoryRuleCreate create,
+        CancellationToken cancellationToken)
+    {
+        ValidateCreate(create);
+        await ValidateCategoryAsync(create.CategoryId, cancellationToken);
+
+        var normalizedPattern = NormalizePattern(create.Pattern);
+        var rules = await ruleRepository.ListAsync(cancellationToken);
+        ValidateDuplicateRule(rules, normalizedPattern, create.MatchType);
+
+        var newRule = new CategoryRule
+        {
+            Pattern = normalizedPattern,
+            MatchType = create.MatchType,
+            CategoryId = create.CategoryId
+        };
+        var effectiveRules = rules.Concat([newRule]).ToArray();
+        var transactions = await transactionRepository.ListAsync(cancellationToken);
+        var assignments = await assignmentRepository.ListAsync(cancellationToken);
+        var assignmentsByTransactionId = assignments.ToDictionary(assignment => assignment.TransactionId);
+        var matchingTransactions = FindWinningTransactions(newRule, effectiveRules, transactions);
+        var updatedAssignments = matchingTransactions
+            .Select(transaction => CreateAppliedAssignment(
+                transaction,
+                assignmentsByTransactionId.GetValueOrDefault(transaction.Id),
+                newRule.Pattern,
+                create.CategoryId))
+            .ToArray();
+
+        await ruleApplicationStore.CreateRuleAndAssignmentsAsync(
+            newRule,
+            updatedAssignments,
+            cancellationToken);
+
+        return new CategoryRuleCreateResult(newRule, updatedAssignments.Length);
+    }
+
     private static void ValidateUpdate(CategoryRuleUpdate update)
     {
         ArgumentNullException.ThrowIfNull(update);
@@ -119,9 +189,57 @@ public sealed class CategoryRuleManagementService(
         }
     }
 
+    private static void ValidateCreate(CategoryRuleCreate create)
+    {
+        ArgumentNullException.ThrowIfNull(create);
+
+        if (string.IsNullOrWhiteSpace(create.Pattern))
+        {
+            throw new InvalidOperationException("Rule pattern is required.");
+        }
+
+        if (!Enum.IsDefined(create.MatchType))
+        {
+            throw new InvalidOperationException("Selected match type is not supported.");
+        }
+    }
+
+    private static void ValidateDuplicateRule(
+        IReadOnlyList<CategoryRule> rules,
+        string pattern,
+        CategoryRuleMatchType matchType)
+    {
+        var hasDuplicate = rules.Any(rule =>
+            rule.MatchType == matchType
+            && string.Equals(
+                NormalizeRulePattern(rule.Pattern),
+                NormalizeRulePattern(pattern),
+                StringComparison.Ordinal));
+
+        if (hasDuplicate)
+        {
+            throw new InvalidOperationException("A rule with this pattern and match type already exists.");
+        }
+    }
+
     private static string NormalizePattern(string pattern)
     {
         return pattern.Trim();
+    }
+
+    private static string NormalizeRulePattern(string pattern)
+    {
+        return NormalizePattern(pattern).ToUpperInvariant();
+    }
+
+    private static CategoryRule CreateDraftRule(CategoryRuleCreate draft)
+    {
+        return new CategoryRule
+        {
+            Pattern = NormalizePattern(draft.Pattern),
+            MatchType = draft.MatchType,
+            CategoryId = draft.CategoryId
+        };
     }
 
     private async Task ValidateCategoryAsync(
@@ -142,6 +260,17 @@ public sealed class CategoryRuleManagementService(
     {
         return transactions
             .Where(transaction => ruleMatcher.FindMatch(transaction, rules)?.Id == rule.Id)
+            .OrderByDescending(transaction => transaction.PostedDate)
+            .ThenBy(transaction => transaction.OriginalDescription)
+            .ToArray();
+    }
+
+    private IReadOnlyList<Transaction> FindMatchingTransactions(
+        CategoryRule rule,
+        IReadOnlyList<Transaction> transactions)
+    {
+        return transactions
+            .Where(transaction => ruleMatcher.IsMatch(transaction, rule))
             .OrderByDescending(transaction => transaction.PostedDate)
             .ThenBy(transaction => transaction.OriginalDescription)
             .ToArray();
@@ -168,10 +297,27 @@ public sealed class CategoryRuleManagementService(
                     .ToArray());
     }
 
+    private IReadOnlyList<ManagedCategoryRule> BuildRuleRows(
+        IReadOnlyList<CategoryRule> rules,
+        IReadOnlyList<Transaction> transactions)
+    {
+        var matchingTransactionsByRuleId = BuildWinningTransactionsByRuleId(rules, transactions);
+
+        return rules
+            .Select(rule => new ManagedCategoryRule(
+                rule.Id,
+                rule.Pattern,
+                rule.MatchType,
+                rule.CategoryId,
+                matchingTransactionsByRuleId.GetValueOrDefault(rule.Id)?.Count ?? 0))
+            .ToArray();
+    }
+
     private static IReadOnlyList<ManagedRuleTransactionPreview> BuildPreviewRows(
         IReadOnlyList<Transaction> transactions,
         IReadOnlyList<TransactionCategoryAssignment> assignments,
-        int newCategoryId)
+        int newCategoryId,
+        IReadOnlySet<Guid>? winningTransactionIds = null)
     {
         var assignmentsByTransactionId = assignments.ToDictionary(assignment => assignment.TransactionId);
 
@@ -184,7 +330,8 @@ public sealed class CategoryRuleManagementService(
                 transaction.Amount,
                 assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId
                     ?? BuiltInCategoryIds.Other,
-                newCategoryId))
+                newCategoryId,
+                winningTransactionIds is null || winningTransactionIds.Contains(transaction.Id)))
             .ToArray();
     }
 

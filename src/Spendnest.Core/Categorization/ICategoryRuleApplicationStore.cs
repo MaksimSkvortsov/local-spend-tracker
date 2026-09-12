@@ -5,6 +5,11 @@ namespace Spendnest.Core.Categorization;
 /// </summary>
 public interface ICategoryRuleApplicationStore
 {
+    Task CreateRuleAndAssignmentsAsync(
+        CategoryRule rule,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken);
+
     Task UpdateCategoryAndAssignmentsAsync(
         Guid ruleId,
         string pattern,

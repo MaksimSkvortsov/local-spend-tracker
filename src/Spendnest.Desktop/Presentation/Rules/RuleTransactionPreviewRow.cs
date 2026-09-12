@@ -11,4 +11,5 @@ public sealed record RuleTransactionPreviewRow(
     string CurrentCategoryColorHex,
     int NewCategoryId,
     string NewCategoryName,
-    string NewCategoryColorHex);
+    string NewCategoryColorHex,
+    bool RuleWins);

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+
+<html class="h-full bg-[#fcfdfd]" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PeasantMoney - Rules</title>
+<!-- Tailwind CSS v3 with forms and container queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Custom configuration for fonts and specific colors -->
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+          },
+          colors: {
+            brand: {
+              DEFAULT: '#2e7d32',
+              hover: '#256628',
+              light: '#edf7ed',
+              border: '#c8e6c9',
+            }
+          }
+        }
+      }
+    };
+  </script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+</head>
+<body class="h-full font-sans text-gray-800 antialiased bg-[#fcfdfd]">
+<div class="flex min-h-screen w-full">
+<!-- BEGIN: LeftSidebar -->
+<aside class="w-[240px] shrink-0 border-r border-gray-200 bg-white flex flex-col justify-between py-6 px-4 select-none">
+<div>
+<!-- App Identity Logo Header -->
+<div class="px-2 mb-8">
+<h1 class="text-xl font-bold tracking-tight text-gray-950">PeasantMoney</h1>
+<p class="text-xs text-gray-500 font-medium tracking-wide mt-0.5">Private Local Finance</p>
+</div>
+<!-- Primary Navigation List -->
+<nav aria-label="Sidebar" class="space-y-1.5">
+<!-- Dashboard Link -->
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors" href="#">
+<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+<path d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Dashboard</span>
+</a>
+<!-- Import Link -->
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors" href="#">
+<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+<path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.5V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Import</span>
+</a>
+<!-- Transactions Link -->
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors" href="#">
+<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Transactions</span>
+</a>
+<!-- Rules Link (Active State) -->
+<a aria-current="page" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold bg-[#edf7ed] text-[#256628] border border-[#c8e6c9]/60 shadow-[0_1px_2px_rgba(0,0,0,0.03)]" href="#">
+<svg class="w-5 h-5 text-[#256628]" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Rules</span>
+</a>
+<!-- Settings Link -->
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors" href="#">
+<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="1.8" viewbox="0 0 24 24">
+<path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span>Settings</span>
+</a>
+</nav>
+</div>
+<!-- User Local Storage Status Indicator -->
+<div class="px-3 py-3 rounded-lg bg-gray-50 border border-gray-200/80 text-xs text-gray-500 flex items-center gap-2.5">
+<span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+<span class="truncate">Local DB: SQLite (Encrypted)</span>
+</div>
+</aside>
+<!-- END: LeftSidebar -->
+<!-- BEGIN: MainContentArea -->
+<main class="flex-1 overflow-y-auto px-10 py-8">
+<!-- Header Title & Metadata Bar -->
+<header class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-gray-200/80 gap-4">
+<div>
+<h2 class="text-2xl font-bold tracking-tight text-gray-900">Rules</h2>
+<p class="text-sm text-gray-500 mt-1">Automate categorization for imported transactions based on merchant patterns.</p>
+</div>
+<!-- Summary Chip & Quick Actions -->
+<div class="flex items-center gap-3"><span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100/90 text-gray-700 border border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>4 rules · 67 matches</span><button class="inline-flex items-center gap-1.5 bg-[#388e3c] hover:bg-[#2e7d32] text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors cursor-pointer" type="button"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 4.5v15m7.5-7.5h-15" stroke-linecap="round" stroke-linejoin="round"></path></svg>New Rule</button></div>
+</header>
+<!-- Two-Column Workspace Layout -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-7 mt-6 items-start">
+<!-- BEGIN: LeftRulesListPanel -->
+<div class="xl:col-span-4 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden" data-purpose="rules-list-container">
+<!-- Panel Header -->
+<div class="p-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-semibold text-sm text-gray-900">Saved Rules</span>
+<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">5</span>
+</div>
+<div class="relative w-36">
+<input class="w-full text-xs py-1 px-2 pl-6 bg-white border border-gray-200 rounded-md focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500" placeholder="Filter rules..." type="text"/>
+<svg class="w-3.5 h-3.5 absolute left-1.5 top-1.5 text-gray-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Rules List Stack -->
+<div class="divide-y divide-gray-100" role="list"><div aria-selected="true" class="p-4 bg-[#f4faf4] border-l-4 border-emerald-600 transition-colors cursor-pointer" role="button"><div class="flex items-center justify-between mb-1.5"><div class="flex items-center gap-1.5"><span class="text-[11px] font-bold text-amber-700 uppercase tracking-wider">[DRAFT]</span><span class="font-mono text-sm font-bold text-gray-950 tracking-tight">LYFT</span></div><span class="text-xs px-2 py-0.5 rounded bg-gray-200/70 font-medium text-gray-700">Contains</span></div><div class="flex items-center justify-between mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80">Transportation</span><span class="text-xs font-medium text-amber-700">Drafting...</span></div></div><div aria-selected="false" class="p-4 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-transparent" role="button"><div class="flex items-center justify-between mb-1.5"><span class="font-mono text-sm font-semibold text-gray-800 tracking-tight">DOORDASH</span><span class="text-xs px-2 py-0.5 rounded bg-gray-100 font-medium text-gray-600">Prefix</span></div><div class="flex items-center justify-between mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">Restaurants &amp; Coffee</span><span class="text-xs font-medium text-gray-500">38 matches</span></div></div><div aria-selected="false" class="p-4 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-transparent" role="button"><div class="flex items-center justify-between mb-1.5"><span class="font-mono text-sm font-semibold text-gray-800 tracking-tight">COSTCO</span><span class="text-xs px-2 py-0.5 rounded bg-gray-100 font-medium text-gray-600">Prefix</span></div><div class="flex items-center justify-between mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80">Groceries</span><span class="text-xs font-medium text-gray-500">14 matches</span></div></div><div aria-selected="false" class="p-4 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-transparent" role="button"><div class="flex items-center justify-between mb-1.5"><span class="font-mono text-sm font-semibold text-gray-800 tracking-tight">PARKING</span><span class="text-xs px-2 py-0.5 rounded bg-gray-100 font-medium text-gray-600">Contains</span></div><div class="flex items-center justify-between mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/90">Transportation</span><span class="text-xs font-medium text-gray-500">9 matches</span></div></div><div aria-selected="false" class="p-4 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 border-transparent" role="button"><div class="flex items-center justify-between mb-1.5"><span class="font-mono text-sm font-semibold text-gray-800 tracking-tight">NETFLIX</span><span class="text-xs px-2 py-0.5 rounded bg-gray-100 font-medium text-gray-600">Exact</span></div><div class="flex items-center justify-between mt-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-yellow-50 text-yellow-800 border border-yellow-200/80">Subscriptions</span><span class="text-xs font-medium text-gray-500">6 matches</span></div></div></div>
+</div>
+<!-- END: LeftRulesListPanel -->
+<!-- BEGIN: RightRuleDetailWorkspace -->
+<div class="xl:col-span-8 space-y-6">
+<!-- Top Section: Rule Configuration Card -->
+<section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm" data-purpose="rule-configuration-card"><div class="flex items-center justify-between mb-5"><div class="flex items-center gap-3"><h3 class="text-base font-bold text-gray-900">New category rule</h3><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">Unsaved Draft</span></div><button class="text-xs font-medium text-gray-500 hover:text-gray-900 hover:underline cursor-pointer" type="button">Cancel</button></div><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div><label class="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">Pattern <span class="text-red-500">*</span></label><div class="relative flex items-center"><input class="w-full font-mono text-sm bg-white text-gray-900 border border-emerald-500 ring-1 ring-emerald-500 rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600" type="text" value="LYFT"/></div><p class="text-[11px] text-gray-500 mt-1">Matches against raw statement merchant description. Case-insensitive.</p></div><div><label class="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">Match Type <span class="text-red-500">*</span></label><div class="relative"><select class="w-full text-sm font-medium bg-white text-gray-900 border border-gray-300 rounded-lg px-3 py-2 appearance-none focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"><option selected="" value="Contains">Contains</option><option value="Prefix">Prefix (starts with)</option><option value="Exact">Exact</option></select><div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-gray-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div></div><p class="text-[11px] text-gray-500 mt-1">Matches any occurrence within merchant text</p></div><div><label class="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1.5">Assign Category <span class="text-red-500">*</span></label><div class="relative"><select class="w-full text-sm font-medium bg-white text-gray-900 border border-emerald-500 ring-1 ring-emerald-500 rounded-lg px-3 py-2 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-600"><option selected="" value="Transportation">Transportation</option><option value="Restaurants &amp; Coffee">Restaurants &amp; Coffee</option><option value="Groceries">Groceries</option><option value="Personal Care">Personal Care</option><option value="Entertainment">Entertainment</option><option value="Fees &amp; Charges">Fees &amp; Charges</option><option value="Utilities">Utilities</option><option value="Shopping">Shopping</option></select><div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-gray-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div></div><div class="flex items-center gap-1 mt-1"><span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80">Transportation</span><span class="text-[11px] text-emerald-700 font-medium">Selected destination</span></div></div></div><div class="mt-4 space-y-1.5"><div class="grid grid-cols-1 sm:grid-cols-3 gap-3"><div class="bg-gray-50 border border-gray-200 rounded-lg p-3"><div class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Matched Transactions</div><div class="text-xl font-bold text-gray-900 mt-0.5">12</div><div class="text-[11px] text-gray-500 mt-0.5">Matching pattern</div></div><div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3"><div class="text-[11px] font-semibold uppercase tracking-wider text-emerald-800">Would Change Category</div><div class="text-xl font-bold text-emerald-700 mt-0.5">10</div><div class="text-[11px] text-emerald-700 mt-0.5">Need reclassification</div></div><div class="bg-gray-50 border border-gray-200 rounded-lg p-3"><div class="text-[11px] font-medium uppercase tracking-wider text-gray-500">Affected Spend</div><div class="text-xl font-bold text-gray-900 mt-0.5 font-mono">$248.76</div><div class="text-[11px] text-gray-500 mt-0.5">Total transaction value</div></div></div><p class="text-[11px] text-gray-500 pl-1"><span class="font-medium text-gray-700">2 transactions</span> already assigned to Transportation (no change).</p></div><div class="bg-amber-50 border border-amber-200/90 rounded-lg p-3.5 flex items-start gap-3 mt-4"><svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg><p class="text-xs leading-relaxed text-amber-900"><span class="font-semibold text-amber-950">Notice:</span> Creating this rule will move <span class="font-bold underline decoration-amber-400">10 existing matching transactions</span> to <span class="font-semibold text-gray-900">Transportation</span>. Future imports that match <span class="font-mono font-bold">LYFT</span> will use this category automatically.</p></div><div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mt-5 pt-4 border-t border-gray-100"><button class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm transition-colors cursor-pointer self-start sm:self-auto" type="button">Cancel</button><div class="flex items-center gap-2.5"><button class="px-5 py-2 text-xs font-semibold rounded-lg bg-[#388e3c] hover:bg-[#2e7d32] text-white shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer" type="button"><svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24"><path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>Create &amp; Apply to 10 Transactions</span></button></div></div></section>
+<!-- Bottom Section: Matching Transactions Preview Table -->
+<section class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden" data-purpose="transactions-preview-card"><div class="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3 bg-white"><div class="flex items-center gap-2.5"><h3 class="text-sm font-bold text-gray-900">Matching Transactions Preview</h3><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">12 total (10 to update)</span><span class="text-xs text-gray-500 font-normal">· Showing preview dry run</span></div><span class="text-xs font-medium text-gray-400">Read-only dry run</span></div><div class="overflow-x-auto"><table class="w-full text-left text-xs border-collapse"><thead><tr class="border-b border-gray-200 bg-gray-50/70 text-[11px] font-bold uppercase tracking-wider text-gray-500"><th class="py-3 px-4">Date</th><th class="py-3 px-4">Description</th><th class="py-3 px-4">Card</th><th class="py-3 px-4 text-right">Amount</th><th class="py-3 px-4">Current Category</th><th class="py-3 px-4">New Category</th><th class="py-3 px-4">Result</th></tr></thead><tbody class="divide-y divide-gray-100 font-medium"><tr class="hover:bg-gray-50/70 transition-colors"><td class="py-3 px-4 text-gray-600 whitespace-nowrap">2026-08-29</td><td class="py-3 px-4 font-mono font-medium text-gray-900 whitespace-nowrap">LYFT *RIDE 08-29</td><td class="py-3 px-4 text-gray-500 whitespace-nowrap">Chase Freedom</td><td class="py-3 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">$18.42</td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">Uncategorized</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Transportation</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700"><svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>Will update</span></td></tr><tr class="hover:bg-gray-50/70 transition-colors"><td class="py-3 px-4 text-gray-600 whitespace-nowrap">2026-08-21</td><td class="py-3 px-4 font-mono font-medium text-gray-900 whitespace-nowrap">LYFT TRIP HELP.LYFT.COM</td><td class="py-3 px-4 text-gray-500 whitespace-nowrap">Amex Blue</td><td class="py-3 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">$31.80</td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">Travel</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Transportation</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700"><svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>Will update</span></td></tr><tr class="hover:bg-gray-50/70 transition-colors"><td class="py-3 px-4 text-gray-600 whitespace-nowrap">2026-08-14</td><td class="py-3 px-4 font-mono font-medium text-gray-900 whitespace-nowrap">LYFT *RIDESHARE SFO</td><td class="py-3 px-4 text-gray-500 whitespace-nowrap">Chase Sapphire</td><td class="py-3 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">$46.25</td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">Taxi &amp; Rideshare</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Transportation</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700"><svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>Will update</span></td></tr><tr class="hover:bg-gray-50/70 transition-colors"><td class="py-3 px-4 text-gray-600 whitespace-nowrap">2026-08-03</td><td class="py-3 px-4 font-mono font-medium text-gray-900 whitespace-nowrap">LYFT BIKE SHARE</td><td class="py-3 px-4 text-gray-500 whitespace-nowrap">Chase Freedom</td><td class="py-3 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">$9.99</td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Transportation</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Transportation</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="text-[11px] font-medium text-gray-400">No change</span></td></tr><tr class="hover:bg-gray-50/70 transition-colors"><td class="py-3 px-4 text-gray-600 whitespace-nowrap">2026-07-21</td><td class="py-3 px-4 font-mono font-medium text-gray-900 whitespace-nowrap">LYFT *RIDE 07-21</td><td class="py-3 px-4 text-gray-500 whitespace-nowrap">Capital One</td><td class="py-3 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">$24.60</td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200">Personal</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">Transportation</span></td><td class="py-3 px-4 whitespace-nowrap"><span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700"><svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" stroke-linecap="round" stroke-linejoin="round"></path></svg>Will update</span></td></tr></tbody></table></div><div class="px-6 py-3.5 bg-gray-50/70 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500"><span class="font-normal">Showing 4 of 12 matching transactions · <span class="font-medium text-gray-700">10 will update category on creation</span></span><div class="flex items-center gap-1 text-gray-600"><button class="p-1 rounded hover:bg-gray-200 text-gray-400 cursor-not-allowed" disabled="" type="button"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button><span class="px-2 font-medium text-gray-700">Page 1 of 3</span><button class="p-1 rounded hover:bg-gray-200 text-gray-700 transition-colors" type="button"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button></div></div></section>
+<!-- System State and Verification Badges Footer Bar -->
+<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500 pt-1">
+<div class="flex items-center gap-4">
+<span class="inline-flex items-center gap-1 text-gray-500">
+<svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M4.5 12.75l6 6 9-13.5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+                Last applied 2h ago
+              </span>
+<span>•</span>
+<span>Prefix matcher active</span>
+<span>•</span>
+<span class="text-emerald-700 font-medium">Status: Sync ready</span>
+</div>
+<span class="text-[11px] text-gray-400">All matching logic executed in local sandbox</span>
+</div>
+</div>
+<!-- END: RightRuleDetailWorkspace -->
+</div>
+</main>
+<!-- END: MainContentArea -->
+</div>
+</body></html>

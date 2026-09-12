@@ -56,6 +56,14 @@ public sealed class FakeCategoryRuleApplicationStore : ICategoryRuleApplicationS
 
         return Task.CompletedTask;
     }
+
+    public Task CreateRuleAndAssignmentsAsync(
+        CategoryRule rule,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken)
+    {
+        return ruleRepository.AddAsync(rule, cancellationToken);
+    }
 }
 
 public sealed class FakeTransactionCategoryAssignmentRepository : ITransactionCategoryAssignmentRepository

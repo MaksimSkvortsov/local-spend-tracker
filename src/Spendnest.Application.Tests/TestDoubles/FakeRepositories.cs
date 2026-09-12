@@ -121,6 +121,14 @@ public sealed class FakeCategoryRuleApplicationStore : ICategoryRuleApplicationS
         return ApplyAsync(ruleId, pattern, matchType, categoryId, assignments, cancellationToken);
     }
 
+    public Task CreateRuleAndAssignmentsAsync(
+        CategoryRule rule,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken)
+    {
+        return ApplyCreateAsync(rule, assignments, cancellationToken);
+    }
+
     private async Task ApplyAsync(
         Guid ruleId,
         string pattern,
@@ -130,6 +138,19 @@ public sealed class FakeCategoryRuleApplicationStore : ICategoryRuleApplicationS
         CancellationToken cancellationToken)
     {
         ruleRepository.ApplyRuleUpdate(ruleId, pattern, matchType, categoryId);
+
+        foreach (var assignment in assignments)
+        {
+            ruleRepository.AppliedAssignments.Add(assignment);
+        }
+    }
+
+    private async Task ApplyCreateAsync(
+        CategoryRule rule,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken)
+    {
+        await ruleRepository.AddAsync(rule, cancellationToken);
 
         foreach (var assignment in assignments)
         {

@@ -1,0 +1,116 @@
+<div class="rules-filter-wrap">
+    <input class="text-input rules-filter"
+           type="search"
+           placeholder="Filter rules"
+           value="@RuleFilter"
+           @oninput="OnFilterChanged"
+           aria-label="Filter rules" />
+</div>
+
+<div class="rules-list" aria-label="Saved rules">
+    @if (IsCreatingRule)
+    {
+        <button class="rule-list-item active draft"
+                type="button"
+                aria-pressed="true"
+                disabled="@IsRuleLoading">
+            <span class="rule-list-top">
+                <strong>[DRAFT] @DraftListPattern</strong>
+                <span class="rule-match-count">
+                    <span>@DraftMatchCount</span>
+                    <span>matches</span>
+                </span>
+            </span>
+            <span class="rule-list-meta">
+                <span>@DraftMatchType</span>
+                <span class="category-pill"
+                      style="--category-color: @SelectedCategoryColorHex">@SelectedCategoryName</span>
+            </span>
+        </button>
+    }
+
+    @if (Rules.Count == 0 && !IsCreatingRule)
+    {
+        <div class="empty-state compact">No category rules saved yet.</div>
+    }
+
+    @if (Rules.Count > 0 && FilteredRules.Count == 0)
+    {
+        <div class="empty-state compact">No rules match this filter.</div>
+    }
+
+    @foreach (var rule in FilteredRules)
+    {
+        <button class="@GetRuleButtonClass(rule)"
+                type="button"
+                aria-pressed="@(rule.Id == SelectedRuleId)"
+                disabled="@IsRuleLoading"
+                @onclick="() => OnRuleSelected.InvokeAsync(rule.Id)">
+            <span class="rule-list-top">
+                <strong>@rule.Pattern</strong>
+                <span class="rule-match-count">
+                    <span>@rule.MatchCount</span>
+                    <span>matches</span>
+                </span>
+            </span>
+            <span class="rule-list-meta">
+                <span>@rule.MatchType</span>
+                <span class="category-pill"
+                      style="--category-color: @rule.CategoryColorHex">@rule.CategoryName</span>
+            </span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<CategoryRuleRow> Rules { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<CategoryRuleRow> FilteredRules { get; set; } = [];
+
+    [Parameter]
+    public string RuleFilter { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback<string> RuleFilterChanged { get; set; }
+
+    [Parameter]
+    public bool IsCreatingRule { get; set; }
+
+    [Parameter]
+    public bool IsRuleLoading { get; set; }
+
+    [Parameter]
+    public string DraftListPattern { get; set; } = string.Empty;
+
+    [Parameter]
+    public int DraftMatchCount { get; set; }
+
+    [Parameter]
+    public CategoryRuleMatchType DraftMatchType { get; set; }
+
+    [Parameter]
+    public string SelectedCategoryName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string SelectedCategoryColorHex { get; set; } = string.Empty;
+
+    [Parameter]
+    public Guid? SelectedRuleId { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnRuleSelected { get; set; }
+
+    private async Task OnFilterChanged(ChangeEventArgs args)
+    {
+        await RuleFilterChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+    }
+
+    private string GetRuleButtonClass(CategoryRuleRow rule)
+    {
+        return rule.Id == SelectedRuleId
+            ? "rule-list-item active"
+            : "rule-list-item";
+    }
+}

@@ -1,0 +1,112 @@
+<div class="rule-impact-summary" aria-label="Rule impact summary">
+    <div class="rule-impact-metric">
+        <strong>@PreviewRows.Count</strong>
+        <span>matched transactions</span>
+    </div>
+    <div class="rule-impact-metric change">
+        <strong>@WouldChangeCount</strong>
+        <span>would change category</span>
+    </div>
+    <div class="rule-impact-metric">
+        <strong>@AffectedSpend.ToString("C")</strong>
+        <span>affected spend</span>
+    </div>
+</div>
+
+@if (AlreadyInSelectedCategoryCount > 0)
+{
+    <div class="rule-impact-muted">
+        @AlreadyInSelectedCategoryCount already @SelectedCategoryName.
+    </div>
+}
+
+@if (ImpactGroups.Count > 0)
+{
+    <div class="rule-impact-groups" aria-label="Category movement summary">
+        @foreach (var group in ImpactGroups)
+        {
+            <div class="rule-impact-group">
+                <span>@group.CurrentCategoryName to @group.NewCategoryName</span>
+                <strong>@group.TransactionCount transactions</strong>
+                <span>@group.TotalAmount.ToString("C")</span>
+            </div>
+        }
+    </div>
+}
+
+<div class="rule-impact-note">
+    <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+    <span>
+        @ImpactNote
+    </span>
+</div>
+
+@if (ShowBroadImpactWarning)
+{
+    <div class="rule-broad-impact-note">
+        This rule would change @WouldChangeCount transactions totaling @AffectedSpend.ToString("C"). Review the preview before applying.
+    </div>
+}
+
+@code {
+    private const int BroadImpactWarningThreshold = 100;
+
+    [Parameter]
+    public IReadOnlyList<RuleTransactionPreviewRow> PreviewRows { get; set; } = [];
+
+    [Parameter]
+    public int WouldChangeCount { get; set; }
+
+    [Parameter]
+    public bool IsCreatingRule { get; set; }
+
+    [Parameter]
+    public string SelectedCategoryName { get; set; } = string.Empty;
+
+    [Parameter]
+    public string DraftListPattern { get; set; } = string.Empty;
+
+    private int AlreadyInSelectedCategoryCount =>
+        PreviewRows.Count(row => row.RuleWins && row.CurrentCategoryId == row.NewCategoryId);
+
+    private decimal AffectedSpend =>
+        PreviewRows
+            .Where(row => row.RuleWins && row.CurrentCategoryId != row.NewCategoryId)
+            .Sum(row => row.Amount);
+
+    private bool ShowBroadImpactWarning =>
+        IsCreatingRule && WouldChangeCount >= BroadImpactWarningThreshold;
+
+    private IReadOnlyList<CategoryImpactGroup> ImpactGroups =>
+        PreviewRows
+            .Where(row => row.RuleWins && row.CurrentCategoryId != row.NewCategoryId)
+            .GroupBy(row => new
+            {
+                row.CurrentCategoryName,
+                row.NewCategoryName
+            })
+            .Select(group => new CategoryImpactGroup(
+                group.Key.CurrentCategoryName,
+                group.Key.NewCategoryName,
+                group.Count(),
+                group.Sum(row => row.Amount)))
+            .OrderByDescending(group => group.TransactionCount)
+            .ThenByDescending(group => group.TotalAmount)
+            .Take(4)
+            .ToArray();
+
+    private string ImpactNote =>
+        IsCreatingRule
+            ? WouldChangeCount == 0
+                ? $"Creating this rule will save it for future imports that match {DraftListPattern}. No existing transactions will change."
+                : $"Creating this rule will move {WouldChangeCount} existing matching transactions to {SelectedCategoryName}. Future imports that match {DraftListPattern} will use this category automatically."
+            : WouldChangeCount == 0
+                ? "Saving will update the rule. No existing matching transactions will change category."
+                : $"Saving will move {WouldChangeCount} existing matching transactions to {SelectedCategoryName}. If there are no matches, only the rule changes.";
+
+    private sealed record CategoryImpactGroup(
+        string CurrentCategoryName,
+        string NewCategoryName,
+        int TransactionCount,
+        decimal TotalAmount);
+}

@@ -1,0 +1,100 @@
+<DataTable HasItems="@Rows.Any()"
+           EmptyMessage="@EmptyMessage"
+           TableClass="rules-preview-table">
+    <HeaderContent>
+        <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Card</th>
+            <th class="amount">Amount</th>
+            <th>Current Category</th>
+            <th>New Category</th>
+            <th>Result</th>
+        </tr>
+    </HeaderContent>
+    <ChildContent>
+        @foreach (var row in PagedRows)
+        {
+            <tr>
+                <td class="rules-preview-date">@row.PostedDate.ToString("MMM d, yyyy")</td>
+                <td>@row.Description</td>
+                <td>@row.CardName</td>
+                <td class="amount">@row.Amount.ToString("C")</td>
+                <td>
+                    <span class="category-pill"
+                          style="--category-color: @row.CurrentCategoryColorHex">
+                        @row.CurrentCategoryName
+                    </span>
+                </td>
+                <td>
+                    <span class="category-pill"
+                          style="--category-color: @row.NewCategoryColorHex">
+                        @row.NewCategoryName
+                    </span>
+                </td>
+                <td>
+                    <span class="@GetPreviewResultClass(row)">
+                        @GetPreviewResultLabel(row)
+                    </span>
+                </td>
+            </tr>
+        }
+    </ChildContent>
+    <FooterContent>
+        <PaginationBar ContainerClass="pagination-bar rules-preview-footer"
+                       CurrentPage="@CurrentPage"
+                       PageCount="@PageCount"
+                       ShowingCount="@PagedRows.Count"
+                       TotalCount="@TotalCount"
+                       ItemLabel="matching transactions"
+                       ShowSummary="true"
+                       StrongPageLabel="true"
+                       OnPrevious="OnPrevious"
+                       OnNext="OnNext" />
+    </FooterContent>
+</DataTable>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<RuleTransactionPreviewRow> Rows { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<RuleTransactionPreviewRow> PagedRows { get; set; } = [];
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = string.Empty;
+
+    [Parameter]
+    public int CurrentPage { get; set; }
+
+    [Parameter]
+    public int PageCount { get; set; }
+
+    [Parameter]
+    public int TotalCount { get; set; }
+
+    [Parameter]
+    public EventCallback OnPrevious { get; set; }
+
+    [Parameter]
+    public EventCallback OnNext { get; set; }
+
+    private static string GetPreviewResultClass(RuleTransactionPreviewRow row)
+    {
+        return !row.RuleWins || row.CurrentCategoryId == row.NewCategoryId
+            ? "rules-preview-result"
+            : "rules-preview-result change";
+    }
+
+    private static string GetPreviewResultLabel(RuleTransactionPreviewRow row)
+    {
+        if (!row.RuleWins)
+        {
+            return "Existing rule wins";
+        }
+
+        return row.CurrentCategoryId == row.NewCategoryId
+            ? "No change"
+            : "Will change";
+    }
+}

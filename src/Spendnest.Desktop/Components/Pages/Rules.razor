@@ -43,73 +43,23 @@
     {
         <section class="rules-workspace">
             <Card Class="rules-list-card" Title="Saved Rules" Subtitle="@($"{FilteredRules.Count} shown")">
-                <div class="rules-filter-wrap">
-                    <input class="text-input rules-filter"
-                           type="search"
-                           placeholder="Filter rules"
-                           value="@ruleFilter"
-                           @oninput="OnRuleFilterChanged"
-                           aria-label="Filter rules" />
-                </div>
-
-                <div class="rules-list" aria-label="Saved rules">
-                    @if (isCreatingRule)
-                    {
-                        <button class="rule-list-item active draft"
-                                type="button"
-                                aria-pressed="true"
-                                disabled="@isRuleLoading">
-                            <span class="rule-list-top">
-                                <strong>[DRAFT] @DraftListPattern</strong>
-                                <span class="rule-match-count">
-                                    <span>@data.PreviewRows.Count</span>
-                                    <span>matches</span>
-                                </span>
-                            </span>
-                            <span class="rule-list-meta">
-                                <span>@draftMatchType</span>
-                                <span class="category-pill"
-                                      style="--category-color: @SelectedCategoryColorHex">@SelectedCategoryName</span>
-                            </span>
-                        </button>
-                    }
-
-                    @if (data.Rules.Count == 0 && !isCreatingRule)
-                    {
-                        <div class="empty-state compact">No category rules saved yet.</div>
-                    }
-
-                    @if (data.Rules.Count > 0 && FilteredRules.Count == 0)
-                    {
-                        <div class="empty-state compact">No rules match this filter.</div>
-                    }
-
-                    @foreach (var rule in FilteredRules)
-                    {
-                        <button class="@GetRuleButtonClass(rule)"
-                                type="button"
-                                aria-pressed="@(rule.Id == selectedRuleId)"
-                                disabled="@isRuleLoading"
-                                @onclick="() => SelectRuleAsync(rule.Id)">
-                            <span class="rule-list-top">
-                                <strong>@rule.Pattern</strong>
-                                <span class="rule-match-count">
-                                    <span>@rule.MatchCount</span>
-                                    <span>matches</span>
-                                </span>
-                            </span>
-                            <span class="rule-list-meta">
-                                <span>@rule.MatchType</span>
-                                <span class="category-pill"
-                                      style="--category-color: @rule.CategoryColorHex">@rule.CategoryName</span>
-                            </span>
-                        </button>
-                    }
-                </div>
+                <RulesList Rules="@data.Rules"
+                           FilteredRules="@FilteredRules"
+                           RuleFilter="@ruleFilter"
+                           RuleFilterChanged="SetRuleFilter"
+                           IsCreatingRule="@editor.IsCreating"
+                           IsRuleLoading="@isRuleLoading"
+                           DraftListPattern="@editor.DraftListPattern"
+                           DraftMatchCount="@data.PreviewRows.Count"
+                           DraftMatchType="@editor.MatchType"
+                           SelectedCategoryName="@editor.SelectedCategoryName(data.Categories)"
+                           SelectedCategoryColorHex="@editor.SelectedCategoryColorHex(data.Categories)"
+                           SelectedRuleId="@selectedRuleId"
+                           OnRuleSelected="SelectRuleAsync" />
             </Card>
 
             <div class="rules-detail-stack">
-                <Card Class="rules-detail-card" Title="@DetailTitle">
+                <Card Class="rules-detail-card" Title="@editor.DetailTitle">
                     @if (isRuleLoading)
                     {
                         <div class="rules-loading-state compact" role="status" aria-live="polite">
@@ -117,7 +67,7 @@
                             <span>Loading rule...</span>
                         </div>
                     }
-                    else if (SelectedRule is null && !isCreatingRule)
+                    else if (SelectedRule is null && !editor.IsCreating)
                     {
                         <div class="empty-state compact">
                             Select a rule to edit, or create a new rule.
@@ -126,7 +76,7 @@
                     else
                     {
                         <div class="rule-detail-heading">
-                            <span class="@DetailModeClass">@DetailModeLabel</span>
+                            <span class="@editor.DetailModeClass">@editor.DetailModeLabel</span>
                         </div>
 
                         <div class="rule-detail-grid">
@@ -134,11 +84,11 @@
                                 <label for="rule-pattern">Pattern</label>
                                 <input id="rule-pattern"
                                        class="text-input rule-pattern-input"
-                                       value="@draftPattern"
+                                       value="@editor.Pattern"
                                        @oninput="OnPatternChanged"
                                        disabled="@isSaving" />
                                 <span class="field-hint">Matches statement merchant text. Case-insensitive.</span>
-                                @if (ShowPatternValidation)
+                                @if (editor.ShowPatternValidation)
                                 {
                                     <span class="field-validation">Pattern is required.</span>
                                 }
@@ -147,7 +97,7 @@
                                 <label for="rule-match-type">Match Type</label>
                                 <select id="rule-match-type"
                                         class="dashboard-select rules-match-type-select"
-                                        value="@draftMatchType"
+                                        value="@editor.MatchType"
                                         @onchange="OnMatchTypeChanged"
                                         disabled="@isSaving">
                                     @foreach (var matchType in MatchTypes)
@@ -160,7 +110,7 @@
                                 <label for="rule-category">Assign Category</label>
                                 <select id="rule-category"
                                         class="dashboard-select rules-category-select"
-                                        value="@selectedCategoryId"
+                                        value="@editor.SelectedCategoryId"
                                         @onchange="OnCategoryChangedAsync"
                                         disabled="@isSaving">
                                     @foreach (var category in data.Categories)
@@ -171,66 +121,22 @@
                             </div>
                         </div>
 
-                        @if (DuplicateRuleExists)
+                        @if (editor.DuplicateRuleExists(data.Rules))
                         {
                             <div class="rule-validation-note">
                                 A rule with this pattern and match type already exists.
                             </div>
                         }
 
-                        <div class="rule-impact-summary" aria-label="Rule impact summary">
-                            <div class="rule-impact-metric">
-                                <strong>@data.PreviewRows.Count</strong>
-                                <span>matched transactions</span>
-                            </div>
-                            <div class="rule-impact-metric change">
-                                <strong>@WouldChangeCount</strong>
-                                <span>would change category</span>
-                            </div>
-                            <div class="rule-impact-metric">
-                                <strong>@AffectedSpend.ToString("C")</strong>
-                                <span>affected spend</span>
-                            </div>
-                        </div>
-
-                        @if (AlreadyInSelectedCategoryCount > 0)
-                        {
-                            <div class="rule-impact-muted">
-                                @AlreadyInSelectedCategoryCount already @SelectedCategoryName.
-                            </div>
-                        }
-
-                        @if (ImpactGroups.Count > 0)
-                        {
-                            <div class="rule-impact-groups" aria-label="Category movement summary">
-                                @foreach (var group in ImpactGroups)
-                                {
-                                    <div class="rule-impact-group">
-                                        <span>@group.CurrentCategoryName to @group.NewCategoryName</span>
-                                        <strong>@group.TransactionCount transactions</strong>
-                                        <span>@group.TotalAmount.ToString("C")</span>
-                                    </div>
-                                }
-                            </div>
-                        }
-
-                        <div class="rule-impact-note">
-                            <span class="material-symbols-outlined" aria-hidden="true">warning</span>
-                            <span>
-                                @ImpactNote
-                            </span>
-                        </div>
-
-                        @if (ShowBroadImpactWarning)
-                        {
-                            <div class="rule-broad-impact-note">
-                                This rule would change @WouldChangeCount transactions totaling @AffectedSpend.ToString("C"). Review the preview before applying.
-                            </div>
-                        }
+                        <RuleImpactSummary PreviewRows="@data.PreviewRows"
+                                           WouldChangeCount="@WouldChangeCount"
+                                           IsCreatingRule="@editor.IsCreating"
+                                           SelectedCategoryName="@editor.SelectedCategoryName(data.Categories)"
+                                           DraftListPattern="@editor.DraftListPattern" />
 
                         <div class="rules-actions">
-                            <span>@DirtyStateLabel</span>
-                            @if (isCreatingRule)
+                            <span>@editor.DirtyStateLabel()</span>
+                            @if (editor.IsCreating)
                             {
                                 <button class="secondary-button"
                                         type="button"
@@ -241,9 +147,9 @@
                             }
                             <button class="primary-button"
                                     type="button"
-                                    disabled="@(!CanSubmit)"
+                                    disabled="@(!editor.CanSubmit(isSaving, isRuleLoading, data.Rules))"
                                     @onclick="SubmitRuleAsync">
-                                @PrimaryActionLabel
+                                @editor.PrimaryActionLabel(WouldChangeCount)
                             </button>
                         </div>
                     }
@@ -259,60 +165,14 @@
                     }
                     else
                     {
-                        <DataTable HasItems="@data.PreviewRows.Any()"
-                                   EmptyMessage="@PreviewEmptyMessage"
-                                   TableClass="rules-preview-table">
-                            <HeaderContent>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Description</th>
-                                    <th>Card</th>
-                                    <th class="amount">Amount</th>
-                                    <th>Current Category</th>
-                                    <th>New Category</th>
-                                    <th>Result</th>
-                                </tr>
-                            </HeaderContent>
-                            <ChildContent>
-                                @foreach (var row in PagedPreviewRows)
-                                {
-                                    <tr>
-                                        <td class="rules-preview-date">@row.PostedDate.ToString("MMM d, yyyy")</td>
-                                        <td>@row.Description</td>
-                                        <td>@row.CardName</td>
-                                        <td class="amount">@row.Amount.ToString("C")</td>
-                                        <td>
-                                            <span class="category-pill"
-                                                  style="--category-color: @row.CurrentCategoryColorHex">
-                                                @row.CurrentCategoryName
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="category-pill"
-                                                  style="--category-color: @row.NewCategoryColorHex">
-                                                @row.NewCategoryName
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="@GetPreviewResultClass(row)">
-                                                @GetPreviewResultLabel(row)
-                                            </span>
-                                        </td>
-                                    </tr>
-                                }
-                            </ChildContent>
-                            <FooterContent>
-                                <PaginationBar ContainerClass="pagination-bar rules-preview-footer"
-                                               CurrentPage="@PreviewPage.CurrentPage"
-                                               PageCount="@PreviewPage.PageCount"
-                                               ShowingCount="@PagedPreviewRows.Count"
-                                               TotalCount="@PreviewPage.TotalCount"
-                                               ItemLabel="matching transactions"
-                                               ShowSummary="true"
-                                               OnPrevious="PreviousPreviewPage"
-                                               OnNext="NextPreviewPage" />
-                            </FooterContent>
-                        </DataTable>
+                        <RuleTransactionsPreviewTable Rows="@data.PreviewRows"
+                                                      PagedRows="@PagedPreviewRows"
+                                                      EmptyMessage="@PreviewEmptyMessage"
+                                                      CurrentPage="@PreviewPage.CurrentPage"
+                                                      PageCount="@PreviewPage.PageCount"
+                                                      TotalCount="@PreviewPage.TotalCount"
+                                                      OnPrevious="PreviousPreviewPage"
+                                                      OnNext="NextPreviewPage" />
                     }
                 </Card>
             </div>
@@ -324,18 +184,13 @@
     private const int PreviewPageSize = 10;
 
     private RulesPageData data = RulesPageData.Empty;
+    private RuleEditorDraft editor = new();
     private int previewPage = 1;
     private Guid? selectedRuleId;
-    private CategoryRuleRow? selectedRuleBaseline;
     private string ruleFilter = string.Empty;
-    private string draftPattern = string.Empty;
-    private CategoryRuleMatchType draftMatchType = CategoryRuleMatchType.Contains;
-    private string selectedCategoryId = string.Empty;
     private bool isLoading = true;
     private bool isRuleLoading;
     private bool isSaving;
-    private bool isCreatingRule;
-    private bool hasAttemptedSubmit;
     private bool hasError;
     private string? statusMessage;
 
@@ -363,116 +218,8 @@
 
     private IReadOnlyList<RuleTransactionPreviewRow> PagedPreviewRows => PreviewPage.Items;
 
-    private int? SelectedCategoryId =>
-        int.TryParse(selectedCategoryId, out var categoryId)
-            ? categoryId
-            : null;
-
-    private bool HasCategoryChange =>
-        selectedRuleBaseline is not null
-        && SelectedCategoryId is int categoryId
-        && categoryId != selectedRuleBaseline.CategoryId;
-
-    private bool HasRuleShapeChange =>
-        selectedRuleBaseline is not null
-        && (!string.Equals(draftPattern.Trim(), selectedRuleBaseline.Pattern, StringComparison.Ordinal)
-            || draftMatchType != selectedRuleBaseline.MatchType);
-
-    private bool HasRuleChange =>
-        HasCategoryChange || HasRuleShapeChange;
-
-    private bool CanSave => !isSaving && !isRuleLoading && HasRuleChange && !string.IsNullOrWhiteSpace(draftPattern);
-
-    private bool CanCreate =>
-        !isSaving
-        && !isRuleLoading
-        && isCreatingRule
-        && !string.IsNullOrWhiteSpace(draftPattern)
-        && SelectedCategoryId is not null
-        && !DuplicateRuleExists;
-
-    private bool CanSubmit =>
-        isCreatingRule ? CanCreate : CanSave;
-
-    private bool ShowPatternValidation =>
-        hasAttemptedSubmit && string.IsNullOrWhiteSpace(draftPattern);
-
-    private bool DuplicateRuleExists =>
-        isCreatingRule
-        && !string.IsNullOrWhiteSpace(draftPattern)
-        && data.Rules.Any(rule =>
-            rule.MatchType == draftMatchType
-            && string.Equals(
-                NormalizeRulePattern(rule.Pattern),
-                NormalizeRulePattern(draftPattern),
-                StringComparison.Ordinal));
-
     private int WouldChangeCount =>
         data.PreviewRows.Count(row => row.RuleWins && row.CurrentCategoryId != row.NewCategoryId);
-
-    private int AlreadyInSelectedCategoryCount =>
-        data.PreviewRows.Count(row => row.RuleWins && row.CurrentCategoryId == row.NewCategoryId);
-
-    private decimal AffectedSpend =>
-        data.PreviewRows
-            .Where(row => row.RuleWins && row.CurrentCategoryId != row.NewCategoryId)
-            .Sum(row => row.Amount);
-
-    private const int BroadImpactWarningThreshold = 100;
-
-    private bool ShowBroadImpactWarning =>
-        isCreatingRule && WouldChangeCount >= BroadImpactWarningThreshold;
-
-    private IReadOnlyList<CategoryImpactGroup> ImpactGroups =>
-        data.PreviewRows
-            .Where(row => row.RuleWins && row.CurrentCategoryId != row.NewCategoryId)
-            .GroupBy(row => new
-            {
-                row.CurrentCategoryName,
-                row.NewCategoryName
-            })
-            .Select(group => new CategoryImpactGroup(
-                group.Key.CurrentCategoryName,
-                group.Key.NewCategoryName,
-                group.Count(),
-                group.Sum(row => row.Amount)))
-            .OrderByDescending(group => group.TransactionCount)
-            .ThenByDescending(group => group.TotalAmount)
-            .Take(4)
-            .ToArray();
-
-    private string DirtyStateLabel =>
-        isCreatingRule
-            ? "Unsaved draft"
-            : HasRuleChange ? "Rule modified" : "No changes";
-
-    private string DetailTitle =>
-        isCreatingRule ? "New category rule" : "Rule Details";
-
-    private string DetailModeLabel =>
-        isCreatingRule ? "Unsaved Draft" : "Saved Rule";
-
-    private string DetailModeClass =>
-        isCreatingRule ? "rule-mode-badge draft" : "rule-mode-badge";
-
-    private string DraftListPattern =>
-        string.IsNullOrWhiteSpace(draftPattern) ? "NEW RULE" : draftPattern.Trim();
-
-    private string PrimaryActionLabel =>
-        isCreatingRule
-            ? WouldChangeCount == 0
-                ? "Create Rule"
-                : $"Create & Apply to {WouldChangeCount} Transactions"
-            : "Save & Apply to All";
-
-    private string ImpactNote =>
-        isCreatingRule
-            ? WouldChangeCount == 0
-                ? $"Creating this rule will save it for future imports that match {DraftListPattern}. No existing transactions will change."
-                : $"Creating this rule will move {WouldChangeCount} existing matching transactions to {SelectedCategoryName}. Future imports that match {DraftListPattern} will use this category automatically."
-            : WouldChangeCount == 0
-                ? "Saving will update the rule. No existing matching transactions will change category."
-                : $"Saving will move {WouldChangeCount} existing matching transactions to {SelectedCategoryName}. If there are no matches, only the rule changes.";
 
     private string PreviewSubtitle =>
         isRuleLoading
@@ -485,23 +232,13 @@
             : $"{data.PreviewRows.Count} current matches";
 
     private string PreviewEmptyMessage =>
-        isCreatingRule
-            ? string.IsNullOrWhiteSpace(draftPattern)
+        editor.IsCreating
+            ? string.IsNullOrWhiteSpace(editor.Pattern)
                 ? "Enter a pattern to preview matching transactions."
                 : "No existing transactions match this draft rule."
             : SelectedRule is null
                 ? "Select a rule to preview matching transactions."
                 : "No imported transactions currently match this rule.";
-
-    private string SelectedCategoryName =>
-        SelectedCategoryId is int categoryId
-            ? data.Categories.FirstOrDefault(category => category.Id == categoryId)?.Name ?? "selected category"
-            : "selected category";
-
-    private string SelectedCategoryColorHex =>
-        SelectedCategoryId is int categoryId
-            ? data.Categories.FirstOrDefault(category => category.Id == categoryId)?.ColorHex ?? "#e5e7eb"
-            : "#e5e7eb";
 
     private string StatusClass =>
         hasError ? "alert error" : "alert success";
@@ -517,17 +254,15 @@
     {
         data = await RulesPageService.LoadAsync(ruleId, CancellationToken.None);
         selectedRuleId = data.SelectedRuleId;
-        selectedRuleBaseline = SelectedRule;
+        editor.ResetFromSelectedRule(SelectedRule);
         previewPage = 1;
-        ResetDraftFromSelectedRule();
     }
 
     private async Task SelectRuleAsync(Guid ruleId)
     {
         statusMessage = null;
         hasError = false;
-        isCreatingRule = false;
-        hasAttemptedSubmit = false;
+        editor.CancelCreate();
         isRuleLoading = true;
         StateHasChanged();
         await Task.Yield();
@@ -542,14 +277,14 @@
         }
     }
 
-    private void OnRuleFilterChanged(ChangeEventArgs args)
+    private void SetRuleFilter(string value)
     {
-        ruleFilter = args.Value?.ToString() ?? string.Empty;
+        ruleFilter = value;
     }
 
     private async Task OnPatternChanged(ChangeEventArgs args)
     {
-        draftPattern = args.Value?.ToString() ?? string.Empty;
+        editor.Pattern = args.Value?.ToString() ?? string.Empty;
         previewPage = 1;
         await RefreshPreviewAsync();
     }
@@ -558,7 +293,7 @@
     {
         if (Enum.TryParse<CategoryRuleMatchType>(args.Value?.ToString(), out var matchType))
         {
-            draftMatchType = matchType;
+            editor.MatchType = matchType;
         }
 
         previewPage = 1;
@@ -567,7 +302,7 @@
 
     private async Task OnCategoryChangedAsync(ChangeEventArgs args)
     {
-        selectedCategoryId = args.Value?.ToString() ?? string.Empty;
+        editor.SelectedCategoryId = args.Value?.ToString() ?? string.Empty;
         previewPage = 1;
         await RefreshPreviewAsync();
     }
@@ -576,22 +311,22 @@
     {
         statusMessage = null;
         hasError = false;
-        if (!isCreatingRule && selectedRuleBaseline is null)
+        if (!editor.IsCreating && editor.Baseline is null)
         {
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(draftPattern))
+        if (string.IsNullOrWhiteSpace(editor.Pattern))
         {
             data = data with { PreviewRows = [] };
             previewPage = 1;
             return;
         }
 
-        if (isCreatingRule)
+        if (editor.IsCreating)
         {
             data = await RulesPageService.LoadCreateDraftAsync(
-                BuildRuleCreate(),
+                editor.BuildCreate(),
                 CancellationToken.None);
             selectedRuleId = null;
             previewPage = 1;
@@ -599,18 +334,18 @@
         }
 
         data = await RulesPageService.LoadAsync(
-            selectedRuleBaseline!.Id,
-            BuildRuleUpdate(),
+            editor.Baseline!.Id,
+            editor.BuildUpdate(),
             CancellationToken.None);
-        selectedRuleId = selectedRuleBaseline.Id;
+        selectedRuleId = editor.Baseline.Id;
         previewPage = 1;
     }
 
     private async Task SubmitRuleAsync()
     {
-        hasAttemptedSubmit = true;
+        editor.HasAttemptedSubmit = true;
 
-        if (isCreatingRule)
+        if (editor.IsCreating)
         {
             await CreateAndApplyAsync();
             return;
@@ -621,9 +356,9 @@
 
     private async Task CreateAndApplyAsync()
     {
-        if (!CanCreate)
+        if (!editor.CanCreate(isSaving, isRuleLoading, data.Rules))
         {
-            if (DuplicateRuleExists)
+            if (editor.DuplicateRuleExists(data.Rules))
             {
                 hasError = true;
                 statusMessage = "A rule with this pattern and match type already exists.";
@@ -639,9 +374,9 @@
         try
         {
             var result = await RulesPageService.CreateAndApplyAsync(
-                BuildRuleCreate(),
+                editor.BuildCreate(),
                 CancellationToken.None);
-            isCreatingRule = false;
+            editor.CancelCreate();
             DataRefreshNotifier.NotifyTransactionsChanged();
             statusMessage = result.AppliedCount == 0
                 ? "Rule created. No existing transactions changed."
@@ -670,11 +405,12 @@
 
     private async Task SaveAndApplyAsync()
     {
-        if (selectedRuleBaseline is null)
+        if (editor.Baseline is null)
         {
             return;
         }
 
+        var ruleId = editor.Baseline.Id;
         isSaving = true;
         statusMessage = null;
         hasError = false;
@@ -682,9 +418,9 @@
         try
         {
             var appliedCount = await RulesPageService.SaveAndApplyAsync(
-                BuildRuleUpdate(),
+                editor.BuildUpdate(),
                 CancellationToken.None);
-            await LoadAsync(selectedRuleBaseline.Id);
+            await LoadAsync(ruleId);
             DataRefreshNotifier.NotifyTransactionsChanged();
             statusMessage = appliedCount == 0
                 ? "Rule saved. No existing transactions matched."
@@ -705,13 +441,8 @@
     {
         statusMessage = null;
         hasError = false;
-        hasAttemptedSubmit = false;
-        isCreatingRule = true;
         selectedRuleId = null;
-        selectedRuleBaseline = null;
-        draftPattern = string.Empty;
-        draftMatchType = CategoryRuleMatchType.Contains;
-        selectedCategoryId = data.Categories.FirstOrDefault()?.Id.ToString() ?? string.Empty;
+        editor.StartCreate(data.Categories);
         data = data with { SelectedRuleId = null, PreviewRows = [] };
         previewPage = 1;
         await Task.CompletedTask;
@@ -721,8 +452,7 @@
     {
         statusMessage = null;
         hasError = false;
-        hasAttemptedSubmit = false;
-        isCreatingRule = false;
+        editor.CancelCreate();
         await LoadAsync(data.Rules.FirstOrDefault()?.Id);
     }
 
@@ -736,37 +466,6 @@
         previewPage = Math.Min(PreviewPage.PageCount, PreviewPage.CurrentPage + 1);
     }
 
-    private string GetRuleButtonClass(CategoryRuleRow rule)
-    {
-        return rule.Id == selectedRuleId
-            ? "rule-list-item active"
-            : "rule-list-item";
-    }
-
-    private CategoryRuleUpdate BuildRuleUpdate()
-    {
-        return new CategoryRuleUpdate(
-            selectedRuleBaseline?.Id ?? Guid.Empty,
-            draftPattern,
-            draftMatchType,
-            SelectedCategoryId ?? 0);
-    }
-
-    private CategoryRuleCreate BuildRuleCreate()
-    {
-        return new CategoryRuleCreate(
-            draftPattern,
-            draftMatchType,
-            SelectedCategoryId ?? 0);
-    }
-
-    private void ResetDraftFromSelectedRule()
-    {
-        draftPattern = selectedRuleBaseline?.Pattern ?? string.Empty;
-        draftMatchType = selectedRuleBaseline?.MatchType ?? CategoryRuleMatchType.Contains;
-        selectedCategoryId = selectedRuleBaseline?.CategoryId.ToString() ?? string.Empty;
-    }
-
     private bool RuleMatchesFilter(CategoryRuleRow rule)
     {
         return rule.Pattern.Contains(ruleFilter, StringComparison.OrdinalIgnoreCase)
@@ -774,33 +473,4 @@
             || rule.CategoryName.Contains(ruleFilter, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetPreviewResultClass(RuleTransactionPreviewRow row)
-    {
-        return !row.RuleWins || row.CurrentCategoryId == row.NewCategoryId
-            ? "rules-preview-result"
-            : "rules-preview-result change";
-    }
-
-    private static string GetPreviewResultLabel(RuleTransactionPreviewRow row)
-    {
-        if (!row.RuleWins)
-        {
-            return "Existing rule wins";
-        }
-
-        return row.CurrentCategoryId == row.NewCategoryId
-            ? "No change"
-            : "Will change";
-    }
-
-    private static string NormalizeRulePattern(string value)
-    {
-        return value.Trim().ToUpperInvariant();
-    }
-
-    private sealed record CategoryImpactGroup(
-        string CurrentCategoryName,
-        string NewCategoryName,
-        int TransactionCount,
-        decimal TotalAmount);
 }

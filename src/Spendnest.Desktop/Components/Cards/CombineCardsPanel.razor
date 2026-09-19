@@ -1,0 +1,134 @@
+<div class="cards-combine-panel">
+    <div>
+        <h3 id="combine-cards-title">Combine Cards</h3>
+        <p>Reassign transactions from a duplicate card into a target card.</p>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="alert error" role="alert">@ErrorMessage</div>
+    }
+
+    <div class="cards-combine-controls">
+        <div class="field-group">
+            <label for="source-card">Source Card</label>
+            <select id="source-card"
+                    class="dashboard-select cards-combine-select"
+                    value="@SourceCardId"
+                    @onchange="OnSourceChanged"
+                    disabled="@(!CanCombine || IsBusy)">
+                @foreach (var card in Cards)
+                {
+                    <option value="@card.Id">@FormatOption(card)</option>
+                }
+            </select>
+        </div>
+
+        <span class="cards-combine-arrow material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+
+        <div class="field-group">
+            <label for="target-card">Target Card</label>
+            <select id="target-card"
+                    class="dashboard-select cards-combine-select"
+                    value="@TargetCardId"
+                    @onchange="OnTargetChanged"
+                    disabled="@(!CanCombine || IsBusy)">
+                @foreach (var card in Cards)
+                {
+                    <option value="@card.Id">@FormatOption(card)</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (!CanCombine)
+    {
+        <div class="cards-note">Add at least two cards before combining duplicates.</div>
+    }
+    else if (SourceCard is not null && TargetCard is not null)
+    {
+        <div class="cards-impact-note">
+            @SourceCard.TransactionCount transactions from @SourceCard.Name will move to @TargetCard.Name.
+            Transactions are not deduplicated.
+        </div>
+    }
+
+    <div class="cards-combine-actions">
+        <button type="button"
+                class="secondary-button"
+                disabled="@IsBusy"
+                @onclick="OnCancel">
+            Cancel
+        </button>
+        <button type="button"
+                class="primary-button"
+                disabled="@(!CanSubmit)"
+                @onclick="OnCombine">
+            Combine Cards
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<CardSummary> Cards { get; set; } = [];
+
+    [Parameter]
+    public string SourceCardId { get; set; } = string.Empty;
+
+    [Parameter]
+    public string TargetCardId { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public EventCallback<string> SourceCardIdChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<string> TargetCardIdChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnCombine { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private CardSummary? SourceCard => FindCard(SourceCardId);
+
+    private CardSummary? TargetCard => FindCard(TargetCardId);
+
+    private bool CanCombine => Cards.Count >= 2;
+
+    private bool CanSubmit =>
+        CanCombine
+        && !IsBusy
+        && SourceCard is not null
+        && TargetCard is not null
+        && SourceCard.Id != TargetCard.Id;
+
+    private async Task OnSourceChanged(ChangeEventArgs args)
+    {
+        await SourceCardIdChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+    }
+
+    private async Task OnTargetChanged(ChangeEventArgs args)
+    {
+        await TargetCardIdChanged.InvokeAsync(args.Value?.ToString() ?? string.Empty);
+    }
+
+    private CardSummary? FindCard(string id)
+    {
+        return Guid.TryParse(id, out var cardId)
+            ? Cards.FirstOrDefault(card => card.Id == cardId)
+            : null;
+    }
+
+    private static string FormatOption(CardSummary card)
+    {
+        return $"{card.Name} ({card.TransactionCount} transactions)";
+    }
+}

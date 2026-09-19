@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<SpendnestDatabaseInitializer>();
         services.AddSingleton<ICardAccountRepository, SqliteCardAccountRepository>();
+        services.AddSingleton<ICardAccountManagementStore, SqliteCardAccountManagementStore>();
         services.AddSingleton<ICategoryRepository, SqliteCategoryRepository>();
         services.AddSingleton<ITransactionRepository, SqliteTransactionRepository>();
         services.AddSingleton<IStatementImportRepository, SqliteStatementImportRepository>();

@@ -1,0 +1,192 @@
+<div class="cards-table-toolbar">
+    <input class="text-input cards-search"
+           @ref="searchInput"
+           placeholder="Search cards by name..."
+           value="@filter"
+           @oninput="OnFilterInput" />
+    <span>@ShownCountLabel</span>
+</div>
+
+<DataTable HasItems="@Rows.Any()"
+           EmptyMessage="No cards found."
+           TableClass="cards-table">
+    <HeaderContent>
+        <tr>
+            <th>Card Name</th>
+            <th>Transactions</th>
+            <th>Imports</th>
+            <th>Last Imported</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </HeaderContent>
+    <ChildContent>
+        @foreach (var card in Rows)
+        {
+            var isEditing = editingCardId == card.Id;
+            <tr>
+                <td>
+                    @if (isEditing)
+                    {
+                        <input class="text-input cards-rename-input"
+                               value="@renameDraft"
+                               @oninput="args => renameDraft = args.Value?.ToString() ?? string.Empty" />
+                    }
+                    else
+                    {
+                        <div class="cards-card-name">
+                            <span class="material-symbols-outlined" aria-hidden="true">credit_card</span>
+                            <strong>@card.Name</strong>
+                        </div>
+                    }
+                </td>
+                <td class="data-cell">@card.TransactionCount</td>
+                <td class="data-cell">@card.ImportCount</td>
+                <td>@FormatLastImportedDate(card.LastImportedDate)</td>
+                <td>
+                    <span class="@GetStatusClass(card)">@GetStatusLabel(card)</span>
+                </td>
+                <td>
+                    <div class="cards-row-actions">
+                        @if (isEditing)
+                        {
+                            <button type="button"
+                                    class="cards-text-button"
+                                    disabled="@IsBusy"
+                                    @onclick="() => SaveRenameAsync(card.Id)">
+                                Save
+                            </button>
+                            <button type="button"
+                                    class="cards-text-button muted"
+                                    disabled="@IsBusy"
+                                    @onclick="CancelRename">
+                                Cancel
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="cards-text-button"
+                                    disabled="@IsBusy"
+                                    @onclick="() => StartRenameAsync(card)">
+                                Rename
+                            </button>
+                            <button type="button"
+                                    class="cards-text-button"
+                                    data-combine-card-id="@card.Id"
+                                    disabled="@(IsBusy || Cards.Count < 2)"
+                                    @onclick="() => OnStartCombine.InvokeAsync(card.Id)">
+                                Combine
+                            </button>
+                            <button type="button"
+                                    class="cards-text-button danger"
+                                    data-delete-card-id="@card.Id"
+                                    disabled="@IsBusy"
+                                    @onclick="() => OnRequestDelete.InvokeAsync(card.Id)">
+                                Delete
+                            </button>
+                        }
+                    </div>
+                </td>
+            </tr>
+        }
+    </ChildContent>
+</DataTable>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<CardSummary> Cards { get; set; } = [];
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public EventCallback OnStartRename { get; set; }
+
+    [Parameter]
+    public EventCallback<CardRename> OnSaveRename { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnStartCombine { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnRequestDelete { get; set; }
+
+    private Guid? editingCardId;
+    private ElementReference searchInput;
+    private bool focusSearchAfterRename;
+    private string renameDraft = string.Empty;
+    private string filter = string.Empty;
+
+    private IReadOnlyList<CardSummary> Rows =>
+        string.IsNullOrWhiteSpace(filter)
+            ? Cards
+            : Cards
+                .Where(card => card.Name.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+    private string ShownCountLabel =>
+        Rows.Count == 1
+            ? "Showing 1 card"
+            : $"Showing {Rows.Count} cards";
+
+    public void CompleteRename(CardRename rename)
+    {
+        editingCardId = null;
+        focusSearchAfterRename = !string.IsNullOrWhiteSpace(filter)
+            && !rename.Name.Contains(filter, StringComparison.OrdinalIgnoreCase);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusSearchAfterRename)
+        {
+            focusSearchAfterRename = false;
+            await searchInput.FocusAsync();
+        }
+    }
+
+    private void OnFilterInput(ChangeEventArgs args)
+    {
+        filter = args.Value?.ToString() ?? string.Empty;
+    }
+
+    private async Task StartRenameAsync(CardSummary card)
+    {
+        editingCardId = card.Id;
+        renameDraft = card.Name;
+        await OnStartRename.InvokeAsync();
+    }
+
+    private Task SaveRenameAsync(Guid cardId)
+    {
+        return OnSaveRename.InvokeAsync(new CardRename(cardId, renameDraft));
+    }
+
+    private void CancelRename()
+    {
+        editingCardId = null;
+    }
+
+    private static string FormatLastImportedDate(DateOnly? date)
+    {
+        return date?.ToString("MMM d, yyyy") ?? "No imports";
+    }
+
+    private static string GetStatusLabel(CardSummary card)
+    {
+        if (card.HasPossibleDuplicateName)
+        {
+            return "Duplicate suspected";
+        }
+
+        return card.TransactionCount > 0 ? "Active" : "Empty";
+    }
+
+    private static string GetStatusClass(CardSummary card)
+    {
+        return card.HasPossibleDuplicateName
+            ? "cards-status duplicate"
+            : "cards-status";
+    }
+}

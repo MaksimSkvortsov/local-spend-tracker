@@ -1,0 +1,159 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (isOpen && pendingCombine is null)
+{
+    <div class="cards-modal-backdrop" role="presentation">
+        <section class="cards-modal cards-combine-dialog" role="dialog" aria-modal="true" aria-labelledby="combine-cards-title" @ref="combineDialog">
+            <CombineCardsPanel Cards="@Cards"
+                               SourceCardId="@sourceCardId"
+                               TargetCardId="@targetCardId"
+                               IsBusy="@IsBusy"
+                               SourceCardIdChanged="SetSource"
+                               TargetCardIdChanged="SetTarget"
+                               OnCombine="RequestConfirmation"
+                               ErrorMessage="@ErrorMessage"
+                               OnCancel="Close" />
+        </section>
+    </div>
+}
+
+<CombineCardsConfirmation SourceCard="@PendingSource"
+                          TargetCard="@PendingTarget"
+                          IsBusy="@IsBusy"
+                          ErrorMessage="@ErrorMessage"
+                          OnCancel="CancelConfirmation"
+                          OnConfirm="ConfirmAsync" />
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<CardSummary> Cards { get; set; } = [];
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public EventCallback<CardCombine> OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnRequestConfirmation { get; set; }
+
+    private bool isOpen;
+    private bool dialogActivated;
+    private ElementReference combineDialog;
+    private IJSObjectReference? dialogModule;
+    private CardCombine? pendingCombine;
+    private string sourceCardId = string.Empty;
+    private string targetCardId = string.Empty;
+
+    private CardSummary? PendingSource =>
+        pendingCombine is null
+            ? null
+            : Cards.FirstOrDefault(card => card.Id == pendingCombine.SourceCardAccountId);
+
+    private CardSummary? PendingTarget =>
+        pendingCombine is null
+            ? null
+            : Cards.FirstOrDefault(card => card.Id == pendingCombine.TargetCardAccountId);
+
+    public Task OpenAsync(Guid sourceId)
+    {
+        sourceCardId = sourceId.ToString();
+        if (!Guid.TryParse(targetCardId, out var targetId)
+            || targetId == sourceId
+            || !Cards.Any(card => card.Id == targetId))
+        {
+            targetCardId = Cards.FirstOrDefault(card => card.Id != sourceId)?.Id.ToString() ?? string.Empty;
+        }
+
+        isOpen = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    public void Close()
+    {
+        isOpen = false;
+        pendingCombine = null;
+        sourceCardId = Cards.FirstOrDefault()?.Id.ToString() ?? string.Empty;
+        targetCardId = Cards.Skip(1).FirstOrDefault()?.Id.ToString() ?? string.Empty;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isOpen || pendingCombine is not null)
+        {
+            dialogActivated = false;
+            return;
+        }
+
+        if (dialogActivated)
+        {
+            return;
+        }
+
+        dialogModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./cards-dialog.js");
+        await dialogModule.InvokeVoidAsync("activateCardsDialog", combineDialog);
+        dialogActivated = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (dialogModule is not null)
+        {
+            try
+            {
+                await dialogModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser connection may already be closed.
+            }
+        }
+    }
+
+    private void SetSource(string id)
+    {
+        sourceCardId = id;
+        EnsureDistinctTarget();
+    }
+
+    private void SetTarget(string id)
+    {
+        targetCardId = id;
+        EnsureDistinctTarget();
+    }
+
+    private void EnsureDistinctTarget()
+    {
+        if (sourceCardId == targetCardId)
+        {
+            targetCardId = Cards.FirstOrDefault(card => card.Id.ToString() != sourceCardId)?.Id.ToString() ?? string.Empty;
+        }
+    }
+
+    private async Task RequestConfirmation()
+    {
+        if (Guid.TryParse(sourceCardId, out var sourceId)
+            && Guid.TryParse(targetCardId, out var targetId)
+            && sourceId != targetId)
+        {
+            await OnRequestConfirmation.InvokeAsync();
+            pendingCombine = new CardCombine(sourceId, targetId);
+        }
+    }
+
+    private void CancelConfirmation()
+    {
+        pendingCombine = null;
+    }
+
+    private Task ConfirmAsync()
+    {
+        return pendingCombine is null
+            ? Task.CompletedTask
+            : OnConfirm.InvokeAsync(pendingCombine);
+    }
+}

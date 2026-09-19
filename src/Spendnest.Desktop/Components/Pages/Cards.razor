@@ -1,0 +1,238 @@
+@page "/cards"
+@inject CardManagementService CardManagementService
+@inject AppDataRefreshNotifier DataRefreshNotifier
+
+<PageTitle>Cards - PeasantMoney</PageTitle>
+
+<div class="cards-page">
+    <section class="cards-page-header">
+        <div>
+            <h1>Cards</h1>
+            <p>Manage card labels and combine duplicate card records.</p>
+        </div>
+
+        <div class="cards-summary-chip">
+            <span>@CardCountLabel</span>
+            <span>@TransactionCountLabel</span>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="@StatusClass">@statusMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <Card>
+            <div class="cards-loading-state" role="status" aria-live="polite">
+                <span class="rules-spinner" aria-hidden="true"></span>
+                <span>Loading cards...</span>
+            </div>
+        </Card>
+    }
+    else if (!string.IsNullOrWhiteSpace(loadErrorMessage))
+    {
+        <Card>
+            <div class="empty-state">@loadErrorMessage</div>
+        </Card>
+    }
+    else
+    {
+        <Card Class="cards-table-card">
+            @if (data.Cards.Count == 0)
+            {
+                <div class="empty-state">No cards imported yet.</div>
+            }
+            else
+            {
+                <CardsTable @ref="cardsTable"
+                            Cards="@data.Cards"
+                            IsBusy="@isBusy"
+                            OnStartRename="ClearStatus"
+                            OnSaveRename="RenameCardAsync"
+                            OnStartCombine="StartCombineAsync"
+                            OnRequestDelete="RequestDelete" />
+            }
+        </Card>
+    }
+</div>
+
+<DeleteCardConfirmation Card="@CardPendingDelete"
+                        IsBusy="@isBusy"
+                        OnCancel="CancelDelete"
+                        OnConfirm="DeleteCardAsync" />
+<CardsCombineWorkflow @ref="combineWorkflow"
+                      Cards="@data.Cards"
+                      IsBusy="@isBusy"
+                      ErrorMessage="@(hasError ? statusMessage : null)"
+                      OnRequestConfirmation="ClearStatus"
+                      OnConfirm="ConfirmCombineCardsAsync" />
+
+@code {
+    private CardManagementData data = new([], 0);
+    private CardsTable? cardsTable;
+    private Guid? deletingCardId;
+    private CardsCombineWorkflow? combineWorkflow;
+    private string? statusMessage;
+    private string? loadErrorMessage;
+    private bool isLoading = true;
+    private bool isBusy;
+    private bool hasError;
+
+    private CardSummary? CardPendingDelete =>
+        deletingCardId is Guid cardId
+            ? data.Cards.FirstOrDefault(card => card.Id == cardId)
+            : null;
+
+    private string CardCountLabel =>
+        data.Cards.Count == 1
+            ? "1 card"
+            : $"{data.Cards.Count} cards";
+
+    private string TransactionCountLabel =>
+        data.TotalTransactionCount == 1
+            ? "1 transaction"
+            : $"{data.TotalTransactionCount} transactions";
+
+    private string StatusClass =>
+        hasError ? "alert error" : "alert success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        isLoading = false;
+    }
+
+    private async Task<bool> LoadAsync()
+    {
+        try
+        {
+            data = await CardManagementService.LoadAsync(CancellationToken.None);
+            loadErrorMessage = null;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            loadErrorMessage = $"Could not load cards: {ex.Message}";
+            return false;
+        }
+    }
+
+    private async Task RenameCardAsync(CardRename rename)
+    {
+        var succeeded = await RunCardOperationAsync(
+            async () => await CardManagementService.RenameAsync(
+                rename,
+                CancellationToken.None),
+            "Card renamed.");
+        if (succeeded)
+        {
+            cardsTable?.CompleteRename(rename);
+        }
+    }
+
+    private async Task StartCombineAsync(Guid sourceCardId)
+    {
+        ClearStatus();
+        if (combineWorkflow is not null)
+        {
+            await combineWorkflow.OpenAsync(sourceCardId);
+        }
+    }
+
+    private async Task ConfirmCombineCardsAsync(CardCombine combine)
+    {
+        var sourceCardName = data.Cards
+            .FirstOrDefault(card => card.Id == combine.SourceCardAccountId)
+            ?.Name ?? "Card";
+        var targetCardName = data.Cards
+            .FirstOrDefault(card => card.Id == combine.TargetCardAccountId)
+            ?.Name ?? "card";
+
+        await RunCardOperationAsync(
+            async () => await CardManagementService.CombineAsync(combine, CancellationToken.None),
+            $"{sourceCardName} combined into {targetCardName}.",
+            () => combineWorkflow?.Close());
+    }
+
+    private void RequestDelete(Guid cardId)
+    {
+        deletingCardId = cardId;
+        statusMessage = null;
+        hasError = false;
+    }
+
+    private void CancelDelete()
+    {
+        deletingCardId = null;
+    }
+
+    private async Task DeleteCardAsync()
+    {
+        if (deletingCardId is not Guid cardId)
+        {
+            return;
+        }
+
+        var cardName = CardPendingDelete?.Name ?? "Card";
+
+        var succeeded = await RunCardOperationAsync(
+            async () => await CardManagementService.DeleteAsync(
+                new CardDelete(cardId),
+                CancellationToken.None),
+            $"{cardName} deleted.");
+        if (succeeded)
+        {
+            deletingCardId = null;
+        }
+    }
+
+    private async Task<bool> RunCardOperationAsync(
+        Func<Task> operation,
+        string successMessage,
+        Action? onMutationSuccess = null)
+    {
+        isBusy = true;
+        statusMessage = null;
+        hasError = false;
+
+        try
+        {
+            await operation();
+            onMutationSuccess?.Invoke();
+            if (!await LoadAsync())
+            {
+                SetStatus("Cards were updated, but the card list could not be refreshed. Refresh the page to review the current cards.", isError: true);
+                return false;
+            }
+
+            DataRefreshNotifier.NotifyTransactionsChanged();
+            SetStatus(successMessage, isError: false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Could not update cards: {ex.Message}", isError: true);
+            return false;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void ClearStatus()
+    {
+        statusMessage = null;
+        hasError = false;
+    }
+
+    private void SetStatus(
+        string message,
+        bool isError)
+    {
+        statusMessage = message;
+        hasError = isError;
+    }
+}

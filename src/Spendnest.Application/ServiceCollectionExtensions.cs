@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Spendnest.Application.Cards;
 using Spendnest.Application.Categorization;
 using Spendnest.Application.Importing;
 using Spendnest.Application.Reporting;
@@ -24,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>();
         services.AddSingleton<ITransactionReviewService, TransactionReviewService>();
         services.AddSingleton<CategoryRuleManagementService>();
+        services.AddSingleton<CardManagementService>();
 
         return services;
     }

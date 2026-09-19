@@ -1,0 +1,80 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (Card is not null)
+{
+    <div class="cards-modal-backdrop" role="presentation">
+        <section class="cards-modal" role="dialog" aria-modal="true" aria-labelledby="delete-card-title" data-delete-card-id="@Card.Id" @ref="dialog">
+            <header>
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                <h2 id="delete-card-title">Delete "@Card.Name"?</h2>
+            </header>
+            <p>Are you sure you want to delete this card and its associated transaction history?</p>
+            <div class="cards-modal-actions">
+                <button type="button"
+                        class="secondary-button"
+                        disabled="@IsBusy"
+                        @onclick="OnCancel">
+                    Cancel
+                </button>
+                <button type="button"
+                        class="danger-button"
+                        disabled="@IsBusy"
+                        @onclick="OnConfirm">
+                    Delete Card
+                </button>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public CardSummary? Card { get; set; }
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    private ElementReference dialog;
+    private IJSObjectReference? dialogModule;
+    private bool dialogActivated;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Card is null)
+        {
+            dialogActivated = false;
+            return;
+        }
+
+        if (dialogActivated)
+        {
+            return;
+        }
+
+        dialogModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./cards-dialog.js");
+        await dialogModule.InvokeVoidAsync("activateCardsDialog", dialog);
+        dialogActivated = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (dialogModule is not null)
+        {
+            try
+            {
+                await dialogModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser connection may already be closed.
+            }
+        }
+    }
+}

@@ -1,5 +1,6 @@
 namespace Spendnest.Application.Tests.TestDoubles;
 
+using Spendnest.Application.Cards;
 using Spendnest.Core.Accounts;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
@@ -45,6 +46,44 @@ public sealed class FakeCardAccountRepository : ICardAccountRepository
         return string.IsNullOrWhiteSpace(name)
             ? "Default Card"
             : name.Trim();
+    }
+}
+
+public sealed class FakeCardAccountManagementStore : ICardAccountManagementStore
+{
+    public CardRename? RenamedCard { get; private set; }
+
+    public CardCombine? CombinedCards { get; private set; }
+
+    public CardDelete? DeletedCard { get; private set; }
+
+    public Task RenameAsync(
+        Guid cardAccountId,
+        string name,
+        CancellationToken cancellationToken)
+    {
+        RenamedCard = new CardRename(cardAccountId, name);
+
+        return Task.CompletedTask;
+    }
+
+    public Task CombineAsync(
+        Guid sourceCardAccountId,
+        Guid targetCardAccountId,
+        CancellationToken cancellationToken)
+    {
+        CombinedCards = new CardCombine(sourceCardAccountId, targetCardAccountId);
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(
+        Guid cardAccountId,
+        CancellationToken cancellationToken)
+    {
+        DeletedCard = new CardDelete(cardAccountId);
+
+        return Task.CompletedTask;
     }
 }
 

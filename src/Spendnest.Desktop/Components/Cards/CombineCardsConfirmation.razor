@@ -1,0 +1,93 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (SourceCard is not null && TargetCard is not null)
+{
+    <div class="cards-modal-backdrop" role="presentation">
+        <section class="cards-modal" role="dialog" aria-modal="true" aria-labelledby="combine-card-title" @ref="dialog">
+            <header>
+                <span class="material-symbols-outlined" aria-hidden="true">merge_type</span>
+                <h2 id="combine-card-title">Combine cards?</h2>
+            </header>
+            <p>
+                Combine @SourceCard.Name into @TargetCard.Name?
+                Transactions are not deduplicated.
+            </p>
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <div class="alert error" role="alert">@ErrorMessage</div>
+            }
+            <div class="cards-modal-actions">
+                <button type="button"
+                        class="secondary-button"
+                        disabled="@IsBusy"
+                        @onclick="OnCancel">
+                    Cancel
+                </button>
+                <button type="button"
+                        class="primary-button"
+                        disabled="@IsBusy"
+                        @onclick="OnConfirm">
+                    Combine Cards
+                </button>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public CardSummary? SourceCard { get; set; }
+
+    [Parameter]
+    public CardSummary? TargetCard { get; set; }
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    private ElementReference dialog;
+    private IJSObjectReference? dialogModule;
+    private bool dialogActivated;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (SourceCard is null || TargetCard is null)
+        {
+            dialogActivated = false;
+            return;
+        }
+
+        if (dialogActivated)
+        {
+            return;
+        }
+
+        dialogModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./cards-dialog.js");
+        await dialogModule.InvokeVoidAsync("activateCardsDialog", dialog);
+        dialogActivated = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (dialogModule is not null)
+        {
+            try
+            {
+                await dialogModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The browser connection may already be closed.
+            }
+        }
+    }
+}

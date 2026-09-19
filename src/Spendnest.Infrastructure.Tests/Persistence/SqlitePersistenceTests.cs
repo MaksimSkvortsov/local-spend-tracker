@@ -409,4 +409,146 @@ public class SqlitePersistenceTests
             Directory.Delete(tempDirectory, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task CardAccountManagementStore_ShouldCombineCards()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+
+            await serviceProvider
+                .GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var cardAccounts = serviceProvider.GetRequiredService<ICardAccountRepository>();
+            var cardManagement = serviceProvider.GetRequiredService<ICardAccountManagementStore>();
+            var statementImports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var transactions = serviceProvider.GetRequiredService<ITransactionRepository>();
+
+            var targetCard = await cardAccounts.CreateAsync("Family Visa", CancellationToken.None);
+            var sourceCard = await cardAccounts.CreateAsync("Family Visa Backup", CancellationToken.None);
+            var statementImport = new StatementImport
+            {
+                CardAccountId = sourceCard.Id,
+                FilePath = "backup.csv",
+                FileName = "backup.csv",
+                FileHash = "SOURCE123",
+                Status = StatementImportStatus.Completed,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
+            await statementImports.AddAsync(statementImport, CancellationToken.None);
+            var importedTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = sourceCard.Id,
+                StatementImportId = statementImport.Id,
+                PostedDate = new DateOnly(2026, 9, 10),
+                OriginalDescription = "HOTEL STAY",
+                Amount = 214.55m,
+                SourceRowNumber = 2,
+                ImportedAtUtc = DateTimeOffset.UtcNow
+            };
+            await transactions.AddRangeAsync([importedTransaction], CancellationToken.None);
+
+            await cardManagement.CombineAsync(
+                sourceCard.Id,
+                targetCard.Id,
+                CancellationToken.None);
+
+            (await cardAccounts.ListAsync(CancellationToken.None))
+                .Should().ContainSingle(card => card.Id == targetCard.Id);
+            (await transactions.ListAsync(CancellationToken.None))
+                .Should().ContainSingle()
+                .Which.CardAccountId.Should().Be(targetCard.Id);
+            (await statementImports.ListAsync(CancellationToken.None))
+                .Should().ContainSingle()
+                .Which.CardAccountId.Should().Be(targetCard.Id);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task CardAccountManagementStore_ShouldDeleteCardOwnedData()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+
+            await serviceProvider
+                .GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var cardAccounts = serviceProvider.GetRequiredService<ICardAccountRepository>();
+            var cardManagement = serviceProvider.GetRequiredService<ICardAccountManagementStore>();
+            var statementImports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var transactions = serviceProvider.GetRequiredService<ITransactionRepository>();
+            var assignments = serviceProvider.GetRequiredService<ITransactionCategoryAssignmentRepository>();
+
+            var card = await cardAccounts.CreateAsync("Travel Amex", CancellationToken.None);
+            var statementImport = new StatementImport
+            {
+                CardAccountId = card.Id,
+                FilePath = "amex.csv",
+                FileName = "amex.csv",
+                FileHash = "AMEX123",
+                Status = StatementImportStatus.Completed,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
+            await statementImports.AddAsync(statementImport, CancellationToken.None);
+            var importedTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = card.Id,
+                StatementImportId = statementImport.Id,
+                PostedDate = new DateOnly(2026, 9, 11),
+                OriginalDescription = "AIRLINE",
+                Amount = 423.10m,
+                SourceRowNumber = 2,
+                ImportedAtUtc = DateTimeOffset.UtcNow
+            };
+            await transactions.AddRangeAsync([importedTransaction], CancellationToken.None);
+            await assignments.SaveAsync(
+                new TransactionCategoryAssignment
+                {
+                    TransactionId = importedTransaction.Id,
+                    CategoryId = BuiltInCategoryIds.Transportation,
+                    Confidence = 1m,
+                    NeedsReview = false,
+                    Source = CategorizationSource.LocalRules,
+                    Explanation = "Matched learned merchant rule."
+                },
+                CancellationToken.None);
+
+            await cardManagement.DeleteAsync(card.Id, CancellationToken.None);
+
+            (await cardAccounts.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await transactions.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await statementImports.ListAsync(CancellationToken.None)).Should().BeEmpty();
+            (await assignments.ListAsync(CancellationToken.None)).Should().BeEmpty();
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
 }

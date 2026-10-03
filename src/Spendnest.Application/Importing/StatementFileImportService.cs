@@ -42,6 +42,15 @@ public sealed class StatementFileImportService : IStatementFileImportService
         await using var statementFile = await fileReader.OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
         await EnsureStatementWasNotAlreadyImportedAsync(statementFile, cancellationToken).ConfigureAwait(false);
 
+        var parseResult = await ParseStatementAsync(statementFile, options.Progress, cancellationToken).ConfigureAwait(false);
+        if (!parseResult.HasTransaction)
+        {
+            var error = string.IsNullOrWhiteSpace(parseResult.Error)
+                ? "No transactions could be parsed from the selected file."
+                : parseResult.Error;
+            throw new InvalidOperationException(error);
+        }
+
         var cardAccount = await GetOrCreateCardAccountAsync(options.CardAccountName, cancellationToken).ConfigureAwait(false);
         var importedAtUtc = DateTimeOffset.UtcNow;
         var statementImport = CreateStatementImport(statementFile, cardAccount.Id, importedAtUtc);
@@ -49,7 +58,6 @@ public sealed class StatementFileImportService : IStatementFileImportService
 
         try
         {
-            var parseResult = await ParseStatementAsync(statementFile, options.Progress, cancellationToken).ConfigureAwait(false);
             var preparedTransactions = await PrepareTransactionsAsync(
                 parseResult.Rows,
                 cardAccount.Id,

@@ -233,7 +233,8 @@ public sealed class FakeStatementImportRepository : IStatementImportRepository
     {
         var statementImport = statementImports.FirstOrDefault(item =>
             item.FileHash.Equals(fileHash, StringComparison.OrdinalIgnoreCase)
-            && item.Status != StatementImportStatus.Failed);
+            && (item.Status == StatementImportStatus.Pending
+                || (item.Status == StatementImportStatus.Completed && item.ParsedRowCount > 0)));
 
         return Task.FromResult(statementImport);
     }

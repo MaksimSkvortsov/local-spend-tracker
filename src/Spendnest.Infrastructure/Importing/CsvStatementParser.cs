@@ -51,7 +51,8 @@ public sealed class CsvStatementParser : IStatementParser
 
         if (!await csv.ReadAsync().ConfigureAwait(false))
         {
-            return new StatementParseResult([], [new StatementParseWarning(null, "CSV file is empty.")], 0, 0);
+            const string emptyFileError = "CSV file is empty.";
+            return new StatementParseResult([], [new StatementParseWarning(null, emptyFileError)], 0, 0, emptyFileError);
         }
 
         csv.ReadHeader();
@@ -63,7 +64,7 @@ public sealed class CsvStatementParser : IStatementParser
 
         if (warnings.Count > 0)
         {
-            return new StatementParseResult([], warnings, 0, 0);
+            return new StatementParseResult([], warnings, 0, 0, warnings[0].Message);
         }
 
         var rows = new List<ParsedStatementRow>();
@@ -93,7 +94,8 @@ public sealed class CsvStatementParser : IStatementParser
             warnings.Add(new StatementParseWarning(sourceRowNumber, parseResult.ErrorMessage ?? "Row could not be parsed."));
         }
 
-        return new StatementParseResult(rows, warnings, totalRows, failedRows);
+        var error = rows.Count == 0 ? warnings.FirstOrDefault()?.Message : null;
+        return new StatementParseResult(rows, warnings, totalRows, failedRows, error);
     }
 
     private static StatementColumnMappings ResolveMappings(

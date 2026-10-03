@@ -7,4 +7,8 @@ public sealed record StatementParseResult(
     IReadOnlyList<ParsedStatementRow> Rows,
     IReadOnlyList<StatementParseWarning> Warnings,
     int TotalRowCount,
-    int FailedRowCount);
+    int FailedRowCount,
+    string? Error = null)
+{
+    public bool HasTransaction => Rows.Count > 0;
+}

@@ -1,5 +1,6 @@
 namespace Spendnest.Application.Tests.Importing;
 
+using System.Security.Cryptography;
 using FluentAssertions;
 using Spendnest.Application.Importing;
 using Spendnest.Application.Tests.TestDoubles;
@@ -89,7 +90,7 @@ public class StatementFileImportServiceTests
     }
 
     [Fact]
-    public async Task ImportAsync_ShouldMarkStatementImportFailedWhenParsingFails()
+    public async Task ImportAsync_ShouldNotStoreImportWhenParserThrows()
     {
         var repository = new FakeTransactionRepository();
         var statementImportRepository = new FakeStatementImportRepository();
@@ -104,13 +105,75 @@ public class StatementFileImportServiceTests
             CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
-        var statementImport = (await statementImportRepository.ListAsync(CancellationToken.None))
-            .Should()
-            .ContainSingle()
-            .Subject;
-        statementImport.Status.Should().Be(StatementImportStatus.Failed);
-        statementImport.ErrorMessage.Should().Be("Parser failed.");
-        statementImport.CompletedAtUtc.Should().NotBeNull();
+        (await statementImportRepository.ListAsync(CancellationToken.None)).Should().BeEmpty();
+        (await repository.ListAsync(CancellationToken.None)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldAllowRetryAfterZeroRowParseWithoutSavingFailedAttempt()
+    {
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
+        var filePath = FixturePath("bank-of-america.csv");
+        var failingService = CreateService(repository, statementImportRepository, new EmptyStatementParser());
+
+        var failedAttempt = async () => await failingService.ImportAsync(
+            filePath,
+            new StatementFileImportOptions(),
+            CancellationToken.None);
+
+        await failedAttempt.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Transaction header was not found.");
+        (await statementImportRepository.ListAsync(CancellationToken.None)).Should().BeEmpty();
+
+        var retryService = CreateService(repository, statementImportRepository);
+        var result = await retryService.ImportAsync(filePath, new StatementFileImportOptions(), CancellationToken.None);
+
+        result.SavedTransactionCount.Should().Be(2);
+        (await statementImportRepository.ListAsync(CancellationToken.None)).Should().ContainSingle()
+            .Which.Status.Should().Be(StatementImportStatus.Completed);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldUseGenericMessageWhenZeroRowParseHasNoReason()
+    {
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
+        var service = CreateService(repository, statementImportRepository, new EmptyStatementParser(includeWarning: false));
+
+        var act = async () => await service.ImportAsync(
+            FixturePath("bank-of-america.csv"),
+            new StatementFileImportOptions(),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("No transactions could be parsed from the selected file.");
+        (await statementImportRepository.ListAsync(CancellationToken.None)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldAllowRetryAfterLegacyCompletedZeroRowImport()
+    {
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
+        var filePath = FixturePath("bank-of-america.csv");
+        var fileHash = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(filePath)));
+        await statementImportRepository.AddAsync(
+            new StatementImport
+            {
+                CardAccountId = Guid.NewGuid(),
+                FilePath = filePath,
+                FileName = Path.GetFileName(filePath),
+                FileHash = fileHash,
+                Status = StatementImportStatus.Completed
+            },
+            CancellationToken.None);
+
+        var service = CreateService(repository, statementImportRepository);
+        var result = await service.ImportAsync(filePath, new StatementFileImportOptions(), CancellationToken.None);
+
+        result.SavedTransactionCount.Should().Be(2);
+        (await statementImportRepository.ListAsync(CancellationToken.None)).Should().HaveCount(2);
     }
 
     [Fact]
@@ -310,6 +373,29 @@ public class StatementFileImportServiceTests
             CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("Parser failed.");
+        }
+    }
+
+    private sealed class EmptyStatementParser : IStatementParser
+    {
+        private readonly bool includeWarning;
+
+        public EmptyStatementParser(bool includeWarning = true)
+        {
+            this.includeWarning = includeWarning;
+        }
+
+        public Task<StatementParseResult> ParseAsync(
+            Stream stream,
+            StatementParseOptions options,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new StatementParseResult(
+                [],
+                includeWarning ? [new StatementParseWarning(null, "Transaction header was not found.")] : [],
+                0,
+                0,
+                includeWarning ? "Transaction header was not found." : null));
         }
     }
 }

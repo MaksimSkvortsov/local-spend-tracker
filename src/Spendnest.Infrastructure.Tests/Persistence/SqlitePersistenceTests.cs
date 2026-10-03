@@ -120,6 +120,57 @@ public class SqlitePersistenceTests
     }
 
     [Fact]
+    public async Task StatementImportRepository_ShouldIgnoreFailedAndLegacyZeroRowImportsForDuplicateChecks()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+            await serviceProvider.GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var card = await serviceProvider.GetRequiredService<ICardAccountRepository>()
+                .CreateAsync("Family Visa", CancellationToken.None);
+            var imports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            foreach (var (hash, status, parsedRows) in new[]
+            {
+                ("FAILED", StatementImportStatus.Failed, 0),
+                ("LEGACY", StatementImportStatus.Completed, 0),
+                ("COMPLETED", StatementImportStatus.Completed, 1),
+                ("PENDING", StatementImportStatus.Pending, 0)
+            })
+            {
+                await imports.AddAsync(
+                    new StatementImport
+                    {
+                        CardAccountId = card.Id,
+                        FilePath = "statement.csv",
+                        FileName = "statement.csv",
+                        FileHash = hash,
+                        Status = status,
+                        ParsedRowCount = parsedRows
+                    },
+                    CancellationToken.None);
+            }
+
+            (await imports.GetByFileHashAsync("FAILED", CancellationToken.None)).Should().BeNull();
+            (await imports.GetByFileHashAsync("LEGACY", CancellationToken.None)).Should().BeNull();
+            (await imports.GetByFileHashAsync("completed", CancellationToken.None)).Should().NotBeNull();
+            (await imports.GetByFileHashAsync("PENDING", CancellationToken.None)).Should().NotBeNull();
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task CategoryRuleApplicationStore_ShouldUpdateRuleAndAssignmentsTogether()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

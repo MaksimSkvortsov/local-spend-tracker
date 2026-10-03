@@ -66,7 +66,9 @@ public sealed class SqliteStatementImportRepository : IStatementImportRepository
             .FirstOrDefaultAsync(
                 statementImport =>
                     statementImport.FileHash.ToUpper() == fileHash.ToUpper()
-                    && statementImport.Status != StatementImportStatus.Failed,
+                    && (statementImport.Status == StatementImportStatus.Pending
+                        || (statementImport.Status == StatementImportStatus.Completed
+                            && statementImport.ParsedRowCount > 0)),
                 cancellationToken)
             .ConfigureAwait(false);
     }

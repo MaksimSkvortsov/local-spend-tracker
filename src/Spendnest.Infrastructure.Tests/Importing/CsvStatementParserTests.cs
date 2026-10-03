@@ -21,6 +21,8 @@ public class CsvStatementParserTests
         result.Rows[1].OriginalDescription.Should().Be("DOORBELL SOLO PLAN EXAMPLE.COM CA");
         result.Rows[1].Amount.Should().Be(4.99m);
         result.FailedRowCount.Should().Be(0);
+        result.HasTransaction.Should().BeTrue();
+        result.Error.Should().BeNull();
     }
 
     [Fact]
@@ -99,6 +101,37 @@ public class CsvStatementParserTests
         result.Rows.Should().ContainSingle();
         result.FailedRowCount.Should().Be(2);
         result.Warnings.Should().HaveCount(2);
+        result.HasTransaction.Should().BeTrue();
+        result.Error.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ParseAsync_ShouldReturnErrorWhenNoTransactionRowsCanBeParsed()
+    {
+        const string csv = """
+            Date,Description,Amount
+            bad date,Grocery Store,-42.10
+            """;
+
+        var result = await ParseAsync(csv);
+
+        result.HasTransaction.Should().BeFalse();
+        result.Error.Should().Be("Date 'bad date' could not be parsed.");
+        result.Warnings.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task ParseAsync_ShouldReturnErrorWhenRequiredColumnsAreMissing()
+    {
+        const string csv = """
+            Description,Summary Amt.
+            Ending Balance,100.00
+            """;
+
+        var result = await ParseAsync(csv);
+
+        result.HasTransaction.Should().BeFalse();
+        result.Error.Should().Be("Date column could not be detected.");
     }
 
     [Fact]

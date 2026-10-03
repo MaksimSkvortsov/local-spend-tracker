@@ -3250,6 +3250,29 @@ table {
     white-space: nowrap;
 }
 
+.import-history-actions-row td {
+    background: var(--surface-subtle);
+    padding: 12px 20px;
+}
+
+.import-history-delete-confirmation,
+.import-history-delete-confirmation > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.import-history-delete-confirmation {
+    justify-content: space-between;
+    font-size: 0.9rem;
+    white-space: normal;
+}
+
+.import-history-delete-confirmation > div {
+    margin-left: auto;
+}
+
 th,
 td {
     padding: 12px 16px;

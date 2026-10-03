@@ -10,6 +10,11 @@ public sealed class ImportPageService(
     IStatementImportRepository importHistoryRepository,
     ICardAccountRepository cardAccountRepository)
 {
+    public Task DeleteAsync(Guid statementImportId, CancellationToken cancellationToken)
+    {
+        return importHistoryRepository.DeleteAsync(statementImportId, cancellationToken);
+    }
+
     public async Task<ImportPageData> LoadAsync(
         IReadOnlyDictionary<Guid, CategorizationHistorySummary> categorizationSummariesByImportId,
         CancellationToken cancellationToken)

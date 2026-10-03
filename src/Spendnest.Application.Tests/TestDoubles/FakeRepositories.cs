@@ -227,6 +227,16 @@ public sealed class FakeStatementImportRepository : IStatementImportRepository
         return Task.CompletedTask;
     }
 
+    public Task DeleteAsync(Guid statementImportId, CancellationToken cancellationToken)
+    {
+        if (statementImports.RemoveAll(item => item.Id == statementImportId) == 0)
+        {
+            throw new InvalidOperationException("Import was not found.");
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<StatementImport?> GetByFileHashAsync(
         string fileHash,
         CancellationToken cancellationToken)

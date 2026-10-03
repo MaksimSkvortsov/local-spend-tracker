@@ -60,6 +60,11 @@
         </Card>
     }
 
+    @if (!string.IsNullOrWhiteSpace(historyActionMessage))
+    {
+        <div class="@(historyActionIsError ? "alert error" : "status-message")" role="status">@historyActionMessage</div>
+    }
+
     <Card Class="import-history-card"
           Title="Import History"
           Subtitle="View and manage your recent statement uploads">
@@ -74,6 +79,8 @@
                            PagedRows="@history.PagedRows"
                            CurrentPage="@history.CurrentPage"
                            PageCount="@history.PageCount"
+                           IsBusy="@isBusy"
+                           OnDelete="DeleteImportAsync"
                            OnPrevious="PreviousUploadHistoryPage"
                            OnNext="NextUploadHistoryPage" />
         </ChildContent>
@@ -93,6 +100,8 @@
     private ImportSelectionDraft selection = new();
     private ImportHistoryState history = new();
     private string? statusMessage;
+    private string? historyActionMessage;
+    private bool historyActionIsError;
     private FileUploadProgress? currentProgress;
     private bool isBusy;
     private IReadOnlyList<CardAccount> availableCards = [];
@@ -269,5 +278,40 @@
     private async Task RefreshImportHistoryViewAsync()
     {
         await RefreshImportPageDataAsync();
+    }
+
+    private async Task DeleteImportAsync(Guid importId)
+    {
+        var import = history.Rows.FirstOrDefault(item => item.Id == importId);
+        if (import is null || isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        historyActionMessage = null;
+        var deleted = false;
+
+        try
+        {
+            await ImportPageService.DeleteAsync(importId, CancellationToken.None);
+            deleted = true;
+            categorizationSummariesByImportId.Remove(importId);
+            DataRefreshNotifier.NotifyTransactionsChanged();
+            await RefreshImportPageDataAsync();
+            historyActionMessage = $"{import.FileName} and its imported transactions were deleted.";
+            historyActionIsError = false;
+        }
+        catch (Exception exception)
+        {
+            historyActionMessage = deleted
+                ? "Import deleted, but history could not be refreshed. Refresh the page to see the current list."
+                : $"Could not delete import: {exception.Message}";
+            historyActionIsError = true;
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 }

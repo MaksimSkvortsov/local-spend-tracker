@@ -171,6 +171,95 @@ public class SqlitePersistenceTests
     }
 
     [Fact]
+    public async Task StatementImportRepository_ShouldDeleteOnlySelectedImportAndItsTransactions()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+            await serviceProvider.GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var card = await serviceProvider.GetRequiredService<ICardAccountRepository>()
+                .CreateAsync("Family Visa", CancellationToken.None);
+            var imports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var transactions = serviceProvider.GetRequiredService<ITransactionRepository>();
+            var assignments = serviceProvider.GetRequiredService<ITransactionCategoryAssignmentRepository>();
+            var firstImport = new StatementImport
+            {
+                CardAccountId = card.Id,
+                FilePath = "first.csv",
+                FileName = "first.csv",
+                FileHash = "FIRST",
+                Status = StatementImportStatus.Completed,
+                ParsedRowCount = 1
+            };
+            var secondImport = new StatementImport
+            {
+                CardAccountId = card.Id,
+                FilePath = "second.csv",
+                FileName = "second.csv",
+                FileHash = "SECOND",
+                Status = StatementImportStatus.Completed,
+                ParsedRowCount = 1
+            };
+            await imports.AddAsync(firstImport, CancellationToken.None);
+            await imports.AddAsync(secondImport, CancellationToken.None);
+
+            var firstTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = card.Id,
+                StatementImportId = firstImport.Id,
+                PostedDate = new DateOnly(2026, 9, 1),
+                OriginalDescription = "First Store",
+                Amount = 10m
+            };
+            var secondTransaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = card.Id,
+                StatementImportId = secondImport.Id,
+                PostedDate = new DateOnly(2026, 9, 2),
+                OriginalDescription = "Second Store",
+                Amount = 20m
+            };
+            await transactions.AddRangeAsync([firstTransaction, secondTransaction], CancellationToken.None);
+            foreach (var transaction in new[] { firstTransaction, secondTransaction })
+            {
+                await assignments.SaveAsync(
+                    new TransactionCategoryAssignment
+                    {
+                        TransactionId = transaction.Id,
+                        CategoryId = BuiltInCategoryIds.Groceries,
+                        Source = CategorizationSource.LocalRules
+                    },
+                    CancellationToken.None);
+            }
+
+            await imports.DeleteAsync(firstImport.Id, CancellationToken.None);
+
+            (await imports.ListAsync(CancellationToken.None)).Should().ContainSingle()
+                .Which.Id.Should().Be(secondImport.Id);
+            (await transactions.ListAsync(CancellationToken.None)).Should().ContainSingle()
+                .Which.Id.Should().Be(secondTransaction.Id);
+            (await assignments.GetByTransactionIdAsync(firstTransaction.Id, CancellationToken.None)).Should().BeNull();
+            (await assignments.GetByTransactionIdAsync(secondTransaction.Id, CancellationToken.None)).Should().NotBeNull();
+            (await imports.GetByFileHashAsync("FIRST", CancellationToken.None)).Should().BeNull();
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task CategoryRuleApplicationStore_ShouldUpdateRuleAndAssignmentsTogether()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

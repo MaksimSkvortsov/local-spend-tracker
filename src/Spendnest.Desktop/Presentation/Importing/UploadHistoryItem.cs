@@ -4,6 +4,7 @@ using Spendnest.Core.Transactions;
 namespace Spendnest.Desktop.Presentation.Importing;
 
 public sealed record UploadHistoryItem(
+    Guid Id,
     DateTimeOffset ImportedAtLocal,
     string FileName,
     string CardAccountName,
@@ -28,6 +29,7 @@ public sealed record UploadHistoryItem(
         var transactionRange = BuildTransactionRange(transactions);
 
         return new UploadHistoryItem(
+            statementImport.Id,
             (statementImport.CompletedAtUtc ?? statementImport.StartedAtUtc).ToLocalTime(),
             statementImport.FileName,
             cardAccountName,

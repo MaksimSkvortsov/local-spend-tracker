@@ -15,7 +15,7 @@
     <ChildContent>
         @foreach (var upload in PagedRows)
         {
-            <tr>
+            <tr @key="upload.Id">
                 <td class="history-file-column">
                     <span class="history-file">
                         <span class="material-symbols-outlined" aria-hidden="true">description</span>
@@ -33,11 +33,31 @@
                 <td class="status-column"><span class="@GetImportStatusClass(upload)">@upload.StatusLabel</span></td>
                 <td class="date-column">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</td>
                 <td class="history-actions-column">
-                    <button type="button" class="table-icon-button" aria-label="@($"Actions for {upload.FileName}")">
+                    <button type="button"
+                            class="table-icon-button"
+                            aria-label="@($"Actions for {upload.FileName}")"
+                            aria-expanded="@(openActionsImportId == upload.Id)"
+                            aria-controls="@($"import-actions-{upload.Id}")"
+                            disabled="@IsBusy"
+                            @onclick="() => ToggleActions(upload.Id)">
                         <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                     </button>
                 </td>
             </tr>
+            @if (openActionsImportId == upload.Id)
+            {
+                <tr class="import-history-actions-row">
+                    <td colspan="6">
+                        <div id="@($"import-actions-{upload.Id}")" class="import-history-delete-confirmation" role="group" aria-label="Confirm deleting import">
+                            <span>Delete "@upload.FileName" and its @upload.SavedTransactionCount imported transactions? The CSV file on your computer will stay.</span>
+                            <div>
+                                <button type="button" class="secondary-button" disabled="@IsBusy" @onclick="CloseActions">Cancel</button>
+                                <button type="button" class="danger-button" disabled="@IsBusy" @onclick="() => OnDelete.InvokeAsync(upload.Id)">Delete Import</button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
         }
     </ChildContent>
     <FooterContent>
@@ -72,6 +92,24 @@
 
     [Parameter]
     public EventCallback OnNext { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnDelete { get; set; }
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    private Guid? openActionsImportId;
+
+    private void ToggleActions(Guid importId)
+    {
+        openActionsImportId = openActionsImportId == importId ? null : importId;
+    }
+
+    private void CloseActions()
+    {
+        openActionsImportId = null;
+    }
 
     private static string GetImportStatusClass(UploadHistoryItem upload)
     {

@@ -53,6 +53,43 @@ public sealed class SqliteStatementImportRepository : IStatementImportRepository
         await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task DeleteAsync(
+        Guid statementImportId,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory
+            .CreateDbContextAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await using var transaction = await dbContext.Database
+            .BeginTransactionAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var transactionIds = await dbContext.Transactions
+            .Where(item => item.StatementImportId == statementImportId)
+            .Select(item => item.Id)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        await dbContext.TransactionCategoryAssignments
+            .Where(assignment => transactionIds.Contains(assignment.TransactionId))
+            .ExecuteDeleteAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await dbContext.Transactions
+            .Where(item => item.StatementImportId == statementImportId)
+            .ExecuteDeleteAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var deletedCount = await dbContext.StatementImports
+            .Where(item => item.Id == statementImportId)
+            .ExecuteDeleteAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (deletedCount == 0)
+        {
+            throw new InvalidOperationException("Import was not found.");
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<StatementImport?> GetByFileHashAsync(
         string fileHash,
         CancellationToken cancellationToken)

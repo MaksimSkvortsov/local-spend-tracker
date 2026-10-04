@@ -32,3 +32,4 @@ appsettings.Development.json
 # OS files
 Thumbs.db
 .DS_Store
+.max-code

@@ -52,7 +52,7 @@ Stitch generated an initial desktop variant from the existing `Rules - PeasantMo
 ## Validation
 
 - Verified the source design exists.
-- Verified Stitch project context exists in `docs/STITCH.md`.
+- Verified Stitch project context exists in `.max-code/product/stitch.md`.
 - Verified the PeasantMoney Stitch project contains the existing Rules baseline screen.
 - Verified the mockup handoff uses the feature `design.md` artifact.
 - Downloaded and visually inspected the generated screenshot.

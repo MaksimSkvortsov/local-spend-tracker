@@ -23,6 +23,8 @@ builder.Configuration
     .AddJsonFile("appsettings.Development.json", optional: true)
     .AddEnvironmentVariables("SPENDNEST_");
 
+var dataPaths = UiHarnessDataPaths.FromConfiguration(builder.Configuration);
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<AppDataRefreshNotifier>();
@@ -34,11 +36,13 @@ builder.Services.AddSingleton<ImportWorkflowService>();
 builder.Services.AddSingleton<RulesPageService>();
 builder.Services.AddSingleton<SettingsPageService>();
 builder.Services.AddSingleton<TransactionsPageService>();
-builder.Services.AddSingleton<IStatementFilePicker, DevStatementFilePicker>();
+builder.Services.AddSingleton<DevStatementFilePicker>();
+builder.Services.AddSingleton<IStatementFilePicker>(
+    provider => provider.GetRequiredService<DevStatementFilePicker>());
 builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
 builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();
 builder.Services.AddSingleton<ICredentialStore, InMemoryCredentialStore>();
-builder.Services.AddSpendnestSqlitePersistence();
+builder.Services.AddSpendnestSqlitePersistence(dataPaths.ConnectionString);
 builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();
 builder.Services.AddSingleton<ILocalTransactionCategorizer, LocalTransactionCategorizer>();
 builder.Services.AddSingleton<HttpClient>();
@@ -52,7 +56,7 @@ builder.Services.AddSingleton<IAiConnectionTestService, OpenAiConnectionTestServ
 
 builder.Logging
     .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)
-    .AddSpendnestFile();
+    .AddSpendnestFile(dataPaths.LogPath);
 
 var app = builder.Build();
 
@@ -73,6 +77,10 @@ await app.Services
     .GetRequiredService<SpendnestDatabaseInitializer>()
     .InitializeAsync(CancellationToken.None);
 
+// Resolve eagerly so an invalid UiHarness:StatementFile fails at startup, not on first pick.
+app.Services.GetRequiredService<DevStatementFilePicker>();
+
+app.MapHarnessEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

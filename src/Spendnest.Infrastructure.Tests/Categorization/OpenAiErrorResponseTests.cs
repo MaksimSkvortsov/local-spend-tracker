@@ -26,6 +26,16 @@ public class OpenAiErrorResponseTests
         OpenAiErrorResponse.Parse(502, body).Should().Be(new OpenAiErrorResponse(502, null, null, null));
     }
 
+    [Fact]
+    public void ToReason_ShouldTreatExhaustedCreditBalanceAsQuotaNotRateLimit()
+    {
+        var error = OpenAiErrorResponse.Parse(
+            429,
+            """{"error":{"message":"You have no credits remaining. Add credits to continue using the API.","type":"insufficient_quota","code":"credit_balance_exhausted"}}""");
+
+        error.ToReason("gpt-test").Should().Be("OpenAI quota exceeded. Check the plan and billing for this API key.");
+    }
+
     [Theory]
     [InlineData(429, "insufficient_quota", null, "OpenAI quota exceeded. Check the plan and billing for this API key.")]
     [InlineData(429, "rate_limit_exceeded", null, "OpenAI rate limit reached. Try again in a few minutes.")]

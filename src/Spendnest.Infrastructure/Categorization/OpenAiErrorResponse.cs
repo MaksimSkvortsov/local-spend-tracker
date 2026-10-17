@@ -46,7 +46,7 @@ public sealed record OpenAiErrorResponse(
     /// </summary>
     public string ToReason(string model)
     {
-        if (Code is "insufficient_quota")
+        if (Code is "insufficient_quota" or "credit_balance_exhausted" || Type is "insufficient_quota")
         {
             return "OpenAI quota exceeded. Check the plan and billing for this API key.";
         }

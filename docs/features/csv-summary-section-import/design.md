@@ -1,7 +1,7 @@
 # Feature: Parse CSV Statements With Summary Sections
 
 Date: 2026-10-02
-Status: Proposed
+Status: Implemented
 
 ## Summary
 
@@ -31,7 +31,7 @@ Some bank CSV files place a summary table before the transaction table. The shar
 
 ## Acceptance Criteria
 
-- For the motivating `stmt.csv`, the parser ignores the summary section, selects the transaction header on line 7, parses 13 transaction rows, and reports line 8 as skipped because its Amount is blank.
+- The number of summary rows, blank lines, and transaction rows varies between exports. The parser selects the first valid transaction header wherever it appears, parses every transaction row after it, and reports the beginning-balance row as skipped because its Amount is blank. The anonymized fixture `bank-of-america-checking.csv` covers the motivating export (header on line 7, 12 transactions, line 8 skipped); other summary lengths and row counts are covered by parameterized tests.
 - The parsed transactions retain their source line numbers, descriptions, dates, and normalized amounts; no summary row becomes a transaction.
 - Existing single-table CSV fixtures continue to produce the same parsed rows and warnings.
 - A CSV without a valid transaction header produces no transactions and a clear missing-header warning.

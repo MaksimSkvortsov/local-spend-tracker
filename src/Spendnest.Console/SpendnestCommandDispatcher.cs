@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Spendnest.Application.Categorization;
+using Spendnest.Application.Importing;
 using Spendnest.Application.Rules;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
@@ -26,6 +27,7 @@ public sealed class SpendnestCommandDispatcher
     private readonly ITransactionReviewService reviewService;
     private readonly ICredentialStore credentialStore;
     private readonly CategoryRuleManagementService ruleManagementService;
+    private readonly StatementFolderImportService folderImportService;
     private readonly ILogger<SpendnestCommandDispatcher> logger;
 
     public SpendnestCommandDispatcher(
@@ -39,6 +41,7 @@ public sealed class SpendnestCommandDispatcher
         ITransactionReviewService reviewService,
         ICredentialStore credentialStore,
         CategoryRuleManagementService ruleManagementService,
+        StatementFolderImportService folderImportService,
         ILogger<SpendnestCommandDispatcher> logger)
     {
         this.parser = parser;
@@ -51,6 +54,7 @@ public sealed class SpendnestCommandDispatcher
         this.reviewService = reviewService;
         this.credentialStore = credentialStore;
         this.ruleManagementService = ruleManagementService;
+        this.folderImportService = folderImportService;
         this.logger = logger;
     }
 
@@ -68,6 +72,11 @@ public sealed class SpendnestCommandDispatcher
         if (command.Equals("import", StringComparison.OrdinalIgnoreCase))
         {
             return await ImportAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("import-folder", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ImportFolderAsync(args, cancellationToken).ConfigureAwait(false);
         }
 
         if (command.Equals("imports", StringComparison.OrdinalIgnoreCase))
@@ -186,6 +195,73 @@ public sealed class SpendnestCommandDispatcher
         PrintWarnings(result.Warnings);
 
         return 0;
+    }
+
+    private async Task<int> ImportFolderAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        if (args.Count < 2)
+        {
+            System.Console.Error.WriteLine("Usage: import-folder <folder> [--new-card]");
+            return 1;
+        }
+
+        var folderPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(args[1]));
+        if (!Directory.Exists(folderPath))
+        {
+            System.Console.Error.WriteLine($"Folder not found: {folderPath}");
+            return 1;
+        }
+
+        var filePaths = Directory
+            .EnumerateFiles(folderPath, "*.csv", SearchOption.TopDirectoryOnly)
+            .Where(filePath => Path.GetExtension(filePath).Equals(".csv", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (filePaths.Length == 0)
+        {
+            System.Console.Error.WriteLine($"No CSV files found in {folderPath}");
+            return 1;
+        }
+
+        StatementFolderImportResult result;
+        try
+        {
+            result = await folderImportService.ImportAsync(
+                new StatementFolderImport(Path.GetFileName(folderPath), filePaths, HasFlag(args, "--new-card")),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            System.Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+
+        System.Console.WriteLine($"Card: {result.CardName}");
+        System.Console.WriteLine();
+
+        foreach (var file in result.Files)
+        {
+            var fileName = Path.GetFileName(file.FilePath);
+            System.Console.WriteLine(file.Status switch
+            {
+                StatementFolderFileStatus.Imported =>
+                    $"{fileName} | saved {file.Result!.SavedTransactionCount} | duplicates {file.Result.SkippedDuplicateTransactionCount} | failed rows {file.Result.FailedRowCount}",
+                StatementFolderFileStatus.AlreadyImported => $"{fileName} | already imported, skipped",
+                _ => $"{fileName} | FAILED: {file.Error}"
+            });
+        }
+
+        var importedFiles = result.Files.Where(file => file.Result is not null).ToArray();
+        var failedFileCount = result.Files.Count(file => file.Status == StatementFolderFileStatus.Failed);
+        System.Console.WriteLine();
+        System.Console.WriteLine(
+            $"Files: {importedFiles.Length} imported, {result.Files.Count(file => file.Status == StatementFolderFileStatus.AlreadyImported)} already imported, {failedFileCount} failed");
+        System.Console.WriteLine($"Transactions saved: {importedFiles.Sum(file => file.Result!.SavedTransactionCount)}");
+        System.Console.WriteLine($"Duplicate transactions skipped: {importedFiles.Sum(file => file.Result!.SkippedDuplicateTransactionCount)}");
+        PrintCategorizationSummary(result.Categorizations);
+
+        return failedFileCount == 0 ? 0 : 1;
     }
 
     private async Task<int> ImportsAsync(CancellationToken cancellationToken)
@@ -459,6 +535,7 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine("  help");
         System.Console.WriteLine("  parse <csv-file>");
         System.Console.WriteLine("  import <csv-file> [--card <card-name>]");
+        System.Console.WriteLine("  import-folder <folder> [--new-card]");
         System.Console.WriteLine("  imports");
         System.Console.WriteLine("  report");
         System.Console.WriteLine("  report <csv-file> [csv-file...]");

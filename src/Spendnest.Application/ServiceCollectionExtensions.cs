@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSpendnestApplicationServices(this IServiceCollection services)
     {
         services.AddSingleton<IStatementFileImportService, StatementFileImportService>();
+        services.AddSingleton<StatementFolderImportService>();
         services.AddSingleton<AiCategorizationResultMapper>();
         services.AddSingleton<LocalCategoryRuleMatcher>();
         services.AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>();

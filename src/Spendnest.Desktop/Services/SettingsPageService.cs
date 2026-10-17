@@ -45,13 +45,13 @@ public sealed class SettingsPageService(
 
         if (!IsValidModel(request.Model))
         {
-            return Error("Choose a ChatGPT model.");
+            return Error("Choose an OpenAI model.");
         }
 
         var result = await aiConnectionTestService.TestOpenAiAsync(
             new AiConnectionTestRequest(
                 request.ApiKey,
-                request.Model,
+                request.Model.Trim(),
                 TimeSpan.FromSeconds(request.RequestTimeoutSeconds)),
             cancellationToken);
 
@@ -66,7 +66,7 @@ public sealed class SettingsPageService(
     {
         if (!IsValidModel(request.Model))
         {
-            return Error("Choose a ChatGPT model.");
+            return Error("Choose an OpenAI model.");
         }
 
         if (request.RequestTimeoutSeconds is < 5 or > 180)
@@ -83,7 +83,7 @@ public sealed class SettingsPageService(
             return Error("API key is required.");
         }
 
-        openAiOptions.Model = request.Model;
+        openAiOptions.Model = request.Model.Trim();
         openAiOptions.RequestTimeout = TimeSpan.FromSeconds(request.RequestTimeoutSeconds);
 
         return Success("AI configuration saved.");
@@ -128,6 +128,6 @@ public sealed class SettingsPageService(
     private static bool IsValidModel(string value)
     {
         return !string.IsNullOrWhiteSpace(value)
-            && value.StartsWith("gpt-", StringComparison.OrdinalIgnoreCase);
+            && !value.Trim().Any(char.IsWhiteSpace);
     }
 }

@@ -48,15 +48,24 @@
             <label for="ai-model">Model</label>
             <div class="settings-input-wrap">
                 <span class="material-symbols-outlined" aria-hidden="true">memory</span>
-                <select id="ai-model" class="settings-input mono select" value="@State.AiModel" @onchange="HandleModelChanged">
-                    <option value="gpt-5.6-luna">gpt-5.6-luna</option>
-                    <option value="gpt-4o">gpt-4o</option>
-                    <option value="gpt-4-turbo">gpt-4-turbo</option>
-                    <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                <select id="ai-model"
+                        class="settings-input mono select"
+                        value="@State.AiModel"
+                        @onchange="HandleModelChanged"
+                        aria-describedby="ai-model-help"
+                        disabled="@State.IsBusy">
+                    @foreach (var model in ModelOptions)
+                    {
+                        <option value="@model">@model</option>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(State.AiModel) && !ModelOptions.Contains(State.AiModel))
+                    {
+                        <option value="@State.AiModel">@State.AiModel (configured)</option>
+                    }
                 </select>
                 <span class="material-symbols-outlined settings-select-icon" aria-hidden="true">expand_more</span>
             </div>
-            <p>Model used for transaction categorization.</p>
+            <p id="ai-model-help">Choose a model available to your OpenAI API key for transaction categorization.</p>
         </div>
 
         <div class="settings-field">
@@ -100,6 +109,14 @@
 </div>
 
 @code {
+    private static readonly string[] ModelOptions =
+    [
+        "gpt-6-luna",
+        "gpt-6.1-sol",
+        "gpt-6-astra",
+        "gpt-5.6-luna"
+    ];
+
     [Parameter]
     public SettingsAiConfigurationState State { get; set; } = SettingsAiConfigurationState.Empty;
 

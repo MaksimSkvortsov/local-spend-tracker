@@ -65,6 +65,7 @@ public sealed class DashboardService(
 
         var query = BuildQuery(mode, year, month);
         var filteredTransactions = await transactionRepository.ListAsync(query, cancellationToken);
+        var spendingTransactions = FilterSpendingTransactions(filteredTransactions, assignmentsByTransactionId);
         var report = await reportService.BuildAsync(query, cancellationToken);
         var totalSpending = report.TotalSpending;
         var windowRangeLabel = GetWindowRangeLabel(query, transactions);
@@ -72,6 +73,7 @@ public sealed class DashboardService(
         return new DashboardModel(
             transactions,
             filteredTransactions,
+            spendingTransactions,
             report,
             totalSpending,
             reviewCount,
@@ -83,7 +85,7 @@ public sealed class DashboardService(
             categoryColorsById,
             cardNamesById,
             BuildBiggestTransactionRows(
-                filteredTransactions,
+                spendingTransactions,
                 assignmentsByTransactionId,
                 categoryNamesById,
                 categoryColorsById),
@@ -125,13 +127,24 @@ public sealed class DashboardService(
         };
     }
 
+    private static IReadOnlyList<Transaction> FilterSpendingTransactions(
+        IReadOnlyList<Transaction> transactions,
+        IReadOnlyDictionary<Guid, TransactionCategoryAssignment> assignmentsByTransactionId)
+    {
+        return transactions
+            .Where(transaction => BuiltInCategories.CountsAsSpending(
+                assignmentsByTransactionId.GetValueOrDefault(transaction.Id)?.CategoryId
+                    ?? BuiltInCategoryIds.Other))
+            .ToArray();
+    }
+
     private static IReadOnlyList<BiggestTransactionRow> BuildBiggestTransactionRows(
-        IReadOnlyList<Transaction> filteredTransactions,
+        IReadOnlyList<Transaction> spendingTransactions,
         IReadOnlyDictionary<Guid, TransactionCategoryAssignment> assignmentsByTransactionId,
         IReadOnlyDictionary<int, string> categoryNamesById,
         IReadOnlyDictionary<int, string> categoryColorsById)
     {
-        return filteredTransactions
+        return spendingTransactions
             .Where(transaction => transaction.Amount > 0)
             .OrderByDescending(transaction => transaction.Amount)
             .ThenByDescending(transaction => transaction.ImportedAtUtc)

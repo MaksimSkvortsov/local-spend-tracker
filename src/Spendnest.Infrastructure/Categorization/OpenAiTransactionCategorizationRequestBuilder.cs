@@ -15,7 +15,7 @@ public sealed class OpenAiTransactionCategorizationRequestBuilder
 
     public object Build(IReadOnlyList<Transaction> transactions)
     {
-        var categoryIds = BuiltInCategories.All
+        var categoryIds = BuiltInCategories.AiSelectable
             .Select(category => category.Id)
             .ToArray();
 
@@ -34,7 +34,7 @@ public sealed class OpenAiTransactionCategorizationRequestBuilder
                     role = "user",
                     content = JsonSerializer.Serialize(new
                     {
-                        categories = BuiltInCategories.All.Select(category => new
+                        categories = BuiltInCategories.AiSelectable.Select(category => new
                         {
                             id = category.Id,
                             name = category.Name,

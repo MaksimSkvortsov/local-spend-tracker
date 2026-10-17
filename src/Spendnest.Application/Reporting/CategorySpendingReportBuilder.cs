@@ -34,7 +34,7 @@ public sealed class CategorySpendingReportBuilder
             .Select(transaction => new CategorizedTransaction(
                 transaction,
                 ResolveCategoryId(transaction, assignmentsByTransactionId)))
-            .Where(item => item.CategoryId != BuiltInCategoryIds.CreditCardPayment)
+            .Where(item => BuiltInCategories.CountsAsSpending(item.CategoryId))
             .ToArray();
     }
 

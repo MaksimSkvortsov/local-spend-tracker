@@ -52,7 +52,7 @@ else
 
             <div class="dashboard-side-stack">
                 <Card Title="Top Merchants">
-                    <TopMerchants Transactions="@filteredTransactions"
+                    <TopMerchants Transactions="@spendingTransactions"
                                   MerchantCodeResolver="@MerchantCodeResolver" />
                 </Card>
 
@@ -68,7 +68,7 @@ else
         </Card>
 
         <Card Title="Transaction Frequency">
-            <TransactionFrequency Transactions="@filteredTransactions"
+            <TransactionFrequency Transactions="@spendingTransactions"
                                   Cards="@cards"
                                   CardNames="@cardNamesById"
                                   Mode="@reportMode"
@@ -78,7 +78,7 @@ else
         </Card>
 
         <Card Title="Amount Spent per Day">
-            <DailySpend Transactions="@filteredTransactions"
+            <DailySpend Transactions="@spendingTransactions"
                         Mode="@reportMode"
                         Year="@selectedYear"
                         Month="@selectedMonth"
@@ -96,6 +96,8 @@ else
     private IReadOnlyList<Transaction> transactions => dashboard.Transactions;
 
     private IReadOnlyList<Transaction> filteredTransactions => dashboard.FilteredTransactions;
+
+    private IReadOnlyList<Transaction> spendingTransactions => dashboard.SpendingTransactions;
 
     private CategorySpendingReport report => dashboard.Report;
 

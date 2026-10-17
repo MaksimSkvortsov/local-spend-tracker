@@ -7,6 +7,7 @@ namespace Spendnest.Desktop.Presentation.Dashboard;
 public sealed record DashboardModel(
     IReadOnlyList<Transaction> Transactions,
     IReadOnlyList<Transaction> FilteredTransactions,
+    IReadOnlyList<Transaction> SpendingTransactions,
     CategorySpendingReport Report,
     decimal TotalSpending,
     int ReviewCount,
@@ -23,6 +24,7 @@ public sealed record DashboardModel(
     string WindowRangeLabel)
 {
     public static DashboardModel Empty { get; } = new(
+        [],
         [],
         [],
         new CategorySpendingReport([], 0m),

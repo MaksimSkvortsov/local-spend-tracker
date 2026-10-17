@@ -19,4 +19,5 @@ public static class BuiltInCategoryIds
     public const int FeesAndCharges = 12;
     public const int CreditCardPayment = 13;
     public const int Other = 15;
+    public const int OtherCardPayment = 16;
 }

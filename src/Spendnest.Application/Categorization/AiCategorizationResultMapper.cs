@@ -95,7 +95,7 @@ public sealed class AiCategorizationResultMapper
 
     private static bool IsSupportedCategory(int categoryId)
     {
-        return BuiltInCategories.All.Any(category => category.Id == categoryId);
+        return BuiltInCategories.AiSelectable.Any(category => category.Id == categoryId);
     }
 
     private static TransactionCategorization CopyResultForTransaction(

@@ -21,7 +21,7 @@ public sealed class OpenAiTransactionCategorizationResponseReader
         using var outputDocument = JsonDocument.Parse(outputText);
         var outputRoot = outputDocument.RootElement;
         var transactionIds = transactions.Select(transaction => transaction.Id).ToHashSet();
-        var categoryIds = BuiltInCategories.All.Select(category => category.Id).ToHashSet();
+        var categoryIds = BuiltInCategories.AiSelectable.Select(category => category.Id).ToHashSet();
 
         if (!outputRoot.TryGetProperty("items", out var itemsElement) || itemsElement.ValueKind != JsonValueKind.Array)
         {

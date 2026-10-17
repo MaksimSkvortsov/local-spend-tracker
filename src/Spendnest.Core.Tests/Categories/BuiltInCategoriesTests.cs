@@ -24,7 +24,26 @@ public class BuiltInCategoriesTests
             BuiltInCategoryIds.PersonalCare,
             BuiltInCategoryIds.FeesAndCharges,
             BuiltInCategoryIds.CreditCardPayment,
+            BuiltInCategoryIds.OtherCardPayment,
             BuiltInCategoryIds.Other);
+    }
+
+    [Fact]
+    public void AiSelectable_ShouldExcludeOtherCardPayment()
+    {
+        BuiltInCategories.AiSelectable
+            .Select(category => category.Id)
+            .Should()
+            .NotContain(BuiltInCategoryIds.OtherCardPayment)
+            .And.Contain(BuiltInCategoryIds.CreditCardPayment);
+    }
+
+    [Fact]
+    public void CountsAsSpending_ShouldExcludeOnlyCreditCardPayment()
+    {
+        BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.CreditCardPayment).Should().BeFalse();
+        BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.OtherCardPayment).Should().BeTrue();
+        BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.Other).Should().BeTrue();
     }
 
     [Fact]

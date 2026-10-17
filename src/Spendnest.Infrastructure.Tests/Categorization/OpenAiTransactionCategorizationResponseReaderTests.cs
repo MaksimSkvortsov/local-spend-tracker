@@ -67,6 +67,32 @@ public class OpenAiTransactionCategorizationResponseReaderTests
     }
 
     [Fact]
+    public void Read_ShouldRejectOtherCardPaymentFromAi()
+    {
+        var transaction = Transaction("Online Banking payment to CRD 6514");
+        var reader = CreateReader();
+        var outputText = OutputText(new
+        {
+            items = new[]
+            {
+                new
+                {
+                    transactionId = transaction.Id,
+                    categoryId = BuiltInCategoryIds.OtherCardPayment,
+                    rulePrefix = "ONLINE BANKING PAYMENT TO CRD",
+                    confidence = 0.91m,
+                    explanation = "Card payment."
+                }
+            }
+        });
+
+        var act = () => reader.Read(outputText, [transaction]);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage($"OpenAI returned unsupported category id '{BuiltInCategoryIds.OtherCardPayment}'.");
+    }
+
+    [Fact]
     public void Read_ShouldRejectMissingItemsArray()
     {
         var transaction = Transaction("BULK MART #0218 RIVERTON VA");

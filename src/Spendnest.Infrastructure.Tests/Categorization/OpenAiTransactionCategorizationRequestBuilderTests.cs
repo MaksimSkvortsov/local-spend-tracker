@@ -2,6 +2,7 @@ namespace Spendnest.Infrastructure.Tests.Categorization;
 
 using System.Text.Json;
 using FluentAssertions;
+using Spendnest.Core.Categories;
 using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Categorization;
 
@@ -32,6 +33,29 @@ public class OpenAiTransactionCategorizationRequestBuilderTests
         {
             transaction.TryGetProperty("amount", out _).Should().BeFalse();
         }
+    }
+
+    [Fact]
+    public void Build_ShouldNotOfferOtherCardPaymentToAi()
+    {
+        var builder = new OpenAiTransactionCategorizationRequestBuilder(new OpenAiCategorizerOptions
+        {
+            Model = "test-model"
+        });
+        var requestJson = JsonSerializer.Serialize(
+            builder.Build([Transaction("Online Banking payment to CRD 6514", 853.51m)]),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        using var requestDocument = JsonDocument.Parse(requestJson);
+        var userContent = requestDocument.RootElement.GetProperty("input")[1].GetProperty("content").GetString();
+        using var userContentDocument = JsonDocument.Parse(userContent!);
+        var promptCategoryIds = userContentDocument.RootElement.GetProperty("categories")
+            .EnumerateArray()
+            .Select(category => category.GetProperty("id").GetInt32());
+
+        promptCategoryIds.Should().Contain(BuiltInCategoryIds.CreditCardPayment)
+            .And.NotContain(BuiltInCategoryIds.OtherCardPayment);
+        requestJson.Should().NotContain("Other Card Payment");
     }
 
     private static Transaction Transaction(

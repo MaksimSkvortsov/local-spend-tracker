@@ -53,6 +53,26 @@ public class CategorySpendingReportBuilderTests
     }
 
     [Fact]
+    public void Build_ShouldCountOtherCardPaymentsAsSpending()
+    {
+        var builder = new CategorySpendingReportBuilder();
+        var importedCardPayment = Transaction("CAPITAL ONE DES:MOBILE PMT", 1019.74m);
+        var otherCardPayment = Transaction("Online Banking payment to CRD 6514", 853.51m);
+
+        var report = builder.Build(
+            [importedCardPayment, otherCardPayment],
+            [
+                Assignment(importedCardPayment.Id, BuiltInCategoryIds.CreditCardPayment),
+                Assignment(otherCardPayment.Id, BuiltInCategoryIds.OtherCardPayment)
+            ],
+            BuiltInCategories.All);
+
+        report.Lines.Should().ContainSingle().Which.Should().Be(
+            new CategorySpendingReportLine(BuiltInCategoryIds.OtherCardPayment, "Other Card Payment", 1, 853.51m));
+        report.TotalSpending.Should().Be(853.51m);
+    }
+
+    [Fact]
     public void Build_ShouldUseOtherForUnassignedTransactions()
     {
         var builder = new CategorySpendingReportBuilder();

@@ -20,6 +20,23 @@ public static class BuiltInCategories
         new(BuiltInCategoryIds.PersonalCare, "Personal Care", 110, "#46b83f"),
         new(BuiltInCategoryIds.FeesAndCharges, "Fees & Charges", 120, "#b33b1a"),
         new(BuiltInCategoryIds.CreditCardPayment, "Credit Card Payment", 130, "#d1d5db"),
+        new(BuiltInCategoryIds.OtherCardPayment, "Other Card Payment", 140, "#7c3aed"),
         new(BuiltInCategoryIds.Other, "Other", 150, "#e5e7eb")
     ];
+
+    /// <summary>
+    /// Categories AI categorization may choose. Other Card Payment depends on which cards the user
+    /// imports, so only rules and manual review assign it.
+    /// </summary>
+    public static IReadOnlyList<BuiltInCategory> AiSelectable { get; } =
+        All.Where(category => category.Id != BuiltInCategoryIds.OtherCardPayment).ToArray();
+
+    /// <summary>
+    /// Returns whether transactions in the category count as spending. Credit Card Payment means a payment
+    /// to an imported card, whose charges are already counted.
+    /// </summary>
+    public static bool CountsAsSpending(int categoryId)
+    {
+        return categoryId != BuiltInCategoryIds.CreditCardPayment;
+    }
 }

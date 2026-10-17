@@ -10,4 +10,19 @@ public sealed record TransactionCategorization(
     bool NeedsReview,
     CategorizationSource Source,
     string Explanation,
-    string? LearnedRulePrefix = null);
+    string? LearnedRulePrefix = null)
+{
+    public TransactionCategoryAssignment ToAssignment(DateTimeOffset updatedAtUtc)
+    {
+        return new TransactionCategoryAssignment
+        {
+            TransactionId = TransactionId,
+            CategoryId = CategoryId,
+            Confidence = Confidence,
+            NeedsReview = NeedsReview,
+            Source = Source,
+            Explanation = Explanation,
+            UpdatedAtUtc = updatedAtUtc
+        };
+    }
+}

@@ -1,4 +1,5 @@
 using Spendnest.Core.Accounts;
+using Spendnest.Core.Categorization;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
@@ -6,7 +7,9 @@ using Spendnest.Core.Transactions;
 namespace Spendnest.Application.Importing;
 
 /// <summary>
-/// Parses a statement file and saves normalized transactions to a repository.
+/// Parses and categorizes a statement file, then saves the import, its transactions, and their
+/// category assignments together. When any new transaction stays unresolved, the import is failed
+/// and no transactions are saved.
 /// </summary>
 public sealed class StatementFileImportService : IStatementFileImportService
 {
@@ -14,6 +17,8 @@ public sealed class StatementFileImportService : IStatementFileImportService
     private readonly ITransactionRepository transactionRepository;
     private readonly ICardAccountRepository cardAccountRepository;
     private readonly IStatementImportRepository statementImportRepository;
+    private readonly IStatementImportStore statementImportStore;
+    private readonly ITransactionCategorizationService categorizationService;
     private readonly IStatementFileReader fileReader;
 
     public StatementFileImportService(
@@ -21,12 +26,16 @@ public sealed class StatementFileImportService : IStatementFileImportService
         ITransactionRepository transactionRepository,
         ICardAccountRepository cardAccountRepository,
         IStatementImportRepository statementImportRepository,
+        IStatementImportStore statementImportStore,
+        ITransactionCategorizationService categorizationService,
         IStatementFileReader fileReader)
     {
         this.parser = parser;
         this.transactionRepository = transactionRepository;
         this.cardAccountRepository = cardAccountRepository;
         this.statementImportRepository = statementImportRepository;
+        this.statementImportStore = statementImportStore;
+        this.categorizationService = categorizationService;
         this.fileReader = fileReader;
     }
 
@@ -65,27 +74,71 @@ public sealed class StatementFileImportService : IStatementFileImportService
                 importedAtUtc,
                 cancellationToken).ConfigureAwait(false);
 
+            var categorizations = await CategorizeTransactionsAsync(
+                preparedTransactions.Transactions,
+                options.Progress,
+                cancellationToken).ConfigureAwait(false);
+
             options.Progress?.Report(FileUploadProgress.SavingTransactions(
                 preparedTransactions.Transactions.Count,
                 parseResult.Rows.Count));
-            await transactionRepository.AddRangeAsync(preparedTransactions.Transactions, cancellationToken).ConfigureAwait(false);
-
             CompleteStatementImport(statementImport, parseResult, preparedTransactions);
-            await statementImportRepository.UpdateAsync(statementImport, cancellationToken).ConfigureAwait(false);
+            var assignedAtUtc = DateTimeOffset.UtcNow;
+            await statementImportStore.CompleteImportAsync(
+                statementImport,
+                preparedTransactions.Transactions,
+                categorizations.Select(categorization => categorization.ToAssignment(assignedAtUtc)).ToArray(),
+                cancellationToken).ConfigureAwait(false);
 
             return CreateImportResult(
                 statementImport,
                 statementFile,
                 cardAccount,
                 parseResult,
-                preparedTransactions);
+                preparedTransactions,
+                categorizations);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (OperationCanceledException)
         {
-            FailStatementImport(statementImport, exception);
+            FailStatementImport(statementImport, "Import was cancelled.");
             await statementImportRepository.UpdateAsync(statementImport, CancellationToken.None).ConfigureAwait(false);
             throw;
         }
+        catch (Exception exception)
+        {
+            FailStatementImport(statementImport, exception.Message);
+            await statementImportRepository.UpdateAsync(statementImport, CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private async Task<IReadOnlyList<TransactionCategorization>> CategorizeTransactionsAsync(
+        IReadOnlyList<Transaction> transactions,
+        IProgress<FileUploadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        if (transactions.Count == 0)
+        {
+            return [];
+        }
+
+        progress?.Report(FileUploadProgress.CategorizingTransactions(0, transactions.Count));
+        var categorizations = await categorizationService
+            .CategorizeAsync(transactions, progress, cancellationToken)
+            .ConfigureAwait(false);
+
+        var unresolved = categorizations
+            .Where(categorization => categorization.Source == CategorizationSource.Unresolved)
+            .ToArray();
+        if (unresolved.Length > 0)
+        {
+            throw new StatementCategorizationFailedException(
+                unresolved.Length,
+                transactions.Count,
+                unresolved.Select(categorization => categorization.Explanation).Distinct(StringComparer.Ordinal).ToArray());
+        }
+
+        return categorizations;
     }
 
     private async Task EnsureStatementWasNotAlreadyImportedAsync(
@@ -204,10 +257,11 @@ public sealed class StatementFileImportService : IStatementFileImportService
 
     private static void FailStatementImport(
         StatementImport statementImport,
-        Exception exception)
+        string errorMessage)
     {
         statementImport.Status = StatementImportStatus.Failed;
-        statementImport.ErrorMessage = exception.Message;
+        statementImport.SavedTransactionCount = 0;
+        statementImport.ErrorMessage = errorMessage;
         statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
     }
 
@@ -216,7 +270,8 @@ public sealed class StatementFileImportService : IStatementFileImportService
         StatementFileReadResult statementFile,
         CardAccount cardAccount,
         StatementParseResult parseResult,
-        PreparedTransactions preparedTransactions)
+        PreparedTransactions preparedTransactions,
+        IReadOnlyList<TransactionCategorization> categorizations)
     {
         return new StatementFileImportResult(
             statementImport.Id,
@@ -228,7 +283,8 @@ public sealed class StatementFileImportService : IStatementFileImportService
             preparedTransactions.SkippedDuplicateCount,
             parseResult.FailedRowCount,
             preparedTransactions.Transactions,
-            parseResult.Warnings);
+            parseResult.Warnings,
+            categorizations);
     }
 
     private static string NormalizeCardAccountName(string cardAccountName)

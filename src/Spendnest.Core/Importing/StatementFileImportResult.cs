@@ -1,9 +1,10 @@
+using Spendnest.Core.Categorization;
 using Spendnest.Core.Transactions;
 
 namespace Spendnest.Core.Importing;
 
 /// <summary>
-/// Summarizes the result of parsing and saving one statement file.
+/// Summarizes the result of parsing, categorizing, and saving one statement file.
 /// </summary>
 public sealed record StatementFileImportResult(
     Guid StatementImportId,
@@ -15,4 +16,5 @@ public sealed record StatementFileImportResult(
     int SkippedDuplicateTransactionCount,
     int FailedRowCount,
     IReadOnlyList<Transaction> SavedTransactions,
-    IReadOnlyList<StatementParseWarning> Warnings);
+    IReadOnlyList<StatementParseWarning> Warnings,
+    IReadOnlyList<TransactionCategorization> Categorizations);

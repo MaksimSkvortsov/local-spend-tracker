@@ -1,7 +1,7 @@
 namespace Spendnest.Core.Importing;
 
 /// <summary>
-/// Imports a statement file by parsing it and saving normalized transactions.
+/// Imports a statement file by parsing and categorizing it, saving its transactions only when all are categorized.
 /// </summary>
 public interface IStatementFileImportService
 {

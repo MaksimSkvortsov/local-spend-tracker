@@ -90,6 +90,20 @@ public sealed class SqliteStatementImportRepository : IStatementImportRepository
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<StatementImport?> GetByIdAsync(
+        Guid statementImportId,
+        CancellationToken cancellationToken)
+    {
+        await using var dbContext = await dbContextFactory
+            .CreateDbContextAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return await dbContext.StatementImports
+            .AsNoTracking()
+            .FirstOrDefaultAsync(statementImport => statementImport.Id == statementImportId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<StatementImport?> GetByFileHashAsync(
         string fileHash,
         CancellationToken cancellationToken)

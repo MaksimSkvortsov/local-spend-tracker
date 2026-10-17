@@ -17,6 +17,10 @@ public interface IStatementImportRepository
         Guid statementImportId,
         CancellationToken cancellationToken);
 
+    Task<StatementImport?> GetByIdAsync(
+        Guid statementImportId,
+        CancellationToken cancellationToken);
+
     Task<StatementImport?> GetByFileHashAsync(
         string fileHash,
         CancellationToken cancellationToken);

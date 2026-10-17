@@ -23,22 +23,8 @@ public sealed class TransactionCategorizationApplier : ITransactionCategorizatio
         foreach (var categorization in categorizations)
         {
             await assignmentRepository.SaveAsync(
-                CreateAssignment(categorization),
+                categorization.ToAssignment(DateTimeOffset.UtcNow),
                 cancellationToken).ConfigureAwait(false);
         }
-    }
-
-    private static TransactionCategoryAssignment CreateAssignment(TransactionCategorization categorization)
-    {
-        return new TransactionCategoryAssignment
-        {
-            TransactionId = categorization.TransactionId,
-            CategoryId = categorization.CategoryId,
-            Confidence = categorization.Confidence,
-            NeedsReview = categorization.NeedsReview,
-            Source = categorization.Source,
-            Explanation = categorization.Explanation,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
-        };
     }
 }

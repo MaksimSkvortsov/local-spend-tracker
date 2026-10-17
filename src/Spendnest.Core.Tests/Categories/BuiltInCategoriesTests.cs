@@ -25,6 +25,7 @@ public class BuiltInCategoriesTests
             BuiltInCategoryIds.FeesAndCharges,
             BuiltInCategoryIds.CreditCardPayment,
             BuiltInCategoryIds.OtherCardPayment,
+            BuiltInCategoryIds.IncomeAndTransfers,
             BuiltInCategoryIds.Other);
     }
 
@@ -35,13 +36,15 @@ public class BuiltInCategoriesTests
             .Select(category => category.Id)
             .Should()
             .NotContain(BuiltInCategoryIds.OtherCardPayment)
-            .And.Contain(BuiltInCategoryIds.CreditCardPayment);
+            .And.Contain(BuiltInCategoryIds.CreditCardPayment)
+            .And.Contain(BuiltInCategoryIds.IncomeAndTransfers);
     }
 
     [Fact]
-    public void CountsAsSpending_ShouldExcludeOnlyCreditCardPayment()
+    public void CountsAsSpending_ShouldExcludeCardPaymentsAndIncome()
     {
         BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.CreditCardPayment).Should().BeFalse();
+        BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.IncomeAndTransfers).Should().BeFalse();
         BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.OtherCardPayment).Should().BeTrue();
         BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.Other).Should().BeTrue();
     }

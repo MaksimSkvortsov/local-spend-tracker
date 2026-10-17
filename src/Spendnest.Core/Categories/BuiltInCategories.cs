@@ -21,6 +21,7 @@ public static class BuiltInCategories
         new(BuiltInCategoryIds.FeesAndCharges, "Fees & Charges", 120, "#b33b1a"),
         new(BuiltInCategoryIds.CreditCardPayment, "Credit Card Payment", 130, "#d1d5db"),
         new(BuiltInCategoryIds.OtherCardPayment, "Other Card Payment", 140, "#7c3aed"),
+        new(BuiltInCategoryIds.IncomeAndTransfers, "Income & Transfers", 145, "#2563eb"),
         new(BuiltInCategoryIds.Other, "Other", 150, "#e5e7eb")
     ];
 
@@ -33,10 +34,11 @@ public static class BuiltInCategories
 
     /// <summary>
     /// Returns whether transactions in the category count as spending. Credit Card Payment means a payment
-    /// to an imported card, whose charges are already counted.
+    /// to an imported card, whose charges are already counted. Income & Transfers is money received or moved
+    /// between the user's own accounts.
     /// </summary>
     public static bool CountsAsSpending(int categoryId)
     {
-        return categoryId != BuiltInCategoryIds.CreditCardPayment;
+        return categoryId is not (BuiltInCategoryIds.CreditCardPayment or BuiltInCategoryIds.IncomeAndTransfers);
     }
 }

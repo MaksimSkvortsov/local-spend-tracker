@@ -21,6 +21,7 @@ public static class OpenAiCategoryGuidance
             BuiltInCategoryIds.PersonalCare => "Haircuts, barber, spa, massage, cosmetics, grooming.",
             BuiltInCategoryIds.FeesAndCharges => "Interest charges, bank fees, card fees, service charges.",
             BuiltInCategoryIds.CreditCardPayment => "Credit-card payments, statement payments, Capital One mobile payments.",
+            BuiltInCategoryIds.IncomeAndTransfers => "Money received that is not a purchase refund: payroll, direct deposits, incoming transfers, Zelle/P2P received, interest, cash-back deposits. Also transfers between the user's own accounts in either direction, such as brokerage or savings transfers.",
             BuiltInCategoryIds.Other => "Only for transactions that cannot reasonably fit another provided category.",
             _ => string.Empty
         };

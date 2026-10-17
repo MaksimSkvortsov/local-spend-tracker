@@ -73,6 +73,28 @@ public class CategorySpendingReportBuilderTests
     }
 
     [Fact]
+    public void Build_ShouldExcludeIncomeAndTransfersButKeepRefunds()
+    {
+        var builder = new CategorySpendingReportBuilder();
+        var payroll = Transaction("Zimmer Gunsul Fr DES:PAYROLL", -1978.10m);
+        var groceries = Transaction("COSTCO WHSE #0218 STERLING VA", 120m);
+        var refund = Transaction("COSTCO WHSE #0218 STERLING VA", -26.99m);
+
+        var report = builder.Build(
+            [payroll, groceries, refund],
+            [
+                Assignment(payroll.Id, BuiltInCategoryIds.IncomeAndTransfers),
+                Assignment(groceries.Id, BuiltInCategoryIds.Groceries),
+                Assignment(refund.Id, BuiltInCategoryIds.Groceries)
+            ],
+            BuiltInCategories.All);
+
+        report.Lines.Should().ContainSingle().Which.Should().Be(
+            new CategorySpendingReportLine(BuiltInCategoryIds.Groceries, "Groceries", 2, 93.01m));
+        report.TotalSpending.Should().Be(93.01m);
+    }
+
+    [Fact]
     public void Build_ShouldUseOtherForUnassignedTransactions()
     {
         var builder = new CategorySpendingReportBuilder();

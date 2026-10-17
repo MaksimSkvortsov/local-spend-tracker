@@ -1,6 +1,5 @@
-using Spendnest.Application.Categorization;
+using Spendnest.Application.Importing;
 using Spendnest.Core.Categories;
-using Spendnest.Core.Categorization;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Progress;
 using Spendnest.Desktop.Presentation.Importing;
@@ -9,9 +8,7 @@ namespace Spendnest.Desktop.Services;
 
 public sealed class ImportWorkflowService(
     IStatementFileImportService importService,
-    ITransactionCategorizationService categorizationService,
-    ITransactionCategorizationApplier categorizationApplier,
-    IStatementImportRepository importHistoryRepository)
+    StatementImportRetryService importRetryService)
 {
     public async Task<ImportWorkflowResult> ImportAndCategorizeAsync(
         string filePath,
@@ -19,90 +16,44 @@ public sealed class ImportWorkflowService(
         IProgress<FileUploadProgress> progress,
         CancellationToken cancellationToken)
     {
-        StatementFileImportResult? importResult = null;
-
-        try
-        {
-            importResult = await importService.ImportAsync(
-                filePath,
-                new StatementFileImportOptions
-                {
-                    CardAccountName = cardAccountName,
-                    Progress = progress
-                },
-                cancellationToken);
-
-            await UpdateStatementImportStatusAsync(
-                importResult.StatementImportId,
-                StatementImportStatus.Pending,
-                null,
-                cancellationToken);
-            progress.Report(FileUploadProgress.CategorizingTransactions(
-                0,
-                importResult.SavedTransactions.Count));
-
-            var categorizations = await categorizationService.CategorizeAsync(
-                importResult.SavedTransactions,
-                progress,
-                cancellationToken);
-            await categorizationApplier.ApplyAsync(categorizations, cancellationToken);
-
-            var categorizationError = string.Join(" ", categorizations
-                .Where(result => result.Source == CategorizationSource.Unresolved)
-                .Select(result => result.Explanation)
-                .Distinct());
-
-            await UpdateStatementImportStatusAsync(
-                importResult.StatementImportId,
-                StatementImportStatus.Completed,
-                string.IsNullOrWhiteSpace(categorizationError) ? null : categorizationError,
-                cancellationToken);
-            progress.Report(FileUploadProgress.RefreshingData);
-
-            return new ImportWorkflowResult(
-                importResult,
-                categorizations.ToDictionary(
-                    categorization => categorization.TransactionId,
-                    categorization => GetBuiltInCategoryName(categorization.CategoryId)),
-                CategorizationHistorySummary.From(categorizations),
-                GetImportFocusDate(importResult));
-        }
-        catch (Exception exception)
-        {
-            if (importResult is not null)
+        var importResult = await importService.ImportAsync(
+            filePath,
+            new StatementFileImportOptions
             {
-                await UpdateStatementImportStatusAsync(
-                    importResult.StatementImportId,
-                    StatementImportStatus.Failed,
-                    exception.Message,
-                    cancellationToken);
-            }
+                CardAccountName = cardAccountName,
+                Progress = progress
+            },
+            cancellationToken);
 
-            throw;
-        }
+        return CreateWorkflowResult(importResult, progress);
     }
 
-    private async Task UpdateStatementImportStatusAsync(
+    public async Task<ImportWorkflowResult> RetryAsync(
         Guid statementImportId,
-        StatementImportStatus status,
-        string? errorMessage,
+        IProgress<FileUploadProgress> progress,
         CancellationToken cancellationToken)
     {
-        var statementImport = (await importHistoryRepository.ListAsync(cancellationToken))
-            .FirstOrDefault(import => import.Id == statementImportId);
-        if (statementImport is null)
-        {
-            return;
-        }
+        var importResult = await importRetryService.RetryAsync(
+            statementImportId,
+            progress,
+            cancellationToken);
 
-        statementImport.Status = status;
-        statementImport.ErrorMessage = errorMessage;
-        if (status is StatementImportStatus.Completed or StatementImportStatus.Failed)
-        {
-            statementImport.CompletedAtUtc = DateTimeOffset.UtcNow;
-        }
+        return CreateWorkflowResult(importResult, progress);
+    }
 
-        await importHistoryRepository.UpdateAsync(statementImport, cancellationToken);
+    private static ImportWorkflowResult CreateWorkflowResult(
+        StatementFileImportResult importResult,
+        IProgress<FileUploadProgress> progress)
+    {
+        progress.Report(FileUploadProgress.RefreshingData);
+
+        return new ImportWorkflowResult(
+            importResult,
+            importResult.Categorizations.ToDictionary(
+                categorization => categorization.TransactionId,
+                categorization => GetBuiltInCategoryName(categorization.CategoryId)),
+            CategorizationHistorySummary.From(importResult.Categorizations),
+            GetImportFocusDate(importResult));
     }
 
     private static DateOnly? GetImportFocusDate(StatementFileImportResult importResult)

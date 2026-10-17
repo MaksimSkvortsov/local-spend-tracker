@@ -14,14 +14,13 @@ public sealed record UploadHistoryItem(
     int FailedRowCount,
     int CategorizedTransactionCount,
     int NeedsReviewCount,
-    int TimeoutCount,
     string TransactionRange,
     StatementImportStatus Status,
     string? ErrorMessage = null)
 {
-    public string StatusLabel => Status == StatementImportStatus.Completed && !string.IsNullOrWhiteSpace(ErrorMessage)
-        ? "Needs review"
-        : Status.ToString();
+    public string StatusLabel => Status.ToString();
+
+    public bool CanRetry => Status == StatementImportStatus.Failed;
 
     public static UploadHistoryItem From(
         StatementImport statementImport,
@@ -42,7 +41,6 @@ public sealed record UploadHistoryItem(
             statementImport.FailedRowCount,
             categorizationSummary?.CategorizedTransactionCount ?? 0,
             categorizationSummary?.NeedsReviewCount ?? 0,
-            categorizationSummary?.TimeoutCount ?? 0,
             transactionRange,
             statementImport.Status,
             statementImport.ErrorMessage);

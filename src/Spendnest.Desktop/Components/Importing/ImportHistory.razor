@@ -27,15 +27,7 @@
                     {
                         <div class="alert error" role="alert">
                             <div>@upload.ErrorMessage</div>
-                            @if (upload.Status == StatementImportStatus.Completed)
-                            {
-                                <span>Transactions were saved. Review their categories on the <a href="/transactions">Transactions page</a>.</span>
-                            }
                         </div>
-                    }
-                    @if (upload.TimeoutCount > 0)
-                    {
-                        <span class="history-note">@upload.TimeoutCount AI timeouts</span>
                     }
                 </td>
                 <td class="data-cell history-count-column">@upload.SavedTransactionCount</td>
@@ -58,10 +50,21 @@
             {
                 <tr class="import-history-actions-row">
                     <td colspan="6">
-                        <div id="@($"import-actions-{upload.Id}")" class="import-history-delete-confirmation" role="group" aria-label="Confirm deleting import">
-                            <span>Delete "@upload.FileName" and its @upload.SavedTransactionCount imported transactions? The CSV file on your computer will stay.</span>
+                        <div id="@($"import-actions-{upload.Id}")" class="import-history-delete-confirmation" role="group" aria-label="@(upload.CanRetry ? "Retry or delete import" : "Confirm deleting import")">
+                            @if (upload.CanRetry)
+                            {
+                                <span>Retry importing "@upload.FileName", or delete this failed import. No transactions were saved from it. The CSV file on your computer will stay.</span>
+                            }
+                            else
+                            {
+                                <span>Delete "@upload.FileName" and its @upload.SavedTransactionCount imported transactions? The CSV file on your computer will stay.</span>
+                            }
                             <div>
                                 <button type="button" class="secondary-button" disabled="@IsBusy" @onclick="CloseActions">Cancel</button>
+                                @if (upload.CanRetry)
+                                {
+                                    <button type="button" class="primary-button" disabled="@IsBusy" @onclick="() => RetryAsync(upload.Id)">Retry Import</button>
+                                }
                                 <button type="button" class="danger-button" disabled="@IsBusy" @onclick="() => OnDelete.InvokeAsync(upload.Id)">Delete Import</button>
                             </div>
                         </div>
@@ -107,9 +110,18 @@
     public EventCallback<Guid> OnDelete { get; set; }
 
     [Parameter]
+    public EventCallback<Guid> OnRetry { get; set; }
+
+    [Parameter]
     public bool IsBusy { get; set; }
 
     private Guid? openActionsImportId;
+
+    private async Task RetryAsync(Guid importId)
+    {
+        openActionsImportId = null;
+        await OnRetry.InvokeAsync(importId);
+    }
 
     private void ToggleActions(Guid importId)
     {
@@ -128,7 +140,7 @@
             return "import-status failed";
         }
 
-        return upload.Status == StatementImportStatus.Pending || !string.IsNullOrWhiteSpace(upload.ErrorMessage)
+        return upload.Status == StatementImportStatus.Pending
             ? "import-status pending"
             : "import-status complete";
     }

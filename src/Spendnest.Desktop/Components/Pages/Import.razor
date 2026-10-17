@@ -81,6 +81,7 @@
                            PageCount="@history.PageCount"
                            IsBusy="@isBusy"
                            OnDelete="DeleteImportAsync"
+                           OnRetry="RetryImportAsync"
                            OnPrevious="PreviousUploadHistoryPage"
                            OnNext="NextUploadHistoryPage" />
         </ChildContent>
@@ -200,6 +201,51 @@
         currentProgress = progress;
         statusMessage = FormatProgressMessage(progress);
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RetryImportAsync(Guid importId)
+    {
+        var import = history.Rows.FirstOrDefault(item => item.Id == importId);
+        if (import is null || isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        historyActionIsError = false;
+        historyActionMessage = $"Retrying {import.FileName}...";
+        var progress = new Progress<FileUploadProgress>(value =>
+        {
+            historyActionMessage = $"Retrying {import.FileName}: {FormatProgressMessage(value)}";
+            _ = InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            var workflowResult = await ImportWorkflowService.RetryAsync(
+                importId,
+                progress,
+                CancellationToken.None);
+
+            var importResult = workflowResult.ImportResult;
+            categorizationSummariesByImportId.Remove(importId);
+            categorizationSummariesByImportId[importResult.StatementImportId] =
+                workflowResult.CategorizationSummary;
+            DataRefreshNotifier.NotifyTransactionsChanged(workflowResult.FocusDate);
+            historyActionMessage = $"{import.FileName} was imported with {importResult.SavedTransactionCount} transactions.";
+            historyActionIsError = false;
+        }
+        catch (Exception exception)
+        {
+            historyActionMessage = $"Could not retry import: {exception.Message}";
+            historyActionIsError = true;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+
+        await RefreshImportHistoryViewAsync();
     }
 
     private static string FormatProgressMessage(FileUploadProgress progress)

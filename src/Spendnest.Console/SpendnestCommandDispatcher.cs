@@ -28,6 +28,7 @@ public sealed class SpendnestCommandDispatcher
     private readonly ICredentialStore credentialStore;
     private readonly CategoryRuleManagementService ruleManagementService;
     private readonly StatementFolderImportService folderImportService;
+    private readonly StatementImportRetryService importRetryService;
     private readonly ILogger<SpendnestCommandDispatcher> logger;
 
     public SpendnestCommandDispatcher(
@@ -42,6 +43,7 @@ public sealed class SpendnestCommandDispatcher
         ICredentialStore credentialStore,
         CategoryRuleManagementService ruleManagementService,
         StatementFolderImportService folderImportService,
+        StatementImportRetryService importRetryService,
         ILogger<SpendnestCommandDispatcher> logger)
     {
         this.parser = parser;
@@ -55,6 +57,7 @@ public sealed class SpendnestCommandDispatcher
         this.credentialStore = credentialStore;
         this.ruleManagementService = ruleManagementService;
         this.folderImportService = folderImportService;
+        this.importRetryService = importRetryService;
         this.logger = logger;
     }
 
@@ -163,7 +166,13 @@ public sealed class SpendnestCommandDispatcher
         if (args.Count < 2)
         {
             System.Console.Error.WriteLine("Usage: import <csv-file> [--card <card-name>]");
+            System.Console.Error.WriteLine("       import retry <import-id>");
             return 1;
+        }
+
+        if (args[1].Equals("retry", StringComparison.OrdinalIgnoreCase))
+        {
+            return await RetryImportAsync(args, cancellationToken).ConfigureAwait(false);
         }
 
         var csvFilePath = args[1];
@@ -173,18 +182,59 @@ public sealed class SpendnestCommandDispatcher
             return 1;
         }
 
-        var (result, categorizations) = await ImportAndCategorizeAsync(
-            csvFilePath,
-            ParseImportOptions(args.Skip(2)),
-            cancellationToken).ConfigureAwait(false);
+        StatementFileImportResult result;
+        try
+        {
+            result = await importService
+                .ImportAsync(csvFilePath, ParseImportOptions(args.Skip(2)), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            System.Console.Error.WriteLine($"Import failed: {exception.Message}");
+            return 1;
+        }
 
+        PrintImportResult(result);
+        return 0;
+    }
+
+    private async Task<int> RetryImportAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        if (args.Count < 3 || !Guid.TryParse(args[2], out var statementImportId))
+        {
+            System.Console.Error.WriteLine("Usage: import retry <import-id>");
+            return 1;
+        }
+
+        StatementFileImportResult result;
+        try
+        {
+            result = await importRetryService
+                .RetryAsync(statementImportId, null, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (InvalidOperationException exception)
+        {
+            System.Console.Error.WriteLine($"Import failed: {exception.Message}");
+            return 1;
+        }
+
+        PrintImportResult(result);
+        return 0;
+    }
+
+    private static void PrintImportResult(StatementFileImportResult result)
+    {
         System.Console.WriteLine($"Card: {result.CardAccountName}");
         System.Console.WriteLine($"Import id: {result.StatementImportId}");
         System.Console.WriteLine($"Rows parsed: {result.ParsedRowCount}");
         System.Console.WriteLine($"Transactions saved: {result.SavedTransactionCount}");
         System.Console.WriteLine($"Duplicate transactions skipped: {result.SkippedDuplicateTransactionCount}");
         System.Console.WriteLine($"Failed rows: {result.FailedRowCount}");
-        PrintCategorizationSummary(categorizations);
+        PrintCategorizationSummary(result.Categorizations);
         System.Console.WriteLine();
 
         foreach (var transaction in result.SavedTransactions.Take(10))
@@ -193,8 +243,6 @@ public sealed class SpendnestCommandDispatcher
         }
 
         PrintWarnings(result.Warnings);
-
-        return 0;
     }
 
     private async Task<int> ImportFolderAsync(
@@ -279,7 +327,12 @@ public sealed class SpendnestCommandDispatcher
         foreach (var statementImport in statementImports)
         {
             System.Console.WriteLine(
-                $"{statementImport.StartedAtUtc.LocalDateTime:g} | {statementImport.Status,-9} | saved {statementImport.SavedTransactionCount,3} | skipped {statementImport.SkippedDuplicateTransactionCount,3} | failed {statementImport.FailedRowCount,3} | {statementImport.FileName}");
+                $"{statementImport.Id} | {statementImport.StartedAtUtc.LocalDateTime:g} | {statementImport.Status,-9} | saved {statementImport.SavedTransactionCount,3} | skipped {statementImport.SkippedDuplicateTransactionCount,3} | failed {statementImport.FailedRowCount,3} | {statementImport.FileName}");
+            if (statementImport.Status == StatementImportStatus.Failed
+                && !string.IsNullOrWhiteSpace(statementImport.ErrorMessage))
+            {
+                System.Console.WriteLine($"    Error: {statementImport.ErrorMessage}");
+            }
         }
 
         return 0;
@@ -315,7 +368,7 @@ public sealed class SpendnestCommandDispatcher
                     return 1;
                 }
 
-                await ImportAndCategorizeAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
+                await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -337,7 +390,7 @@ public sealed class SpendnestCommandDispatcher
                 return 1;
             }
 
-            await ImportAndCategorizeAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
+            await importService.ImportAsync(csvFilePath, new StatementFileImportOptions(), cancellationToken).ConfigureAwait(false);
         }
 
         var transactions = await transactionRepository.ListAsync(cancellationToken).ConfigureAwait(false);
@@ -535,6 +588,7 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine("  help");
         System.Console.WriteLine("  parse <csv-file>");
         System.Console.WriteLine("  import <csv-file> [--card <card-name>]");
+        System.Console.WriteLine("  import retry <import-id>");
         System.Console.WriteLine("  import-folder <folder> [--new-card]");
         System.Console.WriteLine("  imports");
         System.Console.WriteLine("  report");
@@ -585,20 +639,6 @@ public sealed class SpendnestCommandDispatcher
         return new StatementFileImportOptions();
     }
 
-    private async Task<(StatementFileImportResult Result, IReadOnlyList<TransactionCategorization> Categorizations)> ImportAndCategorizeAsync(
-        string csvFilePath,
-        StatementFileImportOptions options,
-        CancellationToken cancellationToken)
-    {
-        var result = await importService.ImportAsync(csvFilePath, options, cancellationToken).ConfigureAwait(false);
-        var categorizations = await categorizationService
-            .CategorizeAsync(result.SavedTransactions, cancellationToken)
-            .ConfigureAwait(false);
-        await categorizationApplier.ApplyAsync(categorizations, cancellationToken).ConfigureAwait(false);
-
-        return (result, categorizations);
-    }
-
     private static void PrintCategorizationSummary(IReadOnlyList<TransactionCategorization> categorizations)
     {
         if (categorizations.Count == 0)
@@ -607,7 +647,6 @@ public sealed class SpendnestCommandDispatcher
         }
 
         var needsReviewCount = categorizations.Count(categorization => categorization.NeedsReview);
-        var timeoutCount = categorizations.Count(categorization => categorization.Explanation.Contains("timed out", StringComparison.OrdinalIgnoreCase));
         var aiCount = categorizations.Count(categorization => categorization.Source == CategorizationSource.Ai);
         var localCount = categorizations.Count(categorization => categorization.Source == CategorizationSource.LocalRules);
 
@@ -615,10 +654,6 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine($"Saved-rule matches: {localCount}");
         System.Console.WriteLine($"AI matches: {aiCount}");
         System.Console.WriteLine($"Needs review: {needsReviewCount}");
-        if (timeoutCount > 0)
-        {
-            System.Console.WriteLine($"AI timeouts: {timeoutCount}");
-        }
     }
 
     private static string ReadSecret(string prompt)

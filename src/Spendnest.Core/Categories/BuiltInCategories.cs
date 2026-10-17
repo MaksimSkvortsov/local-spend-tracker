@@ -14,7 +14,7 @@ public static class BuiltInCategories
         new(BuiltInCategoryIds.Entertainment, "Entertainment", 50, "#a16207"),
         new(BuiltInCategoryIds.Travel, "Travel", 60, "#0f766e"),
         new(BuiltInCategoryIds.Healthcare, "Healthcare", 70, "#5b8f42"),
-        new(BuiltInCategoryIds.Utilities, "Utilities", 80, "#13a35a"),
+        new(BuiltInCategoryIds.Utilities, "Home and Utilities", 80, "#13a35a"),
         new(BuiltInCategoryIds.Subscriptions, "Subscriptions", 90, "#f0b21c"),
         new(BuiltInCategoryIds.Insurance, "Insurance", 100, "#4b5563"),
         new(BuiltInCategoryIds.PersonalCare, "Personal Care", 110, "#46b83f"),

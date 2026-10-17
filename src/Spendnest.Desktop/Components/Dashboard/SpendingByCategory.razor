@@ -57,7 +57,6 @@ else
     private IReadOnlyList<CategorySpendingReportLine> ChartCategoryLines =>
         Lines
             .Where(line => line.Amount > 0)
-            .Take(6)
             .ToArray();
 
     private decimal ChartTotalSpending =>

@@ -177,7 +177,7 @@ public class BatchedOpenAiTransactionCategorizerTests
             new HttpClient(new StubHttpMessageHandler(request =>
             {
                 requestCount++;
-                if (requestCount == 2)
+                if (requestCount >= 2)
                 {
                     throw new TimeoutException("Batch timeout.");
                 }
@@ -215,6 +215,98 @@ public class BatchedOpenAiTransactionCategorizerTests
             categorization.TransactionId == transactions[2].Id
             && categorization.Source == CategorizationSource.Unresolved
             && categorization.Explanation == "AI categorization timed out.");
+        requestCount.Should().Be(3, "the timed-out batch is retried once");
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldRetryTimedOutBatchOnceAsTwoHalves()
+    {
+        var transactions = Enumerable.Range(1, 5)
+            .Select(index => Transaction($"PLACE {index}"))
+            .ToArray();
+        var requestSizes = new List<int>();
+        var categorizer = CreateCategorizer(
+            batchTransactionIds =>
+            {
+                requestSizes.Add(batchTransactionIds.Length);
+                return requestSizes.Count == 1;
+            },
+            maxTransactionsPerRequest: 5);
+
+        var result = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+
+        requestSizes.Should().Equal(5, 3, 2);
+        result.Should().HaveCount(5).And.OnlyContain(categorization => categorization.Source == CategorizationSource.Ai);
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldReturnUnresolvedOnlyForHalfThatTimesOutAgain()
+    {
+        var transactions = Enumerable.Range(1, 4)
+            .Select(index => Transaction($"PLACE {index}"))
+            .ToArray();
+        var requestCount = 0;
+        var categorizer = CreateCategorizer(
+            _ =>
+            {
+                requestCount++;
+                return requestCount is 1 or 3;
+            },
+            maxTransactionsPerRequest: 4);
+
+        var result = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+
+        requestCount.Should().Be(3);
+        result.Where(categorization => categorization.Source == CategorizationSource.Ai)
+            .Select(categorization => categorization.TransactionId)
+            .Should().Equal(transactions[0].Id, transactions[1].Id);
+        result.Where(categorization => categorization.Source == CategorizationSource.Unresolved)
+            .Select(categorization => categorization.TransactionId)
+            .Should().Equal(transactions[2].Id, transactions[3].Id);
+    }
+
+    /// <summary>
+    /// Creates a categorizer whose fake OpenAI endpoint times out when <paramref name="timesOut"/> returns true.
+    /// </summary>
+    private static BatchedOpenAiTransactionCategorizer CreateCategorizer(
+        Func<string[], bool> timesOut,
+        int maxTransactionsPerRequest)
+    {
+        return new BatchedOpenAiTransactionCategorizer(
+            new InMemoryCredentialStore(new Dictionary<string, string?>
+            {
+                [CredentialKeys.OpenAiApiKey] = "test-key"
+            }),
+            new HttpClient(new StubHttpMessageHandler(request =>
+            {
+                var batchTransactionIds = ReadTransactionIdsFromRequest(request);
+                if (timesOut(batchTransactionIds))
+                {
+                    throw new TimeoutException("Batch timeout.");
+                }
+
+                var responseItems = batchTransactionIds.Select(transactionId => new
+                {
+                    transactionId,
+                    categoryId = BuiltInCategoryIds.Groceries,
+                    rulePrefix = "PLACE",
+                    confidence = 0.91m,
+                    explanation = "Test batch result."
+                });
+                var output = JsonSerializer.Serialize(new { items = responseItems });
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { output_text = output }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            })),
+            new OpenAiCategorizerOptions
+            {
+                MaxTransactionsPerRequest = maxTransactionsPerRequest
+            });
     }
 
     [Fact]

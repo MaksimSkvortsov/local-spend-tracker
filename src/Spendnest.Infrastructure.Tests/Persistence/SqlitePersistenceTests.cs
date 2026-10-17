@@ -171,6 +171,185 @@ public class SqlitePersistenceTests
     }
 
     [Fact]
+    public async Task StatementImportStore_ShouldCompleteImportWithTransactionsAndAssignmentsTogether()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+            await serviceProvider.GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var card = await serviceProvider.GetRequiredService<ICardAccountRepository>()
+                .CreateAsync("Family Visa", CancellationToken.None);
+            var imports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var statementImport = new StatementImport
+            {
+                CardAccountId = card.Id,
+                FilePath = "statement.csv",
+                FileName = "statement.csv",
+                FileHash = "HASH"
+            };
+            await imports.AddAsync(statementImport, CancellationToken.None);
+            var transaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = card.Id,
+                StatementImportId = statementImport.Id,
+                PostedDate = new DateOnly(2026, 7, 18),
+                OriginalDescription = "BULK MART",
+                Amount = 12.5m,
+                SourceRowNumber = 2
+            };
+            statementImport.Status = StatementImportStatus.Completed;
+            statementImport.ParsedRowCount = 1;
+            statementImport.SavedTransactionCount = 1;
+
+            await serviceProvider.GetRequiredService<IStatementImportStore>().CompleteImportAsync(
+                statementImport,
+                [transaction],
+                [
+                    new TransactionCategoryAssignment
+                    {
+                        TransactionId = transaction.Id,
+                        CategoryId = BuiltInCategoryIds.Groceries,
+                        Confidence = 1m,
+                        Source = CategorizationSource.LocalRules,
+                        Explanation = "Rule."
+                    }
+                ],
+                CancellationToken.None);
+
+            (await imports.GetByIdAsync(statementImport.Id, CancellationToken.None))!
+                .Status.Should().Be(StatementImportStatus.Completed);
+            (await serviceProvider.GetRequiredService<ITransactionRepository>().ListAsync(CancellationToken.None))
+                .Should().ContainSingle().Which.Id.Should().Be(transaction.Id);
+            (await serviceProvider.GetRequiredService<ITransactionCategoryAssignmentRepository>()
+                    .GetByTransactionIdAsync(transaction.Id, CancellationToken.None))!
+                .CategoryId.Should().Be(BuiltInCategoryIds.Groceries);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StatementImportStore_ShouldSaveNothingWhenAnAssignmentCannotBeSaved()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+            await serviceProvider.GetRequiredService<SpendnestDatabaseInitializer>()
+                .InitializeAsync(CancellationToken.None);
+
+            var card = await serviceProvider.GetRequiredService<ICardAccountRepository>()
+                .CreateAsync("Family Visa", CancellationToken.None);
+            var imports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var statementImport = new StatementImport
+            {
+                CardAccountId = card.Id,
+                FilePath = "statement.csv",
+                FileName = "statement.csv",
+                FileHash = "HASH"
+            };
+            await imports.AddAsync(statementImport, CancellationToken.None);
+            var transaction = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                CardAccountId = card.Id,
+                StatementImportId = statementImport.Id,
+                PostedDate = new DateOnly(2026, 7, 18),
+                OriginalDescription = "BULK MART",
+                Amount = 12.5m,
+                SourceRowNumber = 2
+            };
+            statementImport.Status = StatementImportStatus.Completed;
+
+            var act = () => serviceProvider.GetRequiredService<IStatementImportStore>().CompleteImportAsync(
+                statementImport,
+                [transaction],
+                [
+                    new TransactionCategoryAssignment
+                    {
+                        TransactionId = Guid.NewGuid(),
+                        CategoryId = BuiltInCategoryIds.Groceries,
+                        Source = CategorizationSource.LocalRules
+                    }
+                ],
+                CancellationToken.None);
+
+            await act.Should().ThrowAsync<Exception>();
+            (await imports.GetByIdAsync(statementImport.Id, CancellationToken.None))!
+                .Status.Should().Be(StatementImportStatus.Pending);
+            (await serviceProvider.GetRequiredService<ITransactionRepository>().ListAsync(CancellationToken.None))
+                .Should().BeEmpty();
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task InitializeAsync_ShouldFailImportsLeftPending()
+    {
+        var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDirectory);
+        var databasePath = Path.Combine(tempDirectory, "spendnest-test.db");
+
+        try
+        {
+            using var serviceProvider = new ServiceCollection()
+                .AddSpendnestSqlitePersistence($"Data Source={databasePath}")
+                .BuildServiceProvider();
+            var initializer = serviceProvider.GetRequiredService<SpendnestDatabaseInitializer>();
+            await initializer.InitializeAsync(CancellationToken.None);
+
+            var card = await serviceProvider.GetRequiredService<ICardAccountRepository>()
+                .CreateAsync("Family Visa", CancellationToken.None);
+            var imports = serviceProvider.GetRequiredService<IStatementImportRepository>();
+            var pendingImport = new StatementImport { CardAccountId = card.Id, FileName = "pending.csv", FileHash = "P" };
+            var completedImport = new StatementImport
+            {
+                CardAccountId = card.Id,
+                FileName = "done.csv",
+                FileHash = "C",
+                Status = StatementImportStatus.Completed
+            };
+            await imports.AddAsync(pendingImport, CancellationToken.None);
+            await imports.AddAsync(completedImport, CancellationToken.None);
+
+            await initializer.InitializeAsync(CancellationToken.None);
+
+            var interrupted = await imports.GetByIdAsync(pendingImport.Id, CancellationToken.None);
+            interrupted!.Status.Should().Be(StatementImportStatus.Failed);
+            interrupted.ErrorMessage.Should().Be("Import was interrupted.");
+            interrupted.CompletedAtUtc.Should().NotBeNull();
+            (await imports.GetByIdAsync(completedImport.Id, CancellationToken.None))!
+                .Status.Should().Be(StatementImportStatus.Completed);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(tempDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task StatementImportRepository_ShouldDeleteOnlySelectedImportAndItsTransactions()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

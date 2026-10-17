@@ -1,28 +1,24 @@
 namespace Spendnest.Application.Tests.Importing;
 
 using FluentAssertions;
-using Spendnest.Application.Categorization;
 using Spendnest.Application.Importing;
 using Spendnest.Application.Tests.TestDoubles;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Importing;
-using Spendnest.Core.Progress;
 using Spendnest.Core.Transactions;
 
 public class StatementFolderImportServiceTests
 {
     [Fact]
-    public async Task ImportAsync_ShouldImportFilesInOrderToMatchingCardAndCategorizeOnce()
+    public async Task ImportAsync_ShouldImportEachFileInOrderToMatchingCard()
     {
         var cards = new FakeCardAccountRepository();
         await cards.CreateAsync("BoA Debit", CancellationToken.None);
         var importService = new FakeFileImportService();
         importService.Saves("b.csv", 2);
         importService.Saves("a.csv", 3);
-        var categorization = new FakeCategorizationService();
-        var applier = new FakeCategorizationApplier();
-        var service = new StatementFolderImportService(importService, cards, categorization, applier);
+        var service = new StatementFolderImportService(importService, cards);
 
         var result = await service.ImportAsync(
             new StatementFolderImport("boa debit", ["b.csv", "a.csv"], false),
@@ -32,8 +28,7 @@ public class StatementFolderImportServiceTests
         importService.ImportedPaths.Should().Equal("a.csv", "b.csv");
         importService.CardNames.Should().AllBe("BoA Debit");
         result.Files.Select(file => file.Status).Should().AllBeEquivalentTo(StatementFolderFileStatus.Imported);
-        categorization.Calls.Should().ContainSingle().Which.Should().HaveCount(5);
-        applier.Applied.Should().HaveCount(5);
+        result.Categorizations.Should().HaveCount(5);
     }
 
     [Fact]
@@ -43,10 +38,9 @@ public class StatementFolderImportServiceTests
         await cards.CreateAsync("Cap1", CancellationToken.None);
         var importService = new FakeFileImportService();
         importService.Throws("a.csv", new DuplicateStatementImportException("a.csv"));
-        importService.Throws("b.csv", new InvalidOperationException("No transactions could be parsed."));
+        importService.Throws("b.csv", new StatementCategorizationFailedException(1, 2, ["AI categorization timed out."]));
         importService.Saves("c.csv", 1);
-        var categorization = new FakeCategorizationService();
-        var service = new StatementFolderImportService(importService, cards, categorization, new FakeCategorizationApplier());
+        var service = new StatementFolderImportService(importService, cards);
 
         var result = await service.ImportAsync(
             new StatementFolderImport("Cap1", ["a.csv", "b.csv", "c.csv"], false),
@@ -56,8 +50,10 @@ public class StatementFolderImportServiceTests
             StatementFolderFileStatus.AlreadyImported,
             StatementFolderFileStatus.Failed,
             StatementFolderFileStatus.Imported);
-        result.Files[1].Error.Should().Be("No transactions could be parsed.");
-        categorization.Calls.Should().ContainSingle().Which.Should().HaveCount(1);
+        result.Files[1].Error.Should().Be(
+            "Categorization failed for 1 of 2 transactions, so no transactions were saved. AI categorization timed out.");
+        result.Files[2].Result!.SavedTransactionCount.Should().Be(1);
+        result.Categorizations.Should().ContainSingle();
     }
 
     [Fact]
@@ -67,11 +63,7 @@ public class StatementFolderImportServiceTests
         await cards.CreateAsync("Cap1", CancellationToken.None);
         await cards.CreateAsync("Boa", CancellationToken.None);
         var importService = new FakeFileImportService();
-        var service = new StatementFolderImportService(
-            importService,
-            cards,
-            new FakeCategorizationService(),
-            new FakeCategorizationApplier());
+        var service = new StatementFolderImportService(importService, cards);
 
         var act = () => service.ImportAsync(
             new StatementFolderImport("Chase", ["a.csv"], false),
@@ -87,11 +79,7 @@ public class StatementFolderImportServiceTests
     {
         var importService = new FakeFileImportService();
         importService.Saves("a.csv", 1);
-        var service = new StatementFolderImportService(
-            importService,
-            new FakeCardAccountRepository(),
-            new FakeCategorizationService(),
-            new FakeCategorizationApplier());
+        var service = new StatementFolderImportService(importService, new FakeCardAccountRepository());
 
         var result = await service.ImportAsync(
             new StatementFolderImport(" Chase ", ["a.csv"], true),
@@ -99,24 +87,6 @@ public class StatementFolderImportServiceTests
 
         result.CardName.Should().Be("Chase");
         importService.CardNames.Should().Equal("Chase");
-    }
-
-    [Fact]
-    public async Task ImportAsync_ShouldSkipCategorizationWhenNothingWasSaved()
-    {
-        var cards = new FakeCardAccountRepository();
-        await cards.CreateAsync("Cap1", CancellationToken.None);
-        var importService = new FakeFileImportService();
-        importService.Throws("a.csv", new DuplicateStatementImportException("a.csv"));
-        var categorization = new FakeCategorizationService();
-        var service = new StatementFolderImportService(importService, cards, categorization, new FakeCategorizationApplier());
-
-        var result = await service.ImportAsync(
-            new StatementFolderImport("Cap1", ["a.csv"], false),
-            CancellationToken.None);
-
-        result.Categorizations.Should().BeEmpty();
-        categorization.Calls.Should().BeEmpty();
     }
 
     private sealed class FakeFileImportService : IStatementFileImportService
@@ -172,49 +142,16 @@ public class StatementFolderImportServiceTests
                 0,
                 0,
                 transactions,
-                []);
-        }
-    }
-
-    private sealed class FakeCategorizationService : ITransactionCategorizationService
-    {
-        public List<IReadOnlyList<Transaction>> Calls { get; } = [];
-
-        public Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
-            IReadOnlyList<Transaction> transactions,
-            CancellationToken cancellationToken)
-        {
-            return CategorizeAsync(transactions, null, cancellationToken);
-        }
-
-        public Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
-            IReadOnlyList<Transaction> transactions,
-            IProgress<FileUploadProgress>? progress,
-            CancellationToken cancellationToken)
-        {
-            Calls.Add(transactions);
-            return Task.FromResult<IReadOnlyList<TransactionCategorization>>(transactions
-                .Select(transaction => new TransactionCategorization(
-                    transaction.Id,
-                    BuiltInCategoryIds.Other,
-                    1m,
-                    false,
-                    CategorizationSource.LocalRules,
-                    "Test."))
-                .ToArray());
-        }
-    }
-
-    private sealed class FakeCategorizationApplier : ITransactionCategorizationApplier
-    {
-        public List<TransactionCategorization> Applied { get; } = [];
-
-        public Task ApplyAsync(
-            IReadOnlyList<TransactionCategorization> categorizations,
-            CancellationToken cancellationToken)
-        {
-            Applied.AddRange(categorizations);
-            return Task.CompletedTask;
+                [],
+                transactions
+                    .Select(transaction => new TransactionCategorization(
+                        transaction.Id,
+                        BuiltInCategoryIds.Other,
+                        1m,
+                        false,
+                        CategorizationSource.LocalRules,
+                        "Test."))
+                    .ToArray());
         }
     }
 }

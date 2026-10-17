@@ -5,8 +5,11 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Spendnest.Application.Importing;
 using Spendnest.Application.Tests.TestDoubles;
+using Spendnest.Core.Categories;
+using Spendnest.Core.Categorization;
 using Spendnest.Core.Importing;
 using Spendnest.Core.Progress;
+using Spendnest.Core.Transactions;
 using Spendnest.Infrastructure.Importing;
 
 public class StatementFileImportServiceTests
@@ -83,6 +86,7 @@ public class StatementFileImportServiceTests
             .Should().Equal(
                 FileUploadProgressStage.ReadingFile,
                 FileUploadProgressStage.ParsingTransactions,
+                FileUploadProgressStage.CategorizingWithAi,
                 FileUploadProgressStage.SavingTransactions);
         progress.Events.Should().ContainSingle(progressEvent =>
             progressEvent.Stage == FileUploadProgressStage.SavingTransactions
@@ -336,6 +340,147 @@ public class StatementFileImportServiceTests
         }
     }
 
+    [Fact]
+    public async Task ImportAsync_ShouldSaveCategoryAssignmentsWithTransactions()
+    {
+        var repository = new FakeTransactionRepository();
+        var assignments = new FakeTransactionCategoryAssignmentRepository();
+        var service = CreateService(repository, assignmentRepository: assignments);
+
+        var result = await service.ImportAsync(
+            FixturePath("bank-of-america.csv"),
+            new StatementFileImportOptions(),
+            CancellationToken.None);
+
+        var savedAssignments = await assignments.ListAsync(CancellationToken.None);
+        result.Categorizations.Should().HaveCount(2);
+        savedAssignments.Select(assignment => assignment.TransactionId)
+            .Should().BeEquivalentTo(result.SavedTransactions.Select(transaction => transaction.Id));
+        savedAssignments.Should().OnlyContain(assignment => assignment.CategoryId == BuiltInCategoryIds.Groceries);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldFailWithoutSavingTransactionsWhenAnyTransactionIsUnresolved()
+    {
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
+        var assignments = new FakeTransactionCategoryAssignmentRepository();
+        var categorization = new FakeCategorizationService { UnresolvedCount = 1 };
+        var service = CreateService(repository, statementImportRepository, categorizationService: categorization, assignmentRepository: assignments);
+
+        var act = async () => await service.ImportAsync(
+            FixturePath("bank-of-america.csv"),
+            new StatementFileImportOptions(),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<StatementCategorizationFailedException>()
+            .WithMessage("Categorization failed for 1 of 2 transactions, so no transactions were saved. AI categorization timed out.");
+        (await repository.ListAsync(CancellationToken.None)).Should().BeEmpty();
+        (await assignments.ListAsync(CancellationToken.None)).Should().BeEmpty();
+        var statementImport = (await statementImportRepository.ListAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+        statementImport.Status.Should().Be(StatementImportStatus.Failed);
+        statementImport.SavedTransactionCount.Should().Be(0);
+        statementImport.ErrorMessage.Should().StartWith("Categorization failed for 1 of 2 transactions");
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldImportFailedFileAgain()
+    {
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
+        var filePath = FixturePath("bank-of-america.csv");
+        var failingService = CreateService(
+            repository,
+            statementImportRepository,
+            categorizationService: new FakeCategorizationService { UnresolvedCount = 2 });
+        await FluentActions.Awaiting(() => failingService.ImportAsync(filePath, new StatementFileImportOptions(), CancellationToken.None))
+            .Should().ThrowAsync<StatementCategorizationFailedException>();
+
+        var result = await CreateService(repository, statementImportRepository)
+            .ImportAsync(filePath, new StatementFileImportOptions(), CancellationToken.None);
+
+        result.SavedTransactionCount.Should().Be(2);
+        (await repository.ListAsync(CancellationToken.None)).Should().HaveCount(2);
+        (await statementImportRepository.ListAsync(CancellationToken.None))
+            .Select(statementImport => statementImport.Status)
+            .Should().BeEquivalentTo([StatementImportStatus.Failed, StatementImportStatus.Completed]);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldFailCancelledImportSoTheFileCanBeImportedAgain()
+    {
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
+        var filePath = FixturePath("bank-of-america.csv");
+        var cancelledService = CreateService(
+            repository,
+            statementImportRepository,
+            categorizationService: new FakeCategorizationService { Cancels = true });
+
+        await FluentActions.Awaiting(() => cancelledService.ImportAsync(filePath, new StatementFileImportOptions(), CancellationToken.None))
+            .Should().ThrowAsync<OperationCanceledException>();
+
+        var cancelledImport = (await statementImportRepository.ListAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+        cancelledImport.Status.Should().Be(StatementImportStatus.Failed);
+        cancelledImport.ErrorMessage.Should().Be("Import was cancelled.");
+        (await repository.ListAsync(CancellationToken.None)).Should().BeEmpty();
+
+        var result = await CreateService(repository, statementImportRepository)
+            .ImportAsync(filePath, new StatementFileImportOptions(), CancellationToken.None);
+        result.SavedTransactionCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldFailImportWhenSavingFails()
+    {
+        var repository = new FakeTransactionRepository();
+        var statementImportRepository = new FakeStatementImportRepository();
+        var store = new FakeStatementImportStore(
+            statementImportRepository,
+            repository,
+            new FakeTransactionCategoryAssignmentRepository())
+        {
+            FailWith = new InvalidOperationException("Disk is full.")
+        };
+        var service = CreateService(repository, statementImportRepository, store: store);
+
+        var act = async () => await service.ImportAsync(
+            FixturePath("bank-of-america.csv"),
+            new StatementFileImportOptions(),
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Disk is full.");
+        var statementImport = (await statementImportRepository.ListAsync(CancellationToken.None)).Should().ContainSingle().Subject;
+        statementImport.Status.Should().Be(StatementImportStatus.Failed);
+        statementImport.ErrorMessage.Should().Be("Disk is full.");
+        statementImport.SavedTransactionCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ImportAsync_ShouldNotCategorizeWhenEveryRowIsADuplicate()
+    {
+        var repository = new FakeTransactionRepository();
+        var categorization = new FakeCategorizationService();
+        var service = CreateService(repository, categorizationService: categorization);
+        var filePath = FixturePath("bank-of-america.csv");
+        await service.ImportAsync(filePath, new StatementFileImportOptions(), CancellationToken.None);
+        var copyPath = Path.GetTempFileName();
+        await File.WriteAllTextAsync(copyPath, await File.ReadAllTextAsync(filePath) + Environment.NewLine);
+
+        try
+        {
+            var result = await service.ImportAsync(copyPath, new StatementFileImportOptions(), CancellationToken.None);
+
+            result.SavedTransactionCount.Should().Be(0);
+            result.Categorizations.Should().BeEmpty();
+            categorization.CallCount.Should().Be(1);
+        }
+        finally
+        {
+            File.Delete(copyPath);
+        }
+    }
+
     private static string FixturePath(string fileName)
     {
         return Path.Combine(AppContext.BaseDirectory, "Fixtures", "Csv", fileName);
@@ -344,13 +489,23 @@ public class StatementFileImportServiceTests
     private static StatementFileImportService CreateService(
         FakeTransactionRepository repository,
         FakeStatementImportRepository? statementImportRepository = null,
-        IStatementParser? parser = null)
+        IStatementParser? parser = null,
+        ITransactionCategorizationService? categorizationService = null,
+        FakeTransactionCategoryAssignmentRepository? assignmentRepository = null,
+        IStatementImportStore? store = null)
     {
+        statementImportRepository ??= new FakeStatementImportRepository();
+
         return new StatementFileImportService(
             parser ?? CreateStatementParser(),
             repository,
             new FakeCardAccountRepository(),
-            statementImportRepository ?? new FakeStatementImportRepository(),
+            statementImportRepository,
+            store ?? new FakeStatementImportStore(
+                statementImportRepository,
+                repository,
+                assignmentRepository ?? new FakeTransactionCategoryAssignmentRepository()),
+            categorizationService ?? new FakeCategorizationService(),
             new LocalStatementFileReader());
     }
 
@@ -371,6 +526,55 @@ public class StatementFileImportServiceTests
         public void Report(FileUploadProgress value)
         {
             events.Add(value);
+        }
+    }
+
+    /// <summary>
+    /// Categorizes every transaction as Groceries, leaving the first <see cref="UnresolvedCount"/> unresolved.
+    /// </summary>
+    private sealed class FakeCategorizationService : ITransactionCategorizationService
+    {
+        public int UnresolvedCount { get; init; }
+
+        public bool Cancels { get; init; }
+
+        public int CallCount { get; private set; }
+
+        public Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
+            IReadOnlyList<Transaction> transactions,
+            CancellationToken cancellationToken)
+        {
+            return CategorizeAsync(transactions, null, cancellationToken);
+        }
+
+        public Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
+            IReadOnlyList<Transaction> transactions,
+            IProgress<FileUploadProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            if (Cancels)
+            {
+                throw new OperationCanceledException();
+            }
+
+            return Task.FromResult<IReadOnlyList<TransactionCategorization>>(transactions
+                .Select((transaction, index) => index < UnresolvedCount
+                    ? new TransactionCategorization(
+                        transaction.Id,
+                        BuiltInCategoryIds.Other,
+                        0m,
+                        true,
+                        CategorizationSource.Unresolved,
+                        "AI categorization timed out.")
+                    : new TransactionCategorization(
+                        transaction.Id,
+                        BuiltInCategoryIds.Groceries,
+                        1m,
+                        false,
+                        CategorizationSource.LocalRules,
+                        "Rule."))
+                .ToArray());
         }
     }
 

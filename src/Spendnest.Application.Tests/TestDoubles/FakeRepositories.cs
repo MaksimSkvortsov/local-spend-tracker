@@ -237,6 +237,13 @@ public sealed class FakeStatementImportRepository : IStatementImportRepository
         return Task.CompletedTask;
     }
 
+    public Task<StatementImport?> GetByIdAsync(
+        Guid statementImportId,
+        CancellationToken cancellationToken)
+    {
+        return Task.FromResult(statementImports.FirstOrDefault(item => item.Id == statementImportId));
+    }
+
     public Task<StatementImport?> GetByFileHashAsync(
         string fileHash,
         CancellationToken cancellationToken)
@@ -255,6 +262,44 @@ public sealed class FakeStatementImportRepository : IStatementImportRepository
             statementImports
                 .OrderByDescending(item => item.StartedAtUtc)
                 .ToArray());
+    }
+}
+
+public sealed class FakeStatementImportStore : IStatementImportStore
+{
+    private readonly IStatementImportRepository statementImportRepository;
+    private readonly ITransactionRepository transactionRepository;
+    private readonly ITransactionCategoryAssignmentRepository assignmentRepository;
+
+    public FakeStatementImportStore(
+        IStatementImportRepository statementImportRepository,
+        ITransactionRepository transactionRepository,
+        ITransactionCategoryAssignmentRepository assignmentRepository)
+    {
+        this.statementImportRepository = statementImportRepository;
+        this.transactionRepository = transactionRepository;
+        this.assignmentRepository = assignmentRepository;
+    }
+
+    public Exception? FailWith { get; set; }
+
+    public async Task CompleteImportAsync(
+        StatementImport statementImport,
+        IReadOnlyList<Transaction> transactions,
+        IReadOnlyList<TransactionCategoryAssignment> assignments,
+        CancellationToken cancellationToken)
+    {
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
+        await statementImportRepository.UpdateAsync(statementImport, cancellationToken);
+        await transactionRepository.AddRangeAsync(transactions, cancellationToken);
+        foreach (var assignment in assignments)
+        {
+            await assignmentRepository.SaveAsync(assignment, cancellationToken);
+        }
     }
 }
 

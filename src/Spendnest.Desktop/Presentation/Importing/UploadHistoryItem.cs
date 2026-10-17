@@ -16,9 +16,12 @@ public sealed record UploadHistoryItem(
     int NeedsReviewCount,
     int TimeoutCount,
     string TransactionRange,
-    StatementImportStatus Status)
+    StatementImportStatus Status,
+    string? ErrorMessage = null)
 {
-    public string StatusLabel => Status.ToString();
+    public string StatusLabel => Status == StatementImportStatus.Completed && !string.IsNullOrWhiteSpace(ErrorMessage)
+        ? "Needs review"
+        : Status.ToString();
 
     public static UploadHistoryItem From(
         StatementImport statementImport,
@@ -41,7 +44,8 @@ public sealed record UploadHistoryItem(
             categorizationSummary?.NeedsReviewCount ?? 0,
             categorizationSummary?.TimeoutCount ?? 0,
             transactionRange,
-            statementImport.Status);
+            statementImport.Status,
+            statementImport.ErrorMessage);
     }
 
     private static string BuildTransactionRange(IReadOnlyList<Transaction> transactions)

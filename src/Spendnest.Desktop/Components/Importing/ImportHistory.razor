@@ -23,6 +23,16 @@
                     </span>
                     <span class="history-imported-date">@upload.ImportedAtLocal.ToString("MMM d, yyyy")</span>
                     <span class="history-status-inline @GetImportStatusClass(upload)">@upload.StatusLabel</span>
+                    @if (!string.IsNullOrWhiteSpace(upload.ErrorMessage))
+                    {
+                        <div class="alert error" role="alert">
+                            <div>@upload.ErrorMessage</div>
+                            @if (upload.Status == StatementImportStatus.Completed)
+                            {
+                                <span>Transactions were saved. Review their categories on the <a href="/transactions">Transactions page</a>.</span>
+                            }
+                        </div>
+                    }
                     @if (upload.TimeoutCount > 0)
                     {
                         <span class="history-note">@upload.TimeoutCount AI timeouts</span>
@@ -118,7 +128,7 @@
             return "import-status failed";
         }
 
-        return upload.Status == StatementImportStatus.Pending
+        return upload.Status == StatementImportStatus.Pending || !string.IsNullOrWhiteSpace(upload.ErrorMessage)
             ? "import-status pending"
             : "import-status complete";
     }

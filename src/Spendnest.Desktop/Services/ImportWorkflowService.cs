@@ -47,10 +47,15 @@ public sealed class ImportWorkflowService(
                 cancellationToken);
             await categorizationApplier.ApplyAsync(categorizations, cancellationToken);
 
+            var categorizationError = string.Join(" ", categorizations
+                .Where(result => result.Source == CategorizationSource.Unresolved)
+                .Select(result => result.Explanation)
+                .Distinct());
+
             await UpdateStatementImportStatusAsync(
                 importResult.StatementImportId,
                 StatementImportStatus.Completed,
-                null,
+                string.IsNullOrWhiteSpace(categorizationError) ? null : categorizationError,
                 cancellationToken);
             progress.Report(FileUploadProgress.RefreshingData);
 

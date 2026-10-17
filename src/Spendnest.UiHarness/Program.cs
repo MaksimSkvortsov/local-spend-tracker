@@ -47,7 +47,8 @@ builder.Services.AddSingleton<ILocalTransactionCategorizer, LocalTransactionCate
 builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton(new OpenAiCategorizerOptions
 {
-    Model = builder.Configuration["OpenAI:Model"] ?? "gpt-5.6-luna"
+    Model = builder.Configuration["OpenAI:Model"] ?? "gpt-5.6-luna",
+    Endpoint = new Uri(builder.Configuration["OpenAI:Endpoint"] ?? "https://api.openai.com/v1/responses")
 });
 builder.Services.AddSingleton<ITransactionCategorizer, BatchedOpenAiTransactionCategorizer>();
 builder.Services.AddSpendnestApplicationServices();

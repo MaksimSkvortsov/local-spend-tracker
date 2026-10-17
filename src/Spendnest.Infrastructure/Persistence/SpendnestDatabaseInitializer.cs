@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Spendnest.Core.Categories;
+using Spendnest.Core.Importing;
 
 namespace Spendnest.Infrastructure.Persistence;
 
@@ -23,6 +24,7 @@ public sealed class SpendnestDatabaseInitializer
         await MarkExistingInitialSchemaAsync(dbContext, cancellationToken).ConfigureAwait(false);
         await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
         await SeedBuiltInCategoriesAsync(dbContext, cancellationToken).ConfigureAwait(false);
+        await FailInterruptedImportsAsync(dbContext, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteUserDataAsync(CancellationToken cancellationToken)
@@ -37,6 +39,26 @@ public sealed class SpendnestDatabaseInitializer
         await dbContext.StatementImports.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
         await dbContext.CardAccounts.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
         await SeedBuiltInCategoriesAsync(dbContext, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Imports still pending at startup were interrupted. Transactions are saved only when an import
+    /// completes, so an interrupted import has no partial data to clean up.
+    /// </summary>
+    private static async Task FailInterruptedImportsAsync(
+        SpendnestDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var failedAtUtc = DateTimeOffset.UtcNow;
+        await dbContext.StatementImports
+            .Where(statementImport => statementImport.Status == StatementImportStatus.Pending)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(statementImport => statementImport.Status, StatementImportStatus.Failed)
+                    .SetProperty(statementImport => statementImport.ErrorMessage, "Import was interrupted.")
+                    .SetProperty(statementImport => statementImport.CompletedAtUtc, failedAtUtc),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static async Task MarkExistingInitialSchemaAsync(

@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IStatementFileImportService, StatementFileImportService>();
         services.AddSingleton<StatementFolderImportService>();
+        services.AddSingleton<StatementImportRetryService>();
         services.AddSingleton<AiCategorizationResultMapper>();
         services.AddSingleton<LocalCategoryRuleMatcher>();
         services.AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>();

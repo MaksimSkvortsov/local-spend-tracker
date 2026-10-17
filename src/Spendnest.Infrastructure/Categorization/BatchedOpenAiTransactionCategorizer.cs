@@ -103,7 +103,51 @@ public sealed class BatchedOpenAiTransactionCategorizer : ITransactionCategorize
         };
     }
 
+    /// <summary>
+    /// Sends one batch. A batch that times out is retried once as two halves; a half that times out
+    /// again is returned as unresolved.
+    /// </summary>
     private async Task<IReadOnlyList<TransactionCategorization>> CategorizeBatchAsync(
+        ITransactionCategorizer categorizer,
+        Transaction[] batch,
+        int batchNumber,
+        CancellationToken cancellationToken)
+    {
+        var batchResults = await TryCategorizeBatchAsync(categorizer, batch, batchNumber, cancellationToken).ConfigureAwait(false);
+        if (batchResults is not null)
+        {
+            return batchResults;
+        }
+
+        logger.LogWarning(
+            "OpenAI categorization batch {BatchNumber} timed out after {TimeoutSeconds} seconds; retrying it as two halves.",
+            batchNumber,
+            options.RequestTimeout.TotalSeconds);
+        var results = new List<TransactionCategorization>(batch.Length);
+        foreach (var half in SplitInHalves(batch))
+        {
+            var halfResults = await TryCategorizeBatchAsync(categorizer, half, batchNumber, cancellationToken).ConfigureAwait(false);
+            results.AddRange(halfResults ?? CreateTimedOutBatchResults(half, batchNumber));
+        }
+
+        return results;
+    }
+
+    private static Transaction[][] SplitInHalves(Transaction[] batch)
+    {
+        if (batch.Length < 2)
+        {
+            return [batch];
+        }
+
+        var firstHalfLength = (batch.Length + 1) / 2;
+        return [batch[..firstHalfLength], batch[firstHalfLength..]];
+    }
+
+    /// <summary>
+    /// Returns the batch results, or null when the request timed out.
+    /// </summary>
+    private async Task<IReadOnlyList<TransactionCategorization>?> TryCategorizeBatchAsync(
         ITransactionCategorizer categorizer,
         Transaction[] batch,
         int batchNumber,
@@ -128,11 +172,11 @@ public sealed class BatchedOpenAiTransactionCategorizer : ITransactionCategorize
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
         {
-            return CreateTimedOutBatchResults(batch, batchNumber);
+            return null;
         }
         catch (TimeoutException)
         {
-            return CreateTimedOutBatchResults(batch, batchNumber);
+            return null;
         }
     }
 

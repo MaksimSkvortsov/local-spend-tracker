@@ -1,19 +1,15 @@
-using Spendnest.Application.Categorization;
 using Spendnest.Core.Accounts;
-using Spendnest.Core.Categorization;
 using Spendnest.Core.Importing;
 
 namespace Spendnest.Application.Importing;
 
 /// <summary>
-/// Imports several statement files to one existing card, then categorizes all new transactions together.
-/// A file that fails is reported and skipped; a file imported before is reported as already imported.
+/// Imports several statement files to one existing card. Each file is imported all or nothing on its own:
+/// a file that fails is reported and later files continue; a file imported before is reported as already imported.
 /// </summary>
 public sealed class StatementFolderImportService(
     IStatementFileImportService importService,
-    ICardAccountRepository cardAccountRepository,
-    ITransactionCategorizationService categorizationService,
-    ITransactionCategorizationApplier categorizationApplier)
+    ICardAccountRepository cardAccountRepository)
 {
     public async Task<StatementFolderImportResult> ImportAsync(
         StatementFolderImport request,
@@ -29,17 +25,7 @@ public sealed class StatementFolderImportService(
             files.Add(await ImportFileAsync(filePath, cardName, cancellationToken));
         }
 
-        var savedTransactions = files
-            .SelectMany(file => file.Result?.SavedTransactions ?? [])
-            .ToArray();
-        IReadOnlyList<TransactionCategorization> categorizations = [];
-        if (savedTransactions.Length > 0)
-        {
-            categorizations = await categorizationService.CategorizeAsync(savedTransactions, cancellationToken);
-            await categorizationApplier.ApplyAsync(categorizations, cancellationToken);
-        }
-
-        return new StatementFolderImportResult(cardName, files, categorizations);
+        return new StatementFolderImportResult(cardName, files);
     }
 
     private async Task<string> ResolveCardNameAsync(

@@ -5,8 +5,11 @@ namespace Spendnest.Application.Importing;
 
 public sealed record StatementFolderImportResult(
     string CardName,
-    IReadOnlyList<StatementFolderFileResult> Files,
-    IReadOnlyList<TransactionCategorization> Categorizations);
+    IReadOnlyList<StatementFolderFileResult> Files)
+{
+    public IReadOnlyList<TransactionCategorization> Categorizations =>
+        Files.SelectMany(file => file.Result?.Categorizations ?? []).ToArray();
+}
 
 public sealed record StatementFolderFileResult(
     string FilePath,

@@ -28,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICategoryRepository, SqliteCategoryRepository>();
         services.AddSingleton<ITransactionRepository, SqliteTransactionRepository>();
         services.AddSingleton<IStatementImportRepository, SqliteStatementImportRepository>();
+        services.AddSingleton<IStatementImportStore, SqliteStatementImportStore>();
         services.AddSingleton<SqliteCategoryRuleRepository>();
         services.AddSingleton<ICategoryRuleRepository>(
             provider => provider.GetRequiredService<SqliteCategoryRuleRepository>());

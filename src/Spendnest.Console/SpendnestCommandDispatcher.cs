@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Spendnest.Application.Categorization;
+using Spendnest.Application.Rules;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
 using Spendnest.Core.Credentials;
@@ -24,6 +25,7 @@ public sealed class SpendnestCommandDispatcher
     private readonly ITransactionCategorizationApplier categorizationApplier;
     private readonly ITransactionReviewService reviewService;
     private readonly ICredentialStore credentialStore;
+    private readonly CategoryRuleManagementService ruleManagementService;
     private readonly ILogger<SpendnestCommandDispatcher> logger;
 
     public SpendnestCommandDispatcher(
@@ -36,6 +38,7 @@ public sealed class SpendnestCommandDispatcher
         ITransactionCategorizationApplier categorizationApplier,
         ITransactionReviewService reviewService,
         ICredentialStore credentialStore,
+        CategoryRuleManagementService ruleManagementService,
         ILogger<SpendnestCommandDispatcher> logger)
     {
         this.parser = parser;
@@ -47,6 +50,7 @@ public sealed class SpendnestCommandDispatcher
         this.categorizationApplier = categorizationApplier;
         this.reviewService = reviewService;
         this.credentialStore = credentialStore;
+        this.ruleManagementService = ruleManagementService;
         this.logger = logger;
     }
 
@@ -90,6 +94,11 @@ public sealed class SpendnestCommandDispatcher
         if (command.Equals("review", StringComparison.OrdinalIgnoreCase))
         {
             return await ReviewAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (command.Equals("rules", StringComparison.OrdinalIgnoreCase))
+        {
+            return await RulesAsync(args, cancellationToken).ConfigureAwait(false);
         }
 
         if (command.Equals("help", StringComparison.OrdinalIgnoreCase))
@@ -340,6 +349,53 @@ public sealed class SpendnestCommandDispatcher
         return 1;
     }
 
+    private async Task<int> RulesAsync(
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken)
+    {
+        if (args.Count < 4
+            || !args[1].Equals("add", StringComparison.OrdinalIgnoreCase)
+            || !int.TryParse(args[3], out var categoryId)
+            || !TryParseMatchType(args.Skip(4), out var matchType))
+        {
+            System.Console.Error.WriteLine("Usage: rules add <pattern> <category-id> [--match exact|prefix|contains]");
+            return 1;
+        }
+
+        var result = await ruleManagementService.CreateAndApplyAsync(
+            new CategoryRuleCreate(args[2], matchType, categoryId),
+            cancellationToken).ConfigureAwait(false);
+
+        System.Console.WriteLine($"Rule created: {result.Rule.MatchType} '{result.Rule.Pattern}' -> {FormatCategory(result.Rule.CategoryId)}");
+        System.Console.WriteLine($"Transactions updated: {result.AppliedCount}");
+        foreach (var ruleOverride in result.Overrides)
+        {
+            System.Console.WriteLine(
+                $"Warning: {ruleOverride.TransactionCount} matching transaction(s) are kept by higher-priority rule {ruleOverride.MatchType} '{ruleOverride.Pattern}'.");
+        }
+
+        return 0;
+    }
+
+    private static bool TryParseMatchType(
+        IEnumerable<string> args,
+        out CategoryRuleMatchType matchType)
+    {
+        matchType = CategoryRuleMatchType.Prefix;
+        var values = args.ToArray();
+        for (var index = 0; index < values.Length; index++)
+        {
+            if (values[index].Equals("--match", StringComparison.OrdinalIgnoreCase))
+            {
+                return index + 1 < values.Length
+                    && Enum.TryParse(values[index + 1], ignoreCase: true, out matchType)
+                    && Enum.IsDefined(matchType);
+            }
+        }
+
+        return true;
+    }
+
     private async Task<int> AiKeyAsync(
         IReadOnlyList<string> args,
         CancellationToken cancellationToken)
@@ -414,6 +470,7 @@ public sealed class SpendnestCommandDispatcher
         System.Console.WriteLine("  review list");
         System.Console.WriteLine("  review set <transaction-id> <category-id> [--remember]");
         System.Console.WriteLine("  review confirm <transaction-id> [--remember]");
+        System.Console.WriteLine("  rules add <pattern> <category-id> [--match exact|prefix|contains]");
         System.Console.WriteLine("  exit");
     }
 

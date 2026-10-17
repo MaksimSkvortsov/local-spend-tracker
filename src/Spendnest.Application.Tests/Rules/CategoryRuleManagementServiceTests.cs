@@ -234,6 +234,8 @@ public class CategoryRuleManagementServiceTests
             CancellationToken.None);
 
         result.AppliedCount.Should().Be(1);
+        result.Overrides.Should().ContainSingle().Which.Should().Be(
+            new CategoryRuleOverride("LYFT BIKE", CategoryRuleMatchType.Contains, 1));
         result.Rule.Pattern.Should().Be("LYFT");
         result.Rule.MatchType.Should().Be(CategoryRuleMatchType.Contains);
         result.Rule.CategoryId.Should().Be(BuiltInCategoryIds.Transportation);

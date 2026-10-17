@@ -171,7 +171,17 @@ public sealed class CategoryRuleManagementService(
             updatedAssignments,
             cancellationToken);
 
-        return new CategoryRuleCreateResult(newRule, updatedAssignments.Length);
+        var overrides = FindMatchingTransactions(newRule, transactions)
+            .Select(transaction => ruleMatcher.FindMatch(transaction, effectiveRules))
+            .Where(winningRule => winningRule is not null && winningRule.Id != newRule.Id)
+            .GroupBy(winningRule => winningRule!.Id)
+            .Select(group => new CategoryRuleOverride(
+                group.First()!.Pattern,
+                group.First()!.MatchType,
+                group.Count()))
+            .ToArray();
+
+        return new CategoryRuleCreateResult(newRule, updatedAssignments.Length, overrides);
     }
 
     private static void ValidateUpdate(CategoryRuleUpdate update)

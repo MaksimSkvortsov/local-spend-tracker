@@ -21,4 +21,5 @@ public static class BuiltInCategoryIds
     public const int Other = 15;
     public const int OtherCardPayment = 16;
     public const int IncomeAndTransfers = 17;
+    public const int Education = 18;
 }

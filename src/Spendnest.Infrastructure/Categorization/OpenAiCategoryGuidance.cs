@@ -19,6 +19,7 @@ public static class OpenAiCategoryGuidance
             BuiltInCategoryIds.Subscriptions => "Recurring digital services, memberships, streaming, software subscriptions.",
             BuiltInCategoryIds.Insurance => "Insurance premiums and insurance providers.",
             BuiltInCategoryIds.PersonalCare => "Haircuts, barber, spa, massage, cosmetics, grooming.",
+            BuiltInCategoryIds.Education => "Tuition, schools, universities, courses, tutoring, school fees, textbooks, and learning materials. Educational subscriptions belong here rather than Subscriptions.",
             BuiltInCategoryIds.FeesAndCharges => "Interest charges, bank fees, card fees, service charges.",
             BuiltInCategoryIds.CreditCardPayment => "Credit-card payments, statement payments, Capital One mobile payments.",
             BuiltInCategoryIds.IncomeAndTransfers => "Money received that is not a purchase refund: payroll, direct deposits, incoming transfers, Zelle/P2P received, interest, cash-back deposits. Also transfers between the user's own accounts in either direction, such as brokerage or savings transfers.",

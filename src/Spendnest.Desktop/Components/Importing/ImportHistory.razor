@@ -63,7 +63,11 @@
                                 <button type="button" class="secondary-button" disabled="@IsBusy" @onclick="CloseActions">Cancel</button>
                                 @if (upload.CanRetry)
                                 {
-                                    <button type="button" class="primary-button" disabled="@IsBusy" @onclick="() => RetryAsync(upload.Id)">Retry Import</button>
+                                    <button type="button"
+                                            class="primary-button"
+                                            disabled="@(IsBusy || !RetryEnabled)"
+                                            title="@(RetryEnabled ? null : "Cancel the selected file to retry this import.")"
+                                            @onclick="() => RetryAsync(upload.Id)">Retry Import</button>
                                 }
                                 <button type="button" class="danger-button" disabled="@IsBusy" @onclick="() => OnDelete.InvokeAsync(upload.Id)">Delete Import</button>
                             </div>
@@ -111,6 +115,9 @@
 
     [Parameter]
     public EventCallback<Guid> OnRetry { get; set; }
+
+    [Parameter]
+    public bool RetryEnabled { get; set; } = true;
 
     [Parameter]
     public bool IsBusy { get; set; }

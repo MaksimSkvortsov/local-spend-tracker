@@ -18,6 +18,7 @@ public static class BuiltInCategories
         new(BuiltInCategoryIds.Subscriptions, "Subscriptions", 90, "#f0b21c"),
         new(BuiltInCategoryIds.Insurance, "Insurance", 100, "#4b5563"),
         new(BuiltInCategoryIds.PersonalCare, "Personal Care", 110, "#46b83f"),
+        new(BuiltInCategoryIds.Education, "Education", 115, "#3f8f83"),
         new(BuiltInCategoryIds.FeesAndCharges, "Fees & Charges", 120, "#b33b1a"),
         new(BuiltInCategoryIds.CreditCardPayment, "Credit Card Payment", 130, "#d1d5db"),
         new(BuiltInCategoryIds.OtherCardPayment, "Other Card Payment", 140, "#7c3aed"),

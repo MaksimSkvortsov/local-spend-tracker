@@ -82,6 +82,7 @@
                            IsBusy="@isBusy"
                            OnDelete="DeleteImportAsync"
                            OnRetry="RetryImportAsync"
+                           RetryEnabled="@(!selection.HasFile)"
                            OnPrevious="PreviousUploadHistoryPage"
                            OnNext="NextUploadHistoryPage" />
         </ChildContent>
@@ -206,19 +207,16 @@
     private async Task RetryImportAsync(Guid importId)
     {
         var import = history.Rows.FirstOrDefault(item => item.Id == importId);
-        if (import is null || isBusy)
+        if (import is null || isBusy || selection.HasFile)
         {
             return;
         }
 
         isBusy = true;
-        historyActionIsError = false;
-        historyActionMessage = $"Retrying {import.FileName}...";
-        var progress = new Progress<FileUploadProgress>(value =>
-        {
-            historyActionMessage = $"Retrying {import.FileName}: {FormatProgressMessage(value)}";
-            _ = InvokeAsync(StateHasChanged);
-        });
+        historyActionMessage = null;
+        statusMessage = null;
+        currentProgress = FileUploadProgress.ReadingFile;
+        var progress = new Progress<FileUploadProgress>(ReportProgress);
 
         try
         {
@@ -243,6 +241,8 @@
         finally
         {
             isBusy = false;
+            currentProgress = null;
+            statusMessage = null;
         }
 
         await RefreshImportHistoryViewAsync();

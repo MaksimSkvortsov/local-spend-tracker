@@ -12,6 +12,7 @@ public class OpenAiCategoryGuidanceTests
         OpenAiCategoryGuidance.Get(BuiltInCategoryIds.Groceries).Should().Contain("Grocery stores");
         OpenAiCategoryGuidance.Get(BuiltInCategoryIds.CreditCardPayment).Should().Contain("Credit-card payments");
         OpenAiCategoryGuidance.Get(BuiltInCategoryIds.IncomeAndTransfers).Should().Contain("payroll");
+        OpenAiCategoryGuidance.Get(BuiltInCategoryIds.Education).Should().Contain("Tuition").And.Contain("courses");
         OpenAiCategoryGuidance.Get(BuiltInCategoryIds.Other).Should().Contain("Only for transactions");
     }
 

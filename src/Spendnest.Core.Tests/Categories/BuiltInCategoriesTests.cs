@@ -22,6 +22,7 @@ public class BuiltInCategoriesTests
             BuiltInCategoryIds.Subscriptions,
             BuiltInCategoryIds.Insurance,
             BuiltInCategoryIds.PersonalCare,
+            BuiltInCategoryIds.Education,
             BuiltInCategoryIds.FeesAndCharges,
             BuiltInCategoryIds.CreditCardPayment,
             BuiltInCategoryIds.OtherCardPayment,
@@ -37,7 +38,8 @@ public class BuiltInCategoriesTests
             .Should()
             .NotContain(BuiltInCategoryIds.OtherCardPayment)
             .And.Contain(BuiltInCategoryIds.CreditCardPayment)
-            .And.Contain(BuiltInCategoryIds.IncomeAndTransfers);
+            .And.Contain(BuiltInCategoryIds.IncomeAndTransfers)
+            .And.Contain(BuiltInCategoryIds.Education);
     }
 
     [Fact]
@@ -47,6 +49,7 @@ public class BuiltInCategoriesTests
         BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.IncomeAndTransfers).Should().BeFalse();
         BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.OtherCardPayment).Should().BeTrue();
         BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.Other).Should().BeTrue();
+        BuiltInCategories.CountsAsSpending(BuiltInCategoryIds.Education).Should().BeTrue();
     }
 
     [Fact]

@@ -47,7 +47,7 @@ public sealed class OpenAiTransactionCategorizer : ITransactionCategorizer
         if (string.IsNullOrWhiteSpace(options.ApiKey))
         {
             logger.LogWarning("OpenAI categorization skipped because no API key is configured.");
-            throw new InvalidOperationException("OpenAI API key is required for OpenAI categorization.");
+            throw new AiCategorizationUnavailableException("OpenAI API key is required for OpenAI categorization.");
         }
 
         logger.LogInformation(

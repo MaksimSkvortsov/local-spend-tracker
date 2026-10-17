@@ -132,6 +132,17 @@ public sealed class TransactionCategorizationService : ITransactionCategorizatio
         {
             throw;
         }
+        catch (AiCategorizationUnavailableException exception)
+        {
+            logger.LogError(
+                exception,
+                "AI categorization unavailable for {UnresolvedCount} unresolved transactions: {Reason}",
+                unresolvedTransactions.Length,
+                exception.Message);
+            aiResults = unresolvedTransactions
+                .Select(transaction => CreateUnresolvedResult(transaction, $"AI categorization failed: {exception.Message}"))
+                .ToArray();
+        }
         catch (Exception exception)
         {
             logger.LogError(

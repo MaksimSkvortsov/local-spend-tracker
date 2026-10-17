@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Spendnest.Core.Categorization;
 
 namespace Spendnest.Infrastructure.Categorization;
 
@@ -42,18 +43,36 @@ public sealed class OpenAiClient
             stopwatch.ElapsedMilliseconds);
         if (!response.IsSuccessStatusCode)
         {
-            logger.LogWarning(
-                "OpenAI request failed with status {StatusCode} {ReasonPhrase}.",
-                (int)response.StatusCode,
-                response.ReasonPhrase);
+            throw await CreateFailureAsync(response, cancellationToken).ConfigureAwait(false);
         }
-
-        response.EnsureSuccessStatusCode();
 
         await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         return ReadOutputText(document.RootElement);
+    }
+
+    private async Task<AiCategorizationUnavailableException> CreateFailureAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        var statusCode = (int)response.StatusCode;
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var error = OpenAiErrorResponse.Parse(statusCode, body);
+        logger.LogWarning(
+            "OpenAI request failed with status {StatusCode} {ReasonPhrase}; error code {ErrorCode}, type {ErrorType}: {ErrorMessage}",
+            statusCode,
+            response.ReasonPhrase,
+            error.Code,
+            error.Type,
+            error.Message);
+
+        return new AiCategorizationUnavailableException(
+            error.ToReason(options.Model),
+            new HttpRequestException(
+                $"OpenAI returned {statusCode} {response.ReasonPhrase}.",
+                null,
+                response.StatusCode));
     }
 
     private static string ReadOutputText(JsonElement root)

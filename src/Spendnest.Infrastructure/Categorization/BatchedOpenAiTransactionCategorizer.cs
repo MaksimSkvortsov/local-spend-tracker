@@ -73,7 +73,7 @@ public sealed class BatchedOpenAiTransactionCategorizer : ITransactionCategorize
         }
 
         logger.LogWarning("Batched OpenAI categorization skipped because no API key is configured.");
-        throw new InvalidOperationException("OpenAI API key is required for OpenAI categorization.");
+        throw new AiCategorizationUnavailableException("OpenAI API key is required for OpenAI categorization.");
     }
 
     private int GetBatchSize()

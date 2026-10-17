@@ -189,6 +189,29 @@ public class TransactionCategorizationServiceTests
     }
 
     [Fact]
+    public async Task CategorizeAsync_ShouldExplainWhyAiIsUnavailable()
+    {
+        var transaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            OriginalDescription = "MYSTERY PLACE",
+            Amount = 19.99m
+        };
+        var service = CreateService(new UnavailableTransactionCategorizer(
+            "OpenAI quota exceeded. Check the plan and billing for this API key."));
+
+        var result = await service.CategorizeAsync([transaction], CancellationToken.None);
+
+        result.Should().ContainSingle().Which.Should().BeEquivalentTo(new TransactionCategorization(
+            transaction.Id,
+            BuiltInCategoryIds.Other,
+            0m,
+            true,
+            CategorizationSource.Unresolved,
+            "AI categorization failed: OpenAI quota exceeded. Check the plan and billing for this API key."));
+    }
+
+    [Fact]
     public async Task CategorizeAsync_ShouldMarkUnresolvedWhenAiTimesOut()
     {
         var transaction = new Transaction
@@ -347,6 +370,16 @@ public class TransactionCategorizationServiceTests
             CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("AI unavailable.");
+        }
+    }
+
+    private sealed class UnavailableTransactionCategorizer(string reason) : ITransactionCategorizer
+    {
+        public Task<IReadOnlyList<TransactionCategorization>> CategorizeAsync(
+            IReadOnlyList<Transaction> transactions,
+            CancellationToken cancellationToken)
+        {
+            throw new AiCategorizationUnavailableException(reason);
         }
     }
 

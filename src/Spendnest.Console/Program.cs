@@ -33,8 +33,7 @@ using var serviceProvider = new ServiceCollection()
         .AddSimpleConsole())
     .AddSingleton<CoreAssemblyMarker>()
     .AddSingleton<InfrastructureAssemblyMarker>()
-    .AddSingleton<IStatementParser, CsvStatementParser>()
-    .AddSingleton<IStatementFileReader, LocalStatementFileReader>()
+    .AddSpendnestStatementImporting()
     .AddSingleton<ICredentialStore>(_ => new InMemoryCredentialStore(new Dictionary<string, string?>
     {
         [CredentialKeys.OpenAiApiKey] = ReadConfiguredOpenAiApiKey(configuration)

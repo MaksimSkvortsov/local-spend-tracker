@@ -1,9 +1,9 @@
-namespace Spendnest.Infrastructure.Tests.Importing;
+namespace Spendnest.Infrastructure.Tests.Importing.Csv;
 
 using System.Text;
 using FluentAssertions;
 using Spendnest.Core.Importing;
-using Spendnest.Infrastructure.Importing;
+using Spendnest.Infrastructure.Importing.Csv;
 
 public class CsvStatementParserTests
 {
@@ -40,6 +40,107 @@ public class CsvStatementParserTests
         result.Rows[2].SourceCategory.Should().Be("Merchandise");
         result.Rows[3].Amount.Should().Be(22.00m);
         result.Rows[3].SourceCategory.Should().Be("Dining");
+        result.CardNumber.Should().Be("2246");
+        result.CardIssuer.Should().Be("Capital One");
+    }
+
+    [Fact]
+    public async Task ParseAsync_ShouldDetectCardNumberFromCardNumberColumn()
+    {
+        const string csv = """
+            Date,Card Number,Description,Amount
+            07/01/2026, 9876 ,Grocery Store,-42.10
+            07/02/2026,1111,Coffee,-3.50
+            """;
+
+        var result = await ParseAsync(csv);
+
+        result.CardNumber.Should().Be("9876");
+        result.CardIssuer.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ParseAsync_ShouldNotDetectCardNumberWhenColumnIsMissing()
+    {
+        var result = await ParseFixtureAsync("bank-of-america.csv");
+
+        result.CardNumber.Should().BeNull();
+        result.CardIssuer.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ParseAsync_ShouldSkipSummarySectionBeforeTransactionHeader()
+    {
+        var result = await ParseFixtureAsync("bank-of-america-checking.csv");
+
+        result.Rows.Should().HaveCount(12);
+        result.Rows.Select(row => row.SourceRowNumber).Should().Equal(Enumerable.Range(9, 12));
+        result.Rows[0].PostedDate.Should().Be(new DateOnly(2025, 4, 1));
+        result.Rows[0].OriginalDescription.Should().StartWith("EXAMPLE CARD DES:MOBILE PMT");
+        result.Rows[0].Amount.Should().Be(1240.18m);
+        result.Rows[5].OriginalDescription.Should().Be("Transfer JORDAN SAMPLE");
+        result.Rows[5].Amount.Should().Be(-1500.00m);
+        result.Rows[11].PostedDate.Should().Be(new DateOnly(2025, 4, 15));
+        result.Rows[11].Amount.Should().Be(1100.00m);
+        result.Rows.Should().NotContain(row => row.OriginalDescription.Contains("balance as of", StringComparison.OrdinalIgnoreCase)
+            || row.OriginalDescription.StartsWith("Total ", StringComparison.Ordinal));
+
+        result.Warnings.Should().ContainSingle()
+            .Which.Should().Be(new StatementParseWarning(8, "Amount could not be parsed."));
+        result.TotalRowCount.Should().Be(13);
+        result.FailedRowCount.Should().Be(1);
+        result.Error.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0, 0, 1)]
+    [InlineData(0, 1, 1)]
+    [InlineData(1, 0, 3)]
+    [InlineData(2, 1, 0)]
+    [InlineData(4, 2, 25)]
+    public async Task ParseAsync_ShouldFindTransactionHeaderAfterAnyNumberOfSummaryRows(
+        int summaryRowCount,
+        int blankLineCount,
+        int transactionCount)
+    {
+        var lines = new List<string>();
+        if (summaryRowCount > 0)
+        {
+            lines.Add("Description,,Summary Amt.");
+            lines.AddRange(Enumerable.Range(1, summaryRowCount).Select(index => $"Summary line {index},,\"1,000.00\""));
+        }
+
+        lines.AddRange(Enumerable.Repeat(string.Empty, blankLineCount));
+        lines.Add("Date,Description,Amount,Running Bal.");
+        var headerLineNumber = lines.Count;
+        lines.AddRange(Enumerable.Range(1, transactionCount).Select(index => $"04/01/2025,\"Purchase {index}\",\"-{index}.00\",\"1,000.00\""));
+
+        var result = await ParseAsync(string.Join("\r\n", lines));
+
+        result.Warnings.Should().BeEmpty();
+        result.TotalRowCount.Should().Be(transactionCount);
+        result.Rows.Select(row => row.OriginalDescription)
+            .Should().Equal(Enumerable.Range(1, transactionCount).Select(index => $"Purchase {index}"));
+        result.Rows.Select(row => row.SourceRowNumber)
+            .Should().Equal(Enumerable.Range(headerLineNumber + 1, transactionCount));
+    }
+
+    [Fact]
+    public async Task ParseAsync_ShouldReportFirstRowColumnErrorsWhenNoTransactionHeaderIsFound()
+    {
+        const string csv = """
+            Description,,Summary Amt.
+            Beginning balance as of 11/14/2017,,"4,812.40"
+
+            Ending balance as of 04/16/2025,,"1,807.02"
+            """;
+
+        var result = await ParseAsync(csv);
+
+        result.HasTransaction.Should().BeFalse();
+        result.TotalRowCount.Should().Be(0);
+        result.Error.Should().Be("Date column could not be detected.");
+        result.Warnings.Should().OnlyContain(warning => warning.SourceRowNumber == null);
     }
 
     [Fact]

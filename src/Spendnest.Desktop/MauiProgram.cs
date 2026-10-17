@@ -51,8 +51,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<SettingsPageService>();
         builder.Services.AddSingleton<TransactionsPageService>();
         builder.Services.AddSingleton<IStatementFilePicker, MauiStatementFilePicker>();
-        builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
-        builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();
+        builder.Services.AddSpendnestStatementImporting();
         builder.Services.AddSingleton<ICredentialStore, SecureStorageCredentialStore>();
         builder.Services.AddSpendnestSqlitePersistence();
         builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();

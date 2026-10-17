@@ -39,8 +39,7 @@ builder.Services.AddSingleton<TransactionsPageService>();
 builder.Services.AddSingleton<DevStatementFilePicker>();
 builder.Services.AddSingleton<IStatementFilePicker>(
     provider => provider.GetRequiredService<DevStatementFilePicker>());
-builder.Services.AddSingleton<IStatementParser, CsvStatementParser>();
-builder.Services.AddSingleton<IStatementFileReader, LocalStatementFileReader>();
+builder.Services.AddSpendnestStatementImporting();
 builder.Services.AddSingleton<ICredentialStore, InMemoryCredentialStore>();
 builder.Services.AddSpendnestSqlitePersistence(dataPaths.ConnectionString);
 builder.Services.AddSingleton<ITransactionMerchantCodeResolver, TransactionMerchantCodeResolver>();

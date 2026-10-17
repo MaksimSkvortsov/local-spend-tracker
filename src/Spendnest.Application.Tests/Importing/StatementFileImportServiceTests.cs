@@ -2,6 +2,7 @@ namespace Spendnest.Application.Tests.Importing;
 
 using System.Security.Cryptography;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Spendnest.Application.Importing;
 using Spendnest.Application.Tests.TestDoubles;
 using Spendnest.Core.Importing;
@@ -346,11 +347,19 @@ public class StatementFileImportServiceTests
         IStatementParser? parser = null)
     {
         return new StatementFileImportService(
-            parser ?? new CsvStatementParser(),
+            parser ?? CreateStatementParser(),
             repository,
             new FakeCardAccountRepository(),
             statementImportRepository ?? new FakeStatementImportRepository(),
             new LocalStatementFileReader());
+    }
+
+    private static IStatementParser CreateStatementParser()
+    {
+        return new ServiceCollection()
+            .AddSpendnestStatementImporting()
+            .BuildServiceProvider()
+            .GetRequiredService<IStatementParser>();
     }
 
     private sealed class RecordingProgress : IProgress<FileUploadProgress>

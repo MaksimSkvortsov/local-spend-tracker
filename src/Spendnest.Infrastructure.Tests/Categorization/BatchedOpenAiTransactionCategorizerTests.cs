@@ -265,12 +265,62 @@ public class BatchedOpenAiTransactionCategorizerTests
             .Should().Equal(transactions[2].Id, transactions[3].Id);
     }
 
+    [Fact]
+    public async Task CategorizeAsync_ShouldResendTransactionsMissingFromResponseOnce()
+    {
+        var transactions = Enumerable.Range(1, 3)
+            .Select(index => Transaction($"PLACE {index}"))
+            .ToArray();
+        var requests = new List<string[]>();
+        var categorizer = CreateCategorizer(
+            _ => false,
+            maxTransactionsPerRequest: 3,
+            answeredIds: batchTransactionIds =>
+            {
+                requests.Add(batchTransactionIds);
+                return requests.Count == 1 ? batchTransactionIds.Skip(1) : batchTransactionIds;
+            });
+
+        var result = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+
+        requests.Should().HaveCount(2);
+        requests[1].Should().Equal(transactions[0].Id.ToString());
+        result.Select(categorization => categorization.TransactionId)
+            .Should().BeEquivalentTo(transactions.Select(transaction => transaction.Id));
+        result.Should().OnlyContain(categorization => categorization.Source == CategorizationSource.Ai);
+    }
+
+    [Fact]
+    public async Task CategorizeAsync_ShouldLeaveTransactionWithoutResultWhenRetryAlsoOmitsIt()
+    {
+        var transactions = Enumerable.Range(1, 3)
+            .Select(index => Transaction($"PLACE {index}"))
+            .ToArray();
+        var skippedId = transactions[1].Id.ToString();
+        var requestCount = 0;
+        var categorizer = CreateCategorizer(
+            _ => false,
+            maxTransactionsPerRequest: 3,
+            answeredIds: batchTransactionIds =>
+            {
+                requestCount++;
+                return batchTransactionIds.Where(id => id != skippedId);
+            });
+
+        var result = await categorizer.CategorizeAsync(transactions, CancellationToken.None);
+
+        requestCount.Should().Be(2);
+        result.Select(categorization => categorization.TransactionId)
+            .Should().BeEquivalentTo([transactions[0].Id, transactions[2].Id]);
+    }
+
     /// <summary>
     /// Creates a categorizer whose fake OpenAI endpoint times out when <paramref name="timesOut"/> returns true.
     /// </summary>
     private static BatchedOpenAiTransactionCategorizer CreateCategorizer(
         Func<string[], bool> timesOut,
-        int maxTransactionsPerRequest)
+        int maxTransactionsPerRequest,
+        Func<string[], IEnumerable<string>>? answeredIds = null)
     {
         return new BatchedOpenAiTransactionCategorizer(
             new InMemoryCredentialStore(new Dictionary<string, string?>
@@ -285,7 +335,7 @@ public class BatchedOpenAiTransactionCategorizerTests
                     throw new TimeoutException("Batch timeout.");
                 }
 
-                var responseItems = batchTransactionIds.Select(transactionId => new
+                var responseItems = (answeredIds?.Invoke(batchTransactionIds) ?? batchTransactionIds).Select(transactionId => new
                 {
                     transactionId,
                     categoryId = BuiltInCategoryIds.Groceries,

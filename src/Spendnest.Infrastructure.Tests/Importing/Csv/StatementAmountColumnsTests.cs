@@ -55,6 +55,38 @@ public class StatementAmountColumnsTests
         columns.TryRead(Fields(debit, credit), out _).Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("2193.82", "Debit", 2193.82)]
+    [InlineData("4976.36", "Credit", -4976.36)]
+    [InlineData("-8.40", " debit ", 8.40)]
+    [InlineData("-42.10", "Other", 42.10)]
+    [InlineData("12.50", "", -12.50)]
+    public void TypedAmountColumn_ShouldUseTransactionTypeBeforeSign(
+        string text,
+        string type,
+        decimal expected)
+    {
+        var columns = new TypedAmountColumn("Transaction Amount", "Transaction Type", ExpensesAreNegative: true);
+
+        columns.TryRead(
+            name => name switch
+            {
+                "Transaction Amount" => text,
+                "Transaction Type" => type,
+                _ => null
+            },
+            out var amount).Should().BeTrue();
+        amount.Should().Be(expected);
+    }
+
+    [Fact]
+    public void TypedAmountColumn_ShouldFailWhenAmountIsBlank()
+    {
+        var columns = new TypedAmountColumn("Transaction Amount", "Transaction Type", ExpensesAreNegative: true);
+
+        columns.TryRead(name => name == "Transaction Type" ? "Debit" : "", out _).Should().BeFalse();
+    }
+
     private static Func<string, string?> Field(string column, string value)
     {
         return name => name == column ? value : null;

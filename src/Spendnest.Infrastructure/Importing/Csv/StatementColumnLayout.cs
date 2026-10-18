@@ -16,6 +16,7 @@ public sealed class StatementColumnLayout
     private static readonly string[] DebitHeaders = ["Debit", "Debits", "Withdrawal", "Withdrawals", "Charge"];
     private static readonly string[] CreditHeaders = ["Credit", "Credits", "Deposit", "Deposits", "Payment"];
     private static readonly string[] CardNumberHeaders = ["Card No.", "Card Number"];
+    private static readonly string[] TransactionTypeHeaders = ["Transaction Type"];
 
     private StatementColumnLayout(
         string dateColumnName,
@@ -163,7 +164,10 @@ public sealed class StatementColumnLayout
         var amountColumnName = FindHeader(headers, options.AmountColumnName, AmountHeaders);
         if (amountColumnName is not null)
         {
-            return new SignedAmountColumn(amountColumnName, options.SignedAmountExpensesAreNegative);
+            var typeColumnName = FindHeader(headers, null, TransactionTypeHeaders);
+            return typeColumnName is not null
+                ? new TypedAmountColumn(amountColumnName, typeColumnName, options.SignedAmountExpensesAreNegative)
+                : new SignedAmountColumn(amountColumnName, options.SignedAmountExpensesAreNegative);
         }
 
         var debitColumnName = FindHeader(headers, options.DebitColumnName, DebitHeaders);

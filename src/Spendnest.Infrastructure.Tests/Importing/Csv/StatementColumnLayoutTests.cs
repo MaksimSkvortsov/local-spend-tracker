@@ -38,6 +38,22 @@ public class StatementColumnLayoutTests
     }
 
     [Fact]
+    public void TryDetect_ShouldPairAmountWithTransactionTypeColumn()
+    {
+        var detected = StatementColumnLayout.TryDetect(
+            ["Account Number", "Transaction Description", "Transaction Date", "Transaction Type", "Transaction Amount", "Balance"],
+            new StatementParseOptions(),
+            out var layout,
+            out _);
+
+        detected.Should().BeTrue();
+        layout!.DateColumnName.Should().Be("Transaction Date");
+        layout.DescriptionColumnName.Should().Be("Transaction Description");
+        layout.AmountColumns.Should().Be(
+            new TypedAmountColumn("Transaction Amount", "Transaction Type", ExpensesAreNegative: true));
+    }
+
+    [Fact]
     public void TryDetect_ShouldMatchHeadersIgnoringCaseAndPunctuation()
     {
         var detected = StatementColumnLayout.TryDetect(

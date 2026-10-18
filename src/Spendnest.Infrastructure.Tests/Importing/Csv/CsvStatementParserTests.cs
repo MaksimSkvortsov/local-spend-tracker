@@ -174,6 +174,22 @@ public class CsvStatementParserTests
     }
 
     [Fact]
+    public async Task ParseAsync_ShouldUseTransactionTypeForUnsignedAmounts()
+    {
+        const string csv = """
+            Account Number,Transaction Description,Transaction Date,Transaction Type,Transaction Amount,Balance
+            2027,Withdrawal from CAPITAL ONE MOBILE PMT,12/31/25,Debit,2193.82,2758.88
+            2027,"Deposit from ServiceTitan, In EDI PYMNTS",12/18/25,Credit,4976.36,9952.7
+            """;
+
+        var result = await ParseAsync(csv);
+
+        result.Rows.Should().HaveCount(2);
+        result.Rows[0].Amount.Should().Be(2193.82m);
+        result.Rows[1].Amount.Should().Be(-4976.36m);
+    }
+
+    [Fact]
     public async Task ParseAsync_ShouldSupportQuotedDescriptionsWithCommas()
     {
         const string csv = """

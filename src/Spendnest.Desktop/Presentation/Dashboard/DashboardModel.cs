@@ -1,3 +1,4 @@
+using Spendnest.Application.Reporting;
 using Spendnest.Core.Accounts;
 using Spendnest.Core.Reporting;
 using Spendnest.Core.Transactions;
@@ -19,6 +20,7 @@ public sealed record DashboardModel(
     IReadOnlyDictionary<int, string> CategoryColorsById,
     IReadOnlyDictionary<Guid, string> CardNamesById,
     IReadOnlyList<BiggestTransactionRow> BiggestTransactionRows,
+    IReadOnlyList<TopMerchantLine> TopMerchants,
     bool IsAiConfigured,
     string ReportWindowShortLabel,
     string WindowRangeLabel)
@@ -37,6 +39,7 @@ public sealed record DashboardModel(
         [],
         new Dictionary<int, string>(),
         new Dictionary<Guid, string>(),
+        [],
         [],
         false,
         string.Empty,

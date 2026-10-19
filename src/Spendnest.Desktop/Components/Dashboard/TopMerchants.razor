@@ -1,11 +1,13 @@
+@using Spendnest.Application.Reporting
+
 <div class="category-bars">
-    @if (topMerchantLines.Count == 0)
+    @if (Lines.Count == 0)
     {
         <div class="empty-state compact">No merchant spending in this window.</div>
     }
     else
     {
-        @foreach (var line in topMerchantLines)
+        @foreach (var line in Lines)
         {
             var width = GetMerchantWidth(line.Amount);
             <div class="category-row">
@@ -23,38 +25,12 @@
 </div>
 
 @code {
-    private IReadOnlyList<TopMerchantLine> topMerchantLines = [];
-
     [Parameter]
-    public IReadOnlyList<Transaction> Transactions { get; set; } = [];
-
-    [Parameter]
-    public ITransactionMerchantCodeResolver MerchantCodeResolver { get; set; } = default!;
-
-    protected override void OnParametersSet()
-    {
-        if (MerchantCodeResolver is null)
-        {
-            topMerchantLines = [];
-            return;
-        }
-
-        topMerchantLines = Transactions
-            .Where(transaction => transaction.Amount > 0)
-            .GroupBy(transaction => MerchantCodeResolver.Resolve(transaction), StringComparer.Ordinal)
-            .Select(group => new TopMerchantLine(
-                FormatMerchantName(group.Key),
-                group.Count(),
-                group.Sum(transaction => transaction.Amount)))
-            .OrderByDescending(line => line.Amount)
-            .ThenBy(line => line.DisplayName, StringComparer.Ordinal)
-            .Take(5)
-            .ToArray();
-    }
+    public IReadOnlyList<TopMerchantLine> Lines { get; set; } = [];
 
     private decimal GetMerchantWidth(decimal amount)
     {
-        var largestAmount = topMerchantLines.Select(line => line.Amount).DefaultIfEmpty(0m).Max();
+        var largestAmount = Lines.Select(line => line.Amount).DefaultIfEmpty(0m).Max();
         if (largestAmount == 0)
         {
             return 0;
@@ -63,25 +39,10 @@
         return Math.Max(8m, Math.Round(amount / largestAmount * 100m, 1));
     }
 
-    private static string FormatMerchantName(string merchantCode)
-    {
-        if (string.IsNullOrWhiteSpace(merchantCode))
-        {
-            return "Unknown Merchant";
-        }
-
-        return merchantCode;
-    }
-
     private static string FormatTransactionCount(int transactionCount)
     {
         return transactionCount == 1
             ? "1 transaction"
             : $"{transactionCount} transactions";
     }
-
-    private sealed record TopMerchantLine(
-        string DisplayName,
-        int TransactionCount,
-        decimal Amount);
 }

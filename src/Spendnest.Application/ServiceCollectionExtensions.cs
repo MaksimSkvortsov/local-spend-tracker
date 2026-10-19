@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITransactionCategorizationService, TransactionCategorizationService>();
         services.AddSingleton<ITransactionCategorizationApplier, TransactionCategorizationApplier>();
         services.AddSingleton<CategorySpendingReportBuilder>();
+        services.AddSingleton<TopMerchantsReportBuilder>();
         services.AddSingleton<ICategorySpendingReportService, CategorySpendingReportService>();
         services.AddSingleton<ITransactionReviewService, TransactionReviewService>();
         services.AddSingleton<CategoryRuleManagementService>();

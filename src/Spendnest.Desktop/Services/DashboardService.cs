@@ -1,3 +1,4 @@
+using Spendnest.Application.Reporting;
 using Spendnest.Core.Accounts;
 using Spendnest.Core.Categories;
 using Spendnest.Core.Categorization;
@@ -16,7 +17,9 @@ public sealed class DashboardService(
     ITransactionReviewService reviewService,
     ICardAccountRepository cardAccountRepository,
     ICategoryRepository categoryRepository,
-    ICredentialStore credentialStore)
+    ICredentialStore credentialStore,
+    ICategoryRuleRepository ruleRepository,
+    TopMerchantsReportBuilder topMerchantsReportBuilder)
 {
     public async Task<DashboardModel> LoadAsync(
         DashboardLoadRequest request,
@@ -66,6 +69,7 @@ public sealed class DashboardService(
         var query = BuildQuery(mode, year, month);
         var filteredTransactions = await transactionRepository.ListAsync(query, cancellationToken);
         var spendingTransactions = FilterSpendingTransactions(filteredTransactions, assignmentsByTransactionId);
+        var rules = await ruleRepository.ListAsync(cancellationToken);
         var report = await reportService.BuildAsync(query, cancellationToken);
         var totalSpending = report.TotalSpending;
         var windowRangeLabel = GetWindowRangeLabel(query, transactions);
@@ -89,6 +93,7 @@ public sealed class DashboardService(
                 assignmentsByTransactionId,
                 categoryNamesById,
                 categoryColorsById),
+            topMerchantsReportBuilder.Build(spendingTransactions, rules),
             isAiConfigured,
             GetReportWindowShortLabel(mode, year, month),
             windowRangeLabel);

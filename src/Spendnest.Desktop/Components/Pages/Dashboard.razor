@@ -1,6 +1,5 @@
 @page "/dashboard"
 @inject DashboardService DashboardService
-@inject ITransactionMerchantCodeResolver MerchantCodeResolver
 @inject AppDataRefreshNotifier DataRefreshNotifier
 @inject DashboardPeriodState PeriodState
 @inject NavigationManager NavigationManager
@@ -52,8 +51,7 @@ else
 
             <div class="dashboard-side-stack">
                 <Card Title="Top Merchants">
-                    <TopMerchants Transactions="@spendingTransactions"
-                                  MerchantCodeResolver="@MerchantCodeResolver" />
+                    <TopMerchants Lines="@dashboard.TopMerchants" />
                 </Card>
 
                 <Card Title="Needs Attention">

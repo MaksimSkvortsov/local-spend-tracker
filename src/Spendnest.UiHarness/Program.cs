@@ -15,6 +15,8 @@ using Spendnest.Infrastructure.Importing;
 using Spendnest.Infrastructure.Logging;
 using Spendnest.Infrastructure.Persistence;
 using Spendnest.UiHarness;
+using Spendnest.UiHarness.Ai;
+using Spendnest.UiHarness.Seeding;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,9 +52,19 @@ builder.Services.AddSingleton(new OpenAiCategorizerOptions
     Model = builder.Configuration["OpenAI:Model"] ?? "gpt-5.6-luna",
     Endpoint = new Uri(builder.Configuration["OpenAI:Endpoint"] ?? "https://api.openai.com/v1/responses")
 });
-builder.Services.AddSingleton<ITransactionCategorizer, BatchedOpenAiTransactionCategorizer>();
+if (UiHarnessAiModeConfiguration.FromConfiguration(builder.Configuration) == UiHarnessAiMode.Fake)
+{
+    builder.Services.AddSingleton<ITransactionCategorizer, FakeTransactionCategorizer>();
+    builder.Services.AddSingleton<IAiConnectionTestService, FakeAiConnectionTestService>();
+}
+else
+{
+    builder.Services.AddSingleton<ITransactionCategorizer, BatchedOpenAiTransactionCategorizer>();
+    builder.Services.AddSingleton<IAiConnectionTestService, OpenAiConnectionTestService>();
+}
+
 builder.Services.AddSpendnestApplicationServices();
-builder.Services.AddSingleton<IAiConnectionTestService, OpenAiConnectionTestService>();
+builder.Services.AddSingleton<HarnessSeeder>();
 
 builder.Logging
     .AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)

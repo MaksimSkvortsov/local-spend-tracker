@@ -1,3 +1,5 @@
+using Spendnest.UiHarness.Seeding;
+
 namespace Spendnest.UiHarness;
 
 /// <summary>
@@ -36,6 +38,24 @@ public static class HarnessEndpoints
         {
             picker.Clear();
             return Results.NoContent();
+        });
+
+        harness.MapPost("/seed", async (
+            HarnessSeedRequest request,
+            HarnessSeeder seeder,
+            CancellationToken cancellationToken) =>
+        {
+            HarnessSeedPlan plan;
+            try
+            {
+                plan = HarnessSeedPlan.FromRequest(request);
+            }
+            catch (ArgumentException exception)
+            {
+                return Results.BadRequest(exception.Message);
+            }
+
+            return Results.Ok(await seeder.SeedAsync(plan, cancellationToken));
         });
 
         return endpoints;

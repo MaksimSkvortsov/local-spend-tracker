@@ -10,6 +10,7 @@ export enum AiConnectionStatus {
 export interface AiConfigurationComponentAssertOptions {
   status?: AiConnectionStatus;
   connectionSucceeded?: boolean;
+  configurationDeleted?: boolean;
 }
 
 /**
@@ -22,12 +23,14 @@ export class AiConfigurationComponent {
 
   private readonly heading: Locator;
   private readonly connectionSucceededMessage: Locator;
+  private readonly configurationDeletedMessage: Locator;
 
   constructor(private readonly page: Page) {
     this.form = new AiSettingsFormComponent(page);
     this.actions = new AiConfigurationActionsComponent(page);
     this.heading = page.getByRole('heading', { name: 'AI Configuration', level: 2 });
     this.connectionSucceededMessage = page.getByText('OpenAI connection succeeded.');
+    this.configurationDeletedMessage = page.getByText('AI connection details deleted.');
   }
 
   async assert(options: AiConfigurationComponentAssertOptions = {}) {
@@ -39,6 +42,9 @@ export class AiConfigurationComponent {
     }
     if (options.connectionSucceeded === true) {
       await expect(this.connectionSucceededMessage).toBeVisible();
+    }
+    if (options.configurationDeleted === true) {
+      await expect(this.configurationDeletedMessage).toBeVisible();
     }
   }
 }

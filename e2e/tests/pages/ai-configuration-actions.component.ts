@@ -24,6 +24,10 @@ export class AiConfigurationActionsComponent {
     await this.saveButton.click();
   }
 
+  async clickDeleteConfiguration() {
+    await this.deleteConfigurationButton.click();
+  }
+
   async assert(options: AiConfigurationActionsComponentAssertOptions = {}) {
     await expect(this.testConnectionButton).toBeVisible();
     await expect(this.saveButton).toBeVisible();

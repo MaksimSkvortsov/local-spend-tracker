@@ -13,6 +13,9 @@ export class Seeds {
   /** A fresh install: no AI settings and no data. */
   static readonly NewUser: Seed = { settings: false, cards: [] };
 
+  /** AI configured and no data, for flows that start after AI setup. */
+  static readonly AiConfigured: Seed = { settings: true, cards: [] };
+
   /** AI configured and one card, for flows that add more. */
   static readonly OneCard: Seed = { settings: true, cards: [Cards.ChaseSapphire] };
 

@@ -41,6 +41,7 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
         builder.Services.AddSingleton<IConfiguration>(configuration);
+        builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<AppDataRefreshNotifier>();
         builder.Services.AddSingleton<DashboardPeriodState>();
         builder.Services.AddSingleton<DashboardService>();

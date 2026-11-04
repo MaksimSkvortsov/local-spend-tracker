@@ -35,7 +35,7 @@ public class CardManagementServiceTests
                 "Family Visa",
                 2,
                 1,
-                new DateOnly(2026, 9, 9),
+                new DateTimeOffset(2026, 9, 9, 10, 0, 0, TimeSpan.Zero),
                 false));
     }
 

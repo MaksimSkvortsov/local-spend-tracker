@@ -5,5 +5,5 @@ public sealed record CardSummary(
     string Name,
     int TransactionCount,
     int ImportCount,
-    DateOnly? LastImportedDate,
+    DateTimeOffset? LastImportedAtUtc,
     bool HasPossibleDuplicateName);

@@ -1,3 +1,5 @@
+@inject TimeProvider TimeProvider
+
 <div class="cards-table-toolbar">
     <input class="text-input cards-search"
            @ref="searchInput"
@@ -42,7 +44,7 @@
                 </td>
                 <td class="data-cell">@card.TransactionCount</td>
                 <td class="data-cell">@card.ImportCount</td>
-                <td>@FormatLastImportedDate(card.LastImportedDate)</td>
+                <td>@FormatLastImportedDate(card.LastImportedAtUtc)</td>
                 <td>
                     <span class="@GetStatusClass(card)">@GetStatusLabel(card)</span>
                 </td>
@@ -168,9 +170,11 @@
         editingCardId = null;
     }
 
-    private static string FormatLastImportedDate(DateOnly? date)
+    private string FormatLastImportedDate(DateTimeOffset? importedAtUtc)
     {
-        return date?.ToString("MMM d, yyyy") ?? "No imports";
+        return importedAtUtc is { } value
+            ? TimeZoneInfo.ConvertTime(value, TimeProvider.LocalTimeZone).ToString("MMM d, yyyy")
+            : "No imports";
     }
 
     private static string GetStatusLabel(CardSummary card)

@@ -8,7 +8,8 @@ namespace Spendnest.Desktop.Services;
 public sealed class ImportPageService(
     ITransactionRepository transactionRepository,
     IStatementImportRepository importHistoryRepository,
-    ICardAccountRepository cardAccountRepository)
+    ICardAccountRepository cardAccountRepository,
+    TimeProvider timeProvider)
 {
     public Task DeleteAsync(Guid statementImportId, CancellationToken cancellationToken)
     {
@@ -33,7 +34,8 @@ public sealed class ImportPageService(
                 statementImport,
                 cardsById.GetValueOrDefault(statementImport.CardAccountId, "Unknown Card"),
                 categorizationSummariesByImportId.GetValueOrDefault(statementImport.Id),
-                transactionsByImportId.GetValueOrDefault(statementImport.Id, [])))
+                transactionsByImportId.GetValueOrDefault(statementImport.Id, []),
+                timeProvider.LocalTimeZone))
             .ToArray();
 
         return new ImportPageData(cards, uploadHistory);

@@ -26,13 +26,14 @@ public sealed record UploadHistoryItem(
         StatementImport statementImport,
         string cardAccountName,
         CategorizationHistorySummary? categorizationSummary,
-        IReadOnlyList<Transaction> transactions)
+        IReadOnlyList<Transaction> transactions,
+        TimeZoneInfo localTimeZone)
     {
         var transactionRange = BuildTransactionRange(transactions);
 
         return new UploadHistoryItem(
             statementImport.Id,
-            (statementImport.CompletedAtUtc ?? statementImport.StartedAtUtc).ToLocalTime(),
+            TimeZoneInfo.ConvertTime(statementImport.CompletedAtUtc ?? statementImport.StartedAtUtc, localTimeZone),
             statementImport.FileName,
             cardAccountName,
             statementImport.ParsedRowCount,

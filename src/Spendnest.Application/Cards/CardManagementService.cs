@@ -31,18 +31,16 @@ public sealed class CardManagementService(
             {
                 var cardImports = importsByCardId.GetValueOrDefault(card.Id) ?? [];
 
-                var lastImportedDate = cardImports
-                    .Select(item => item.CompletedAtUtc ?? item.StartedAtUtc)
-                    .OrderByDescending(item => item)
-                    .Select(item => (DateOnly?)DateOnly.FromDateTime(item.DateTime))
-                    .FirstOrDefault();
+                var lastImportedAtUtc = cardImports
+                    .Select(item => (DateTimeOffset?)(item.CompletedAtUtc ?? item.StartedAtUtc))
+                    .Max();
 
                 return new CardSummary(
                     card.Id,
                     card.Name,
                     transactionCounts.GetValueOrDefault(card.Id),
                     cardImports.Length,
-                    lastImportedDate,
+                    lastImportedAtUtc,
                     duplicateKeys.Contains(NormalizeDuplicateName(card.Name)));
             })
             .OrderBy(summary => summary.Name)

@@ -40,6 +40,8 @@ export default defineConfig({
       ASPNETCORE_URLS: harnessUrl,
       SPENDNEST_UiHarness__DataDirectory: harnessDataDirectory,
       SPENDNEST_UiHarness__Ai: 'Fake',
+      /* Seeded imports finish at 02:00 UTC, the evening before in New York, so UTC dates would show a day late. */
+      SPENDNEST_UiHarness__TimeZone: 'America/New_York',
     },
   },
 });

@@ -47,6 +47,9 @@ export class CardsPage {
       const cells = row.getByRole('cell');
       await expect(cells.nth(1)).toHaveText(String(card.transactionCount));
       await expect(cells.nth(2)).toHaveText(String(card.importCount));
+      if (card.lastImported !== undefined) {
+        await expect(cells.nth(3)).toHaveText(card.lastImported);
+      }
       await expect(cells.nth(4)).toHaveText(card.status);
     }
   }

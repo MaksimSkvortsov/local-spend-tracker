@@ -181,9 +181,12 @@ public sealed record SeedMonth(int Year, int Month, decimal AmountFactor)
 {
     public string Key => $"{Year:D4}-{Month:D2}";
 
-    /// <summary>Statements are imported on the 2nd of the following month.</summary>
+    /// <summary>
+    /// Statements are imported at 02:00 UTC on the 2nd of the following month, which is still the 1st anywhere in
+    /// the Americas, so a date shown in UTC instead of local time is visibly wrong.
+    /// </summary>
     public DateTimeOffset ImportedAtUtc =>
-        new DateTimeOffset(Year, Month, 2, 9, 0, 0, TimeSpan.Zero).AddMonths(1);
+        new DateTimeOffset(Year, Month, 2, 2, 0, 0, TimeSpan.Zero).AddMonths(1);
 
     public decimal Scale(decimal amount)
     {

@@ -31,6 +31,10 @@ export class SelectedTransactionsPreviewComponent {
       .filter({ has: page.getByRole('cell') });
   }
 
+  async clickCancel() {
+    await this.cancelButton.click();
+  }
+
   async clickConfirmImport() {
     await this.confirmImportButton.click();
   }

@@ -86,16 +86,23 @@ test.describe('Fresh launch', () => {
     await importPage.uploadPrompt.clickBrowseFiles();
     await importPage.preview.assert({ statement });
 
-    // 9. Click "Confirm Import"
+    // 9. Click "Cancel", then click "browse files from your computer" again
+    await importPage.preview.clickCancel();
+    await importPage.uploadPrompt.assert();
+    await importPage.history.assert({ isEmpty: true });
+    await importPage.uploadPrompt.clickBrowseFiles();
+    await importPage.preview.assert({ statement });
+
+    // 10. Click "Confirm Import"
     await importPage.preview.clickConfirmImport();
     await importPage.uploadPrompt.assert();
     await importPage.history.assert({ row: ImportHistoryRows.CapitalOneDecemberCompleted });
 
-    // 10. Open Dashboard from the navigation
+    // 11. Open Dashboard from the navigation
     await appShell.open(NavItem.Dashboard);
     await dashboardPage.assert({ reports: { transactionCount: statement.transactionCount } });
 
-    // 11. Open Cards from the navigation
+    // 12. Open Cards from the navigation
     await appShell.open(NavItem.Cards);
     await cardsPage.assert({ singleCard: CardRows.CapitalOneImported });
   });

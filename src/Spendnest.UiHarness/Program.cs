@@ -29,6 +29,7 @@ var dataPaths = UiHarnessDataPaths.FromConfiguration(builder.Configuration);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSingleton(UiHarnessTimeProvider.FromConfiguration(builder.Configuration));
 builder.Services.AddSingleton<AppDataRefreshNotifier>();
 builder.Services.AddSingleton<DashboardPeriodState>();
 builder.Services.AddSingleton<DashboardService>();

@@ -29,24 +29,6 @@ export class CardRows {
     status: 'Active',
   };
 
-  /** The three catalog cards as Seeds.ThreeCards lists them, in table order. */
-  static readonly BofaCheckingSeeded: CardRow = {
-    name: Cards.BofaChecking.name,
-    transactionCount: 22,
-    importCount: 2,
-    lastImported: 'Feb 1, 2026',
-    status: 'Active',
-  };
-
-  static readonly CapOneDebitSeeded: CardRow = {
-    name: Cards.CapOneDebit.name,
-    transactionCount: 20,
-    importCount: 2,
-    lastImported: 'Feb 1, 2026',
-    status: 'Active',
-  };
-
-
   /** Seeded with ten transactions a month; the January import finishes Feb 1 in the harness time zone. */
   static readonly ChaseSapphireSeeded: CardRow = {
     name: Cards.ChaseSapphire.name,
@@ -54,11 +36,6 @@ export class CardRows {
     importCount: 2,
     lastImported: 'Feb 1, 2026',
     status: 'Active',
-  };
-
-  static readonly SapphirePreferredSeeded: CardRow = {
-    ...CardRows.ChaseSapphireSeeded,
-    name: 'Sapphire Preferred',
   };
 
   static readonly SapphirePreferredSeeded: CardRow = {

@@ -6,6 +6,8 @@ export interface DashboardPageAssertOptions {
   isEmpty?: boolean;
   /** The reporting dashboard that replaces onboarding once a statement is imported. */
   reports?: { transactionCount: number };
+  /** Cards named in Transaction Frequency, and cards that are not. */
+  cardsInFrequency?: { shown: string[]; hidden: string[] };
 }
 
 export class DashboardPage {
@@ -59,6 +61,14 @@ export class DashboardPage {
       );
       await expect(this.topMerchantsHeading).toBeVisible();
       await expect(this.needsAttentionHeading).toBeVisible();
+    }
+    if (options.cardsInFrequency !== undefined) {
+      for (const name of options.cardsInFrequency.shown) {
+        await expect(this.page.getByLabel(`${name} transaction frequency`)).toBeVisible();
+      }
+      for (const name of options.cardsInFrequency.hidden) {
+        await expect(this.page.getByLabel(`${name} transaction frequency`)).toHaveCount(0);
+      }
     }
   }
 }

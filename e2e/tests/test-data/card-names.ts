@@ -16,6 +16,12 @@ export class CardNames {
 
   static readonly EverydayDebit: CardNameEntry = { entered: 'Everyday Debit', saved: 'Everyday Debit' };
 
+  /** Makes CapOne Debit look like a duplicate of Chase Sapphire. */
+  static readonly ChaseSapphireBackup: CardNameEntry = {
+    entered: 'Chase Sapphire Backup',
+    saved: 'Chase Sapphire Backup',
+  };
+
   static readonly SapphirePreferred: CardNameEntry = {
     entered: '  Sapphire Preferred  ',
     saved: 'Sapphire Preferred',

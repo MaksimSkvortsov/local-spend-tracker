@@ -14,6 +14,8 @@ export class CardNames {
   /** The name of CapOne Debit in a different case. */
   static readonly SameAsCapOneDebit: CardNameEntry = { entered: 'capone debit', saved: 'capone debit' };
 
+  static readonly EverydayDebit: CardNameEntry = { entered: 'Everyday Debit', saved: 'Everyday Debit' };
+
   static readonly SapphirePreferred: CardNameEntry = {
     entered: '  Sapphire Preferred  ',
     saved: 'Sapphire Preferred',

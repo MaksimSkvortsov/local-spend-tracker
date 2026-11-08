@@ -38,6 +38,11 @@ export class CardRows {
     status: 'Active',
   };
 
+  static readonly EverydayDebitSeeded: CardRow = {
+    ...CardRows.CapOneDebitSeeded,
+    name: 'Everyday Debit',
+  };
+
   static readonly SapphirePreferredSeeded: CardRow = {
     ...CardRows.ChaseSapphireSeeded,
     name: 'Sapphire Preferred',

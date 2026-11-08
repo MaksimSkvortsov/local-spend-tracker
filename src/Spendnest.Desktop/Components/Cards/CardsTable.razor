@@ -61,7 +61,7 @@
                             <button type="button"
                                     class="cards-text-button muted"
                                     disabled="@IsBusy"
-                                    @onclick="CancelRename">
+                                    @onclick="CancelRenameAsync">
                                 Cancel
                             </button>
                         }
@@ -104,6 +104,9 @@
 
     [Parameter]
     public EventCallback OnStartRename { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelRename { get; set; }
 
     [Parameter]
     public EventCallback<CardRename> OnSaveRename { get; set; }
@@ -165,9 +168,10 @@
         return OnSaveRename.InvokeAsync(new CardRename(cardId, renameDraft));
     }
 
-    private void CancelRename()
+    private async Task CancelRenameAsync()
     {
         editingCardId = null;
+        await OnCancelRename.InvokeAsync();
     }
 
     private string FormatLastImportedDate(DateTimeOffset? importedAtUtc)

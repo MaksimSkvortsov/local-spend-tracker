@@ -8,6 +8,8 @@ export interface CardsPageAssertOptions {
   singleCard?: CardRow;
   /** The cards listed in order, checked against the summary chip and the table rows. */
   cards?: CardRow[];
+  /** The summary chip alone, for when the table lists fewer cards than exist, such as while searching. */
+  summary?: { cardCount: number; transactionCount: number };
   /** A status message that is shown. */
   message?: string;
   /** A status message that is not shown. */
@@ -50,11 +52,15 @@ export class CardsPage {
       await expect(this.transactionCount).toHaveText('0 transactions');
       await expect(this.emptyState).toBeVisible();
     }
+    if (options.summary !== undefined) {
+      await this.assertSummary(options.summary.cardCount, options.summary.transactionCount);
+    }
     const cards = options.cards ?? (options.singleCard !== undefined ? [options.singleCard] : undefined);
     if (cards !== undefined) {
-      const total = cards.reduce((sum, card) => sum + card.transactionCount, 0);
-      await expect(this.cardCount).toHaveText(`${cards.length} card${cards.length === 1 ? '' : 's'}`);
-      await expect(this.transactionCount).toHaveText(`${total} transaction${total === 1 ? '' : 's'}`);
+      if (options.summary === undefined) {
+        const total = cards.reduce((sum, card) => sum + card.transactionCount, 0);
+        await this.assertSummary(cards.length, total);
+      }
       await this.table.assert({ cards });
     }
     if (options.message !== undefined) {
@@ -63,5 +69,10 @@ export class CardsPage {
     if (options.absentMessage !== undefined) {
       await expect(this.page.getByText(options.absentMessage, { exact: true })).toBeHidden();
     }
+  }
+
+  private async assertSummary(cardCount: number, transactionCount: number) {
+    await expect(this.cardCount).toHaveText(`${cardCount} card${cardCount === 1 ? '' : 's'}`);
+    await expect(this.transactionCount).toHaveText(`${transactionCount} transaction${transactionCount === 1 ? '' : 's'}`);
   }
 }

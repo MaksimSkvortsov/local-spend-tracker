@@ -2,6 +2,7 @@ import { Page, Locator, expect } from '@playwright/test';
 
 export interface TransactionsPageAssertOptions {
   isEmpty?: boolean;
+  transactionCount?: number;
   /** The options of the Card filter, in order. */
   cardFilterOptions?: string[];
   /** Card names that some listed row shows, and card names that no listed row shows. */
@@ -34,6 +35,11 @@ export class TransactionsPage {
     if (options.isEmpty === true) {
       await expect(this.transactionCount).toHaveText('0 Transactions');
       await expect(this.emptyState).toBeVisible();
+    }
+    if (options.transactionCount !== undefined) {
+      await expect(this.transactionCount).toHaveText(
+        `${options.transactionCount} Transaction${options.transactionCount === 1 ? '' : 's'}`,
+      );
     }
     if (options.cardFilterOptions !== undefined) {
       await expect(this.cardFilter.getByRole('option')).toHaveText(options.cardFilterOptions);

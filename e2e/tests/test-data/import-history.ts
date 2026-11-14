@@ -28,6 +28,22 @@ export class ImportHistoryRows {
     importedDate: 'Feb 1, 2026',
   };
 
+  static readonly CapOneDecemberSeeded: ImportHistoryRow = {
+    fileName: 'capone-2025-12.csv',
+    count: 10,
+    transactionRange: 'Dec 1, 2025 - Dec 24, 2025',
+    status: 'Completed',
+    importedDate: 'Jan 1, 2026',
+  };
+
+  static readonly CapOneJanuarySeeded: ImportHistoryRow = {
+    fileName: 'capone-2026-01.csv',
+    count: 10,
+    transactionRange: 'Jan 1, 2026 - Jan 24, 2026',
+    status: 'Completed',
+    importedDate: 'Feb 1, 2026',
+  };
+
   static readonly CapitalOneDecemberCompleted: ImportHistoryRow = {
     fileName: Statements.CapitalOneDecember.fileName,
     count: Statements.CapitalOneDecember.transactionCount,

@@ -8,7 +8,7 @@ export interface CardRow {
   importCount: number;
   /** Local date of the latest import; set only where the import time is seeded, not taken from the clock. */
   lastImported?: string;
-  status: 'Active' | 'Empty';
+  status: 'Active' | 'Empty' | 'Duplicate suspected';
 }
 
 export class CardRows {
@@ -41,6 +41,25 @@ export class CardRows {
   static readonly EverydayDebitSeeded: CardRow = {
     ...CardRows.CapOneDebitSeeded,
     name: 'Everyday Debit',
+  };
+
+  /** Chase Sapphire and the renamed CapOne Debit flag each other as possible duplicates. */
+  static readonly ChaseSapphireDuplicateSuspected: CardRow = {
+    ...CardRows.ChaseSapphireSeeded,
+    status: 'Duplicate suspected',
+  };
+
+  static readonly ChaseSapphireBackupDuplicateSuspected: CardRow = {
+    ...CardRows.CapOneDebitSeeded,
+    name: 'Chase Sapphire Backup',
+    status: 'Duplicate suspected',
+  };
+
+  /** Chase Sapphire after the Backup card is combined into it. */
+  static readonly ChaseSapphireCombined: CardRow = {
+    ...CardRows.ChaseSapphireSeeded,
+    transactionCount: 40,
+    importCount: 4,
   };
 
   static readonly SapphirePreferredSeeded: CardRow = {

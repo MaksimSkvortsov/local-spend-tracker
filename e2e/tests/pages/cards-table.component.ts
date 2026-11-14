@@ -10,6 +10,8 @@ export interface CardsTableAssertOptions {
   noCardsFound?: boolean;
   /** The search box has focus. */
   searchFocused?: boolean;
+  /** The Combine action of this card's row is disabled. */
+  combineDisabledFor?: string;
   /** No row is being renamed, and every row shows Rename, Combine, and Delete. */
   idle?: boolean;
 }
@@ -91,6 +93,9 @@ export class CardsTableComponent {
     }
     if (options.searchFocused === true) {
       await expect(this.searchInput).toBeFocused();
+    }
+    if (options.combineDisabledFor !== undefined) {
+      await expect(this.rowFor(options.combineDisabledFor).getByRole('button', { name: 'Combine' })).toBeDisabled();
     }
     if (options.editing !== undefined) {
       await expect(this.renameInput).toHaveCount(1);

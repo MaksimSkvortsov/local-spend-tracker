@@ -50,6 +50,10 @@ export class CardsTableComponent {
     await this.rowFor(cardName).getByRole('button', { name: 'Combine' }).click();
   }
 
+  async clickDelete(cardName: string) {
+    await this.rowFor(cardName).getByRole('button', { name: 'Delete' }).click();
+  }
+
   async fillRename(name: string) {
     await this.renameInput.fill(name);
   }

@@ -135,6 +135,14 @@
             ? "Showing 1 card"
             : $"Showing {Rows.Count} cards";
 
+    protected override void OnParametersSet()
+    {
+        if (editingCardId is Guid cardId && Cards.All(card => card.Id != cardId))
+        {
+            editingCardId = null;
+        }
+    }
+
     public void CompleteRename(CardRename rename)
     {
         editingCardId = null;

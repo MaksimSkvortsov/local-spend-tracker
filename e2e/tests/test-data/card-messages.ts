@@ -8,6 +8,8 @@ export class CardMessages {
 
   static readonly ChaseSapphireDeleted = 'Chase Sapphire deleted.';
 
+  static readonly CardNotFound = 'Could not update cards: Card was not found.';
+
   static readonly NameRequired = 'Could not update cards: Card name is required.';
 
   static readonly NameTaken = 'Could not update cards: Another card already uses that name.';

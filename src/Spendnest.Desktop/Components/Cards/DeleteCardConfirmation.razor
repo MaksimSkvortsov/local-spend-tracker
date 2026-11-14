@@ -10,6 +10,10 @@
                 <h2 id="delete-card-title">Delete "@Card.Name"?</h2>
             </header>
             <p>Are you sure you want to delete this card and its associated transaction history?</p>
+            @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+            {
+                <div class="alert error" role="alert">@ErrorMessage</div>
+            }
             <div class="cards-modal-actions">
                 <button type="button"
                         class="secondary-button"
@@ -34,6 +38,9 @@
 
     [Parameter]
     public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
 
     [Parameter]
     public EventCallback OnCancel { get; set; }

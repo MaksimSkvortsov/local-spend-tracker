@@ -61,6 +61,7 @@
 
 <DeleteCardConfirmation Card="@CardPendingDelete"
                         IsBusy="@isBusy"
+                        ErrorMessage="@(hasError ? statusMessage : null)"
                         OnCancel="CancelDelete"
                         OnConfirm="DeleteCardAsync" />
 <CardsCombineWorkflow @ref="combineWorkflow"
@@ -215,6 +216,7 @@
         catch (Exception ex)
         {
             SetStatus($"Could not update cards: {ex.Message}", isError: true);
+            await LoadAsync();
             return false;
         }
         finally

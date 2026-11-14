@@ -16,6 +16,8 @@ The Cards page (sidebar "Cards", /cards) lists every card with its transaction c
 
 Environment: the UI harness at http://localhost:5246 with fake AI. Seeds.ThreeCards gives Chase Sapphire (20 transactions), CapOne Debit (20), and BofA Checking (22), each with 2 imports (Dec 2025 and Jan 2026) last imported Feb 1, 2026, plus a seeded "UBER" rule (Transportation), so the page shows 3 cards and 62 transactions. Seeds.OneCard gives only Chase Sapphire and the same rule. Seed ids are fixed, so calling HarnessHelper.seed(Seeds.OneCard) while the page still shows ThreeCards removes CapOne Debit and BofA Checking behind the page's back, the way the console app sharing the database would. Use Cards from test-data/cards.ts for names; do not assert money totals.
 
+Reloading a page first shows server-rendered content, and the page loads its data again once the live connection starts. Changing data behind the page right after a reload therefore changes what it shows. To get a stale list, open the page from the navigation and wait for its rows before reseeding.
+
 Locator notes: the rename textbox has no accessible name, and while editing, the row's name is the textbox value, so a row filtered by name text no longer matches. Reach the editor as the only textbox in the cards table. Status and validation messages have no status role.
 
 Not covered: the "Could not load cards" state needs a way to make loading fail, which the harness does not offer.
@@ -158,13 +160,13 @@ Not covered: the "Could not load cards" state needs a way to make loading fail, 
     - expect: The message "Could not update cards: Card was not found." is shown
     - expect: The list is reloaded: Cards shows "1 card" and "20 transactions" with only Chase Sapphire, and no rename textbox is open
     - Note: fails on the current app. The error is shown, but the list keeps all 3 cards and the textbox stays open, because RunCardOperationAsync in Cards.razor reloads only on success. Fix: reload the list in the failure path too, and close the editor when its card is gone.
-  3. Seed Seeds.ThreeCards, reload the page, and seed Seeds.OneCard through the harness again
+  3. Seed Seeds.ThreeCards, open Dashboard and then Cards from the navigation, and seed Seeds.OneCard through the harness again
     - expect: The page shows the stale list of 3 cards again
   4. Click "Combine" on CapOne Debit, choose "Chase Sapphire (20 transactions)" as the Target Card, click "Combine Cards", and confirm with "Combine Cards"
     - expect: Both combine dialogs close and the message "Could not update cards: Card was not found." is shown above the table
     - expect: The list is reloaded: Cards shows "1 card" and "20 transactions" with only Chase Sapphire
     - Note: fails on the current app. The "Combine cards?" dialog stays open with the error inside it, and the list keeps all 3 cards. Same fix as step 2; once the list is reloaded, the confirmation's source card is gone, so the workflow should close.
-  5. Seed Seeds.ThreeCards, reload the page, and seed Seeds.OneCard through the harness again
+  5. Seed Seeds.ThreeCards, open Dashboard and then Cards from the navigation, and seed Seeds.OneCard through the harness again
     - expect: The page shows the stale list of 3 cards again
   6. Click "Delete" on BofA Checking and click "Delete Card"
     - expect: The dialog "Delete "BofA Checking"?" closes and the message "Could not update cards: Card was not found." is visible above the table

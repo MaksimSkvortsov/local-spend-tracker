@@ -1,4 +1,6 @@
 import { Page, Locator, expect } from '@playwright/test';
+import { TransactionsToolbarComponent } from './transactions-toolbar.component';
+import { TransactionsTableComponent } from './transactions-table.component';
 
 export interface TransactionsPageAssertOptions {
   isEmpty?: boolean;
@@ -12,20 +14,25 @@ export interface TransactionsPageAssertOptions {
 export class TransactionsPage {
   static readonly URL = '/transactions';
 
+  readonly toolbar: TransactionsToolbarComponent;
+  readonly table: TransactionsTableComponent;
+
   private readonly heading: Locator;
-  private readonly transactionCount: Locator;
   private readonly emptyState: Locator;
-  private readonly cardFilter: Locator;
 
   constructor(private readonly page: Page) {
+    this.toolbar = new TransactionsToolbarComponent(page);
+    this.table = new TransactionsTableComponent(page);
     this.heading = page.getByRole('heading', { name: 'Transactions', level: 1 });
-    this.transactionCount = page.getByText(/^\d+ Transactions?$/);
     this.emptyState = page.getByText('No transactions imported yet.');
-    this.cardFilter = page.getByLabel('Card', { exact: true });
   }
 
   async goto() {
     await this.page.goto(TransactionsPage.URL);
+  }
+
+  async reload() {
+    await this.page.reload();
   }
 
   async assert(options: TransactionsPageAssertOptions = {}) {
@@ -33,24 +40,17 @@ export class TransactionsPage {
     await expect(this.heading).toBeVisible();
 
     if (options.isEmpty === true) {
-      await expect(this.transactionCount).toHaveText('0 Transactions');
+      await this.toolbar.assert({ transactionCount: 0 });
       await expect(this.emptyState).toBeVisible();
     }
-    if (options.transactionCount !== undefined) {
-      await expect(this.transactionCount).toHaveText(
-        `${options.transactionCount} Transaction${options.transactionCount === 1 ? '' : 's'}`,
-      );
-    }
-    if (options.cardFilterOptions !== undefined) {
-      await expect(this.cardFilter.getByRole('option')).toHaveText(options.cardFilterOptions);
+    if (options.transactionCount !== undefined || options.cardFilterOptions !== undefined) {
+      await this.toolbar.assert({
+        transactionCount: options.transactionCount,
+        cardFilterOptions: options.cardFilterOptions,
+      });
     }
     if (options.cardsInRows !== undefined) {
-      for (const name of options.cardsInRows.shown) {
-        await expect(this.page.getByRole('cell', { name, exact: true }).first()).toBeVisible();
-      }
-      for (const name of options.cardsInRows.hidden) {
-        await expect(this.page.getByRole('cell', { name, exact: true })).toHaveCount(0);
-      }
+      await this.table.assert({ cardsInRows: options.cardsInRows });
     }
   }
 }

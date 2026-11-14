@@ -21,6 +21,7 @@ export class DashboardPage {
   private readonly transactionsMetric: Locator;
   private readonly topMerchantsHeading: Locator;
   private readonly needsAttentionHeading: Locator;
+  private readonly allReportModeButton: Locator;
 
   constructor(private readonly page: Page) {
     this.emptyState = new DashboardEmptyStateComponent(page);
@@ -30,6 +31,7 @@ export class DashboardPage {
     this.transactionsMetric = page.getByRole('main').getByText(/^Transactions\s*\d+$/);
     this.topMerchantsHeading = page.getByText('Top Merchants', { exact: true });
     this.needsAttentionHeading = page.getByText('Needs Attention', { exact: true });
+    this.allReportModeButton = page.getByRole('group', { name: 'Report mode' }).getByRole('button', { name: 'All', exact: true });
   }
 
   async goto() {
@@ -39,6 +41,11 @@ export class DashboardPage {
   /** Opens the app root, which redirects to the dashboard. */
   async gotoAppRoot() {
     await this.page.goto(DashboardPage.ROOT_URL);
+  }
+
+  /** Reports on every transaction, instead of the window the dashboard opens on. */
+  async clickAllReportMode() {
+    await this.allReportModeButton.click();
   }
 
   async reload() {

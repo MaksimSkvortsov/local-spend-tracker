@@ -59,6 +59,19 @@
             ? null
             : Cards.FirstOrDefault(card => card.Id == pendingCombine.TargetCardAccountId);
 
+    protected override void OnParametersSet()
+    {
+        if (isOpen && !(HasCard(sourceCardId) && HasCard(targetCardId)))
+        {
+            Close();
+        }
+    }
+
+    private bool HasCard(string id)
+    {
+        return Guid.TryParse(id, out var cardId) && Cards.Any(card => card.Id == cardId);
+    }
+
     public Task OpenAsync(Guid sourceId)
     {
         sourceCardId = sourceId.ToString();

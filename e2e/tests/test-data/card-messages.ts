@@ -6,6 +6,8 @@ export class CardMessages {
 
   static readonly CapOneDebitDeleted = 'CapOne Debit deleted.';
 
+  static readonly ChaseSapphireDeleted = 'Chase Sapphire deleted.';
+
   static readonly NameRequired = 'Could not update cards: Card name is required.';
 
   static readonly NameTaken = 'Could not update cards: Another card already uses that name.';

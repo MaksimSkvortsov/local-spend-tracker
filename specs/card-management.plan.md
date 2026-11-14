@@ -126,8 +126,8 @@ Not covered: the "Could not load cards" state needs a way to make loading fail, 
   4. Open Transactions, then Import, from the navigation
     - expect: Transactions shows "42 Transactions" and the Card filter lists only "All cards", "BofA Checking", and "Chase Sapphire"
     - expect: Import History lists the four boa and sapphire statements and no capone statement
-  5. Open Dashboard, Rules, then Settings from the navigation
-    - expect: The dashboard no longer shows "CapOne Debit"
+  5. Open Dashboard from the navigation, click "All", then open Rules and Settings from the navigation
+    - expect: The dashboard reports 42 transactions and no longer shows "CapOne Debit"
     - expect: Rules still shows the "UBER" rule for Transportation
     - expect: Settings still shows the AI Configuration status "Connected"
 

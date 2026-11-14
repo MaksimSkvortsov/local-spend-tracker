@@ -4,6 +4,8 @@ export class CardMessages {
 
   static readonly BackupCombinedIntoSapphire = 'Chase Sapphire Backup combined into Chase Sapphire.';
 
+  static readonly CapOneDebitDeleted = 'CapOne Debit deleted.';
+
   static readonly NameRequired = 'Could not update cards: Card name is required.';
 
   static readonly NameTaken = 'Could not update cards: Another card already uses that name.';

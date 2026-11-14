@@ -1,7 +1,10 @@
 import { Page, Locator, expect } from '@playwright/test';
+import { RuleRow } from '../test-data/rule-rows';
 
 export interface RulesPageAssertOptions {
   isEmpty?: boolean;
+  /** A rule listed in Saved Rules. */
+  rule?: RuleRow;
 }
 
 export class RulesPage {
@@ -28,6 +31,14 @@ export class RulesPage {
     if (options.isEmpty === true) {
       await expect(this.ruleCount).toHaveText('0 rules');
       await expect(this.emptyState).toBeVisible();
+    }
+    if (options.rule !== undefined) {
+      const { pattern, matchType, category, matchCount } = options.rule;
+      // TODO: add data-testid for the saved rule list items
+      const listItem = this.page
+        .getByRole('button')
+        .filter({ hasText: new RegExp(`^${pattern}\\s*${matchCount ?? '\\d+'}\\s*matches\\s*${matchType}\\s*${category}$`) });
+      await expect(listItem).toHaveCount(1);
     }
   }
 }

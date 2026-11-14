@@ -7,6 +7,8 @@ export interface ImportHistoryComponentAssertOptions {
   isEmpty?: boolean;
   row?: ImportHistoryRow;
   rows?: ImportHistoryRow[];
+  /** Files that are not listed. */
+  absentFileNames?: string[];
   /** The statement a row action reported as imported, which only Retry Import does. */
   retriedStatement?: Statement;
 }
@@ -41,6 +43,9 @@ export class ImportHistoryComponent {
     }
     for (const row of options.rows ?? []) {
       await this.assertRow(row);
+    }
+    for (const fileName of options.absentFileNames ?? []) {
+      await expect(this.table.getByRole('row').filter({ hasText: fileName })).toHaveCount(0);
     }
     if (options.retriedStatement !== undefined) {
       const statement = options.retriedStatement;

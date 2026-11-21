@@ -10,6 +10,8 @@ export interface TransactionRow {
   category: string;
   /** Shows "Low Confidence" and a Confirm button. */
   needsReview: boolean;
+  /** As shown, for example "+ $2,800.00" for money in; not checked when left out. */
+  amount?: string;
 }
 
 /** Rows of Seeds.ThreeCards. Amounts are left out because they are not asserted. */
@@ -56,6 +58,26 @@ export class TransactionRows {
   };
 
   static readonly TargetRefundJanuary: TransactionRow = { ...TransactionRows.TargetRefundDecember, date: 'Jan 21, 2026' };
+
+  /** The first BofA Checking row, money in. */
+  static readonly DirectDepositDecember: TransactionRow = {
+    date: 'Dec 1, 2025',
+    description: 'DIRECT DEP EMPLOYER INC',
+    card: Cards.BofaChecking.name,
+    category: Categories.IncomeAndTransfers,
+    needsReview: false,
+    amount: '+ $2,800.00',
+  };
+
+  static readonly DeltaDecember: TransactionRow = {
+    date: 'Dec 14, 2025',
+    description: 'DELTA AIR LINES 0062',
+    card: Cards.ChaseSapphire.name,
+    category: Categories.Travel,
+    needsReview: false,
+  };
+
+  static readonly DeltaJanuary: TransactionRow = { ...TransactionRows.DeltaDecember, date: 'Jan 14, 2026' };
 
   /** The December market stall row after Confirm: it keeps its category and loses the review mark. */
   static readonly MarketStallDecemberConfirmed: TransactionRow = {

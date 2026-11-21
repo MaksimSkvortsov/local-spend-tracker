@@ -4,6 +4,10 @@ export class Categories {
 
   static readonly Shopping = 'Shopping';
 
+  static readonly Travel = 'Travel';
+
+  static readonly IncomeAndTransfers = 'Income & Transfers';
+
   static readonly AllCategories = 'All Categories';
 
   static readonly AllCards = 'All cards';

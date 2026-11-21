@@ -4,6 +4,8 @@ import { TransactionRow } from '../test-data/transaction-rows';
 export interface TransactionsTableAssertOptions {
   /** The listed rows in order. */
   rows?: TransactionRow[];
+  /** The first listed row, when the rest are not checked. */
+  firstRow?: TransactionRow;
   /** The footer reads "Showing <shown> of <total> transactions", or is not shown when null. */
   footer?: { shown: number; total: number } | null;
   previousPageEnabled?: boolean;
@@ -54,6 +56,9 @@ export class TransactionsTableComponent {
         await this.assertRow(this.rows.nth(index), transaction);
       }
     }
+    if (options.firstRow !== undefined) {
+      await this.assertRow(this.rows.first(), options.firstRow);
+    }
     if (options.footer === null) {
       await expect(this.footerSummary).toBeHidden();
     } else if (options.footer !== undefined) {
@@ -91,6 +96,9 @@ export class TransactionsTableComponent {
     await expect(cells.nth(1)).toContainText(transaction.description);
     await expect(cells.nth(2).getByRole('option', { selected: true })).toHaveText(transaction.category);
     await expect(cells.nth(3)).toHaveText(transaction.card);
+    if (transaction.amount !== undefined) {
+      await expect(cells.nth(4)).toHaveText(transaction.amount);
+    }
     await expect(row.getByText('Low Confidence')).toBeVisible({ visible: transaction.needsReview });
     await expect(row.getByRole('button', { name: 'Confirm' })).toBeVisible({ visible: transaction.needsReview });
   }

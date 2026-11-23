@@ -4,6 +4,8 @@ import { TransactionsTableComponent } from './transactions-table.component';
 
 export interface TransactionsPageAssertOptions {
   isEmpty?: boolean;
+  /** An error shown above the table. */
+  errorMessage?: RegExp;
   transactionCount?: number;
   /** The options of the Card filter, in order. */
   cardFilterOptions?: string[];
@@ -42,6 +44,9 @@ export class TransactionsPage {
     if (options.isEmpty === true) {
       await this.toolbar.assert({ transactionCount: 0 });
       await expect(this.emptyState).toBeVisible();
+    }
+    if (options.errorMessage !== undefined) {
+      await expect(this.page.getByText(options.errorMessage)).toBeVisible();
     }
     if (options.transactionCount !== undefined || options.cardFilterOptions !== undefined) {
       await this.toolbar.assert({

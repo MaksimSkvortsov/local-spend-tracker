@@ -12,6 +12,8 @@ The Transactions page (sidebar "Transactions", /transactions) lists every import
 
 Environment: the UI harness at http://localhost:5246 with fake AI. Seeds.ThreeCards gives 62 transactions over Dec 2025 and Jan 2026 for Chase Sapphire (20), CapOne Debit (20), and BofA Checking (22). Six need review, all categorized Other: "SQ *MARKET STALL 22" (Chase Sapphire, Dec 23, 2025 and Jan 23, 2026), "VENMO *J SMITH" (CapOne Debit, Dec 24, 2025 and Jan 24, 2026), and "ZELLE PAYMENT TO R LEE" (BofA Checking, Dec 25, 2025 and Jan 25, 2026). Seed ids are fixed, so calling HarnessHelper.seed(Seeds.OneCard) while the page still shows ThreeCards removes the CapOne Debit and BofA Checking transactions behind the page's back, the way the console app sharing the database would. Do not assert money totals other than the per-row amounts named in the steps.
 
+Reloading a page first shows server-rendered content, and the page loads its data again once the live connection starts. Changing data behind the page right after a reload therefore changes what it shows. To get a stale list, open the page from the navigation and wait for its rows before reseeding.
+
 Locator notes: each description appears once per month, so the category select label "Category for <description>" is not unique. Find a row by date and description, then use its select and Confirm button. The count chip and footer have no role or label.
 
 ## Test Scenarios
@@ -73,8 +75,8 @@ Locator notes: each description appears once per month, so the category select l
   2. Choose "Other Card Payment" for the Dec 25, 2025 "ZELLE PAYMENT TO R LEE" row
     - expect: An error matching "Could not update category:" and "was not found." is shown above the table
     - expect: The page reloads the transactions: with Card "All cards" the count chip shows "20 Transactions", and no BofA Checking row is listed
-    - Note: fails on the current app. The error is shown, but the list keeps the stale BofA Checking rows and the select keeps "Other Card Payment", which was not saved, because ChangeCategoryAsync in Transactions.razor reloads only on success. Fix: reload the page data in the failure path too.
-  3. Seed Seeds.ThreeCards, reload the page, seed Seeds.OneCard through the harness again, and click "Require Review"
+    - Note: fails on the current app. The error is shown, but the list keeps the stale BofA Checking rows and the select keeps "Other Card Payment", which was not saved, because ChangeCategoryAsync in Transactions.razor reloads only on success. Fix: reload the page data in the failure path too, and reset a card filter whose card no longer exists.
+  3. Seed Seeds.ThreeCards, open Dashboard and then Transactions from the navigation, seed Seeds.OneCard through the harness again, and click "Require Review"
     - expect: The page still shows the stale "6 Transactions" needing review
   4. Click "Confirm" on the Dec 25, 2025 "ZELLE PAYMENT TO R LEE" row
     - expect: An error matching "Could not confirm category:" and "was not found." is shown above the table

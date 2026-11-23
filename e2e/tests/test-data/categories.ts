@@ -8,6 +8,8 @@ export class Categories {
 
   static readonly IncomeAndTransfers = 'Income & Transfers';
 
+  static readonly OtherCardPayment = 'Other Card Payment';
+
   static readonly AllCategories = 'All Categories';
 
   static readonly AllCards = 'All cards';

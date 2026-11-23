@@ -134,6 +134,7 @@
         catch (Exception ex)
         {
             categorySaveError = $"Could not update category: {ex.Message}";
+            await TryReloadPageDataAsync();
         }
         finally
         {
@@ -157,6 +158,7 @@
         catch (Exception ex)
         {
             categorySaveError = $"Could not confirm category: {ex.Message}";
+            await TryReloadPageDataAsync();
         }
         finally
         {
@@ -172,6 +174,28 @@
         cards = pageData.Cards;
         categories = pageData.Categories;
         reviewCount = pageData.ReviewCount;
+
+        if (cards.All(card => card.Id.ToString() != selectedCardId))
+        {
+            selectedCardId = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// After a failed change the page shows the current data, not the list it had when the change was made.
+    /// If the reload fails too, the page keeps the list it already shows.
+    /// </summary>
+    private async Task TryReloadPageDataAsync()
+    {
+        try
+        {
+            await ReloadPageDataAsync();
+            ResetPaginationAfterCategoryChange();
+        }
+        catch (Exception)
+        {
+            // The error above is already shown; keep the current list.
+        }
     }
 
     private void ResetPaginationAfterCategoryChange()

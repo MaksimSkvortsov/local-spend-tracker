@@ -71,7 +71,7 @@ test.describe('Card management', () => {
 
     // 5. Open Dashboard from the navigation, click "All", then open Rules and Settings from the navigation
     await appShell.open(NavItem.Dashboard);
-    await dashboardPage.clickAllReportMode();
+    await dashboardPage.period.clickAll();
     await dashboardPage.assert({
       reports: { transactionCount: 42 },
       cardsInFrequency: { shown: [Cards.BofaChecking.name, Cards.ChaseSapphire.name], hidden: [Cards.CapOneDebit.name] },

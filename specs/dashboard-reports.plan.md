@@ -60,7 +60,16 @@ Not covered: "Biggest Transactions" shows only its header row when the window ha
     - expect: The Transactions page opens at /transactions
   3. Click "Require Review" and choose "Groceries" for the Dec 23, 2025 "SQ *MARKET STALL 22" row, then open Dashboard from the navigation
     - expect: The dashboard is still on December 2025 with TOTAL "$659.74"; Groceries is "$117.40" and Other is no longer listed
-    - expect: Needs Attention reads "1 transaction requires attention"
-    - Note: fails on the current app. It reads "1 transaction require attention" because NeedsAttention.razor appends " require attention" to the count. Fix: use "requires" for one transaction.
   4. Click "Review now", click "Require Review", click "Confirm" on the Jan 23, 2026 "SQ *MARKET STALL 22" row, then open Dashboard from the navigation
     - expect: Needs Attention reads "All transactions look good" and "No low-confidence categorizations found." with no "Review now" link
+
+#### 1.3. Needs Attention uses the singular for one transaction
+
+**File:** `tests/dashboard-reports/needs-attention-uses-the-singular.spec.ts`
+
+**Steps:**
+  1. Seed Seeds.OneCard, open Transactions from the navigation, click "Require Review", and click "Confirm" on the Dec 23, 2025 "SQ *MARKET STALL 22" row
+    - expect: Only the Jan 23, 2026 "SQ *MARKET STALL 22" row is left to review
+  2. Open Dashboard from the navigation
+    - expect: Needs Attention reads "1 transaction requires attention" with a "Review now" link
+    - Note: fails on the current app. It reads "1 transaction require attention" because NeedsAttention.razor appends " require attention" to the count. Fix: use "requires" for one transaction.

@@ -25,7 +25,7 @@
     private string Summary =>
         ReviewCount == 0
             ? "All transactions look good"
-            : FormatTransactionCount(ReviewCount) + " require attention";
+            : FormatTransactionCount(ReviewCount) + (ReviewCount == 1 ? " requires attention" : " require attention");
 
     private string Description =>
         ReviewCount == 0

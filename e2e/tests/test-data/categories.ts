@@ -1,5 +1,7 @@
 /** Category names as the category selects list them, plus the filter's "All" options. */
 export class Categories {
+  static readonly Groceries = 'Groceries';
+
   static readonly Other = 'Other';
 
   static readonly Shopping = 'Shopping';

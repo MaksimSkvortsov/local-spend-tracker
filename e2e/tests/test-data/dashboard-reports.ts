@@ -13,6 +13,31 @@ export interface DashboardReport {
   needsAttention: number;
 }
 
+/** The category chart of a window: its total, some of its lines, and categories it does not list. */
+export interface CategorySpending {
+  total: string;
+  lines: { name: string; amount: string }[];
+  absent?: string[];
+}
+
+/** Category spending of Seeds.OneCard in December 2025, before and after the market stall row is recategorized. */
+export class OneCardCategorySpending {
+  static readonly December2025: CategorySpending = {
+    total: '$659.74',
+    lines: [
+      { name: 'Groceries', amount: '$86.40' },
+      { name: 'Other', amount: '$31.00' },
+    ],
+  };
+
+  /** The December market stall row, $31.00, moved from Other to Groceries. */
+  static readonly December2025MarketStallInGroceries: CategorySpending = {
+    total: '$659.74',
+    lines: [{ name: 'Groceries', amount: '$117.40' }],
+    absent: ['Other'],
+  };
+}
+
 /** Reports for Seeds.ThreeCards: 62 transactions in Dec 2025 and Jan 2026, six needing review. */
 export class DashboardReports {
   static readonly AllTime: DashboardReport = {

@@ -30,10 +30,10 @@ export class DashboardReportsComponent {
 
   constructor(private readonly page: Page) {
     // TODO: add data-testid for the metric values and the category chart total
-    this.windowMetric = page.getByText(/^Window\s*\S/);
-    this.totalSpend = page.getByText(/^Total Spend\s*\$/);
-    this.transactionsMetric = page.getByRole('main').getByText(/^Transactions\s*\d+$/);
-    this.categoryTotal = page.getByText(/^Total\s*\$/);
+    this.windowMetric = page.getByText(/^\s*Window\s*\S/);
+    this.totalSpend = page.getByText(/^\s*Total Spend\s*\S/);
+    this.transactionsMetric = page.getByRole('main').getByText(/^\s*Transactions\s*\d+\s*$/);
+    this.categoryTotal = page.getByText(/^\s*Total\s*\$/);
     this.biggestRows = page.getByRole('row').filter({ has: page.getByRole('cell') });
     this.reviewNowLink = page.getByRole('link', { name: 'Review now' });
   }

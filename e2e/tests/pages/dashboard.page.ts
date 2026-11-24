@@ -1,5 +1,7 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { DashboardEmptyStateComponent } from './dashboard-empty-state.component';
+import { DashboardPeriodComponent } from './dashboard-period.component';
+import { DashboardReportsComponent } from './dashboard-reports.component';
 
 export interface DashboardPageAssertOptions {
   /** The fresh-install onboarding panel is shown instead of reports. */
@@ -15,23 +17,16 @@ export class DashboardPage {
   static readonly ROOT_URL = '/';
 
   readonly emptyState: DashboardEmptyStateComponent;
+  readonly period: DashboardPeriodComponent;
+  readonly reportCards: DashboardReportsComponent;
 
   private readonly onboardingChecklist: Locator;
-  private readonly totalSpendLabel: Locator;
-  private readonly transactionsMetric: Locator;
-  private readonly topMerchantsHeading: Locator;
-  private readonly needsAttentionHeading: Locator;
-  private readonly allReportModeButton: Locator;
 
   constructor(private readonly page: Page) {
     this.emptyState = new DashboardEmptyStateComponent(page);
+    this.period = new DashboardPeriodComponent(page);
+    this.reportCards = new DashboardReportsComponent(page);
     this.onboardingChecklist = page.getByLabel('Getting started checklist');
-    this.totalSpendLabel = page.getByText('Total Spend', { exact: true });
-    // TODO: add data-testid for the Transactions metric value
-    this.transactionsMetric = page.getByRole('main').getByText(/^Transactions\s*\d+$/);
-    this.topMerchantsHeading = page.getByText('Top Merchants', { exact: true });
-    this.needsAttentionHeading = page.getByText('Needs Attention', { exact: true });
-    this.allReportModeButton = page.getByRole('group', { name: 'Report mode' }).getByRole('button', { name: 'All', exact: true });
   }
 
   async goto() {
@@ -41,11 +36,6 @@ export class DashboardPage {
   /** Opens the app root, which redirects to the dashboard. */
   async gotoAppRoot() {
     await this.page.goto(DashboardPage.ROOT_URL);
-  }
-
-  /** Reports on every transaction, instead of the window the dashboard opens on. */
-  async clickAllReportMode() {
-    await this.allReportModeButton.click();
   }
 
   async reload() {
@@ -58,16 +48,11 @@ export class DashboardPage {
 
     if (options.isEmpty === true) {
       await expect(this.onboardingChecklist).toBeVisible();
-      await expect(this.totalSpendLabel).toBeHidden();
+      await this.reportCards.assert({ absent: true });
     }
     if (options.reports !== undefined) {
       await expect(this.onboardingChecklist).toBeHidden();
-      await expect(this.totalSpendLabel).toBeVisible();
-      await expect(this.transactionsMetric).toHaveText(
-        new RegExp(`^Transactions\\s*${options.reports.transactionCount}$`),
-      );
-      await expect(this.topMerchantsHeading).toBeVisible();
-      await expect(this.needsAttentionHeading).toBeVisible();
+      await this.reportCards.assert({ transactionCount: options.reports.transactionCount });
     }
     if (options.cardsInFrequency !== undefined) {
       for (const name of options.cardsInFrequency.shown) {

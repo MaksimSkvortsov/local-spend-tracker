@@ -1,5 +1,5 @@
 import { Page, Locator, expect } from '@playwright/test';
-import { DashboardReport } from '../test-data/dashboard-reports';
+import { CategorySpending, DashboardReport } from '../test-data/dashboard-reports';
 
 export interface DashboardReportsComponentAssertOptions {
   /** No report is shown, as on the onboarding dashboard. */
@@ -8,6 +8,10 @@ export interface DashboardReportsComponentAssertOptions {
   transactionCount?: number;
   /** Everything the dashboard reports for the window. */
   report?: DashboardReport;
+  /** The category chart total and some of its lines. */
+  categorySpending?: CategorySpending;
+  /** Needs Attention for this many transactions; 0 means all transactions look good. */
+  needsAttention?: number;
 }
 
 const REPORT_CARDS = [
@@ -38,6 +42,10 @@ export class DashboardReportsComponent {
     this.reviewNowLink = page.getByRole('link', { name: 'Review now' });
   }
 
+  async clickReviewNow() {
+    await this.reviewNowLink.click();
+  }
+
   async assert(options: DashboardReportsComponentAssertOptions = {}) {
     if (options.absent === true) {
       await expect(this.totalSpend).toBeHidden();
@@ -49,6 +57,12 @@ export class DashboardReportsComponent {
     }
     if (options.report !== undefined) {
       await this.assertReport(options.report);
+    }
+    if (options.categorySpending !== undefined) {
+      await this.assertCategorySpending(options.categorySpending);
+    }
+    if (options.needsAttention !== undefined) {
+      await this.assertNeedsAttention(options.needsAttention);
     }
   }
 
@@ -94,8 +108,31 @@ export class DashboardReportsComponent {
       await expect(this.biggestRows).toHaveCount(0);
     }
 
-    const attention = `${report.needsAttention} transaction${report.needsAttention === 1 ? ' requires' : 's require'} attention`;
-    await expect(this.page.getByText(attention, { exact: true })).toBeVisible();
+    await this.assertNeedsAttention(report.needsAttention);
+  }
+
+  private async assertCategorySpending(spending: CategorySpending) {
+    await expect(this.categoryTotal).toHaveText(new RegExp(`^\\s*Total\\s*${escape(spending.total)}\\s*$`));
+    for (const { name, amount } of spending.lines) {
+      await expect(
+        this.page.getByText(new RegExp(`^\\s*${escape(name)}\\s*${escape(amount)}\\s*$`)),
+      ).toBeVisible();
+    }
+    for (const name of spending.absent ?? []) {
+      await expect(this.page.getByText(new RegExp(`^\\s*${escape(name)}\\s*\\$`))).toHaveCount(0);
+    }
+  }
+
+  private async assertNeedsAttention(count: number) {
+    if (count === 0) {
+      await expect(this.page.getByText('All transactions look good', { exact: true })).toBeVisible();
+      await expect(this.page.getByText('No low-confidence categorizations found.', { exact: true })).toBeVisible();
+      await expect(this.reviewNowLink).toBeHidden();
+      return;
+    }
+
+    const summary = `${count} transaction${count === 1 ? ' requires' : 's require'} attention`;
+    await expect(this.page.getByText(summary, { exact: true })).toBeVisible();
     await expect(this.reviewNowLink).toBeVisible();
   }
 }
